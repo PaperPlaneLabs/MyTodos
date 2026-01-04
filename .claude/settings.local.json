@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run tauri:*)",
+      "Bash(npm install:*)",
+      "Bash(timeout /t 15)",
+      "Bash(netstat:*)",
+      "Bash(findstr:*)",
+      "Bash(taskkill:*)",
+      "Bash(powershell -Command \"Stop-Process -Id 20280 -Force\")"
+    ]
+  }
+}
