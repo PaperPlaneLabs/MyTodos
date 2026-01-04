@@ -13,6 +13,7 @@
   let projectName = $state("");
   let taskTitle = $state("");
   let selectedTaskForTimer = $state<number | null>(null);
+  let showResetModal = $state(false);
 
   onMount(async () => {
     uiStore.initTheme();
@@ -66,6 +67,15 @@
       await taskStore.loadByProject(projectStore.selectedId);
     }
   }
+
+  function openResetModal() {
+    showResetModal = true;
+  }
+
+  async function handleResetTimer() {
+    await timerStore.reset();
+    showResetModal = false;
+  }
 </script>
 
 <div class="app-container">
@@ -89,12 +99,14 @@
           >
             <div class="project-color" style="background-color: {project.color}"></div>
             <div class="project-info">
-              <div class="project-name">{project.name}</div>
-              {#if project.total_time_seconds > 0}
-                <div class="project-time text-xs text-secondary">
-                  <TimeDisplay seconds={project.total_time_seconds} />
-                </div>
-              {/if}
+              <div class="project-header">
+                <div class="project-name">{project.name}</div>
+                {#if project.total_time_seconds > 0}
+                  <div class="project-time-badge">
+                    <TimeDisplay seconds={project.total_time_seconds} />
+                  </div>
+                {/if}
+              </div>
             </div>
           </button>
         {/each}
@@ -102,6 +114,7 @@
         {#if projectStore.projects.length === 0}
           <div class="empty-state">
             <p class="text-secondary text-sm">No projects yet</p>
+            <p class="text-tertiary text-xs">Click "+ New" to create your first project</p>
             <button class="btn btn-primary btn-sm" onclick={() => uiStore.openProjectModal()}>
               Create Project
             </button>
@@ -121,7 +134,11 @@
 
         <div class="tasks-list">
           {#each taskStore.tasks as task (task.id)}
-            <div class="task-item">
+            <div
+              class="task-item"
+              class:task-timer-active={timerStore.active?.task_id === task.id && timerStore.isRunning}
+              class:task-timer-paused={timerStore.active?.task_id === task.id && !timerStore.isRunning}
+            >
               <input
                 type="checkbox"
                 checked={task.completed}
@@ -130,37 +147,65 @@
               />
               <div class="task-content">
                 <div class="task-title" class:completed={task.completed}>{task.title}</div>
-                {#if task.total_time_seconds > 0}
-                  <div class="task-time text-xs text-secondary">
-                    <TimeDisplay seconds={task.total_time_seconds} />
-                  </div>
+                <div class="task-meta">
+                  {#if task.total_time_seconds > 0}
+                    <div class="task-time text-xs">
+                      <span class="time-icon">⏱</span>
+                      <TimeDisplay seconds={task.total_time_seconds} />
+                    </div>
+                  {/if}
+                  {#if timerStore.active && timerStore.active.task_id === task.id}
+                    <div class="inline-timer" class:running={timerStore.isRunning} class:paused={!timerStore.isRunning}>
+                      <span class="timer-indicator"></span>
+                      <TimeDisplay seconds={Math.floor(timerStore.elapsed)} format="short" />
+                    </div>
+                  {/if}
+                </div>
+              </div>
+              <div class="task-controls">
+                {#if timerStore.active && timerStore.active.task_id === task.id}
+                  <button
+                    class="btn-icon-compact"
+                    onclick={() => timerStore.isRunning ? timerStore.pause() : timerStore.resume()}
+                    title={timerStore.isRunning ? "Pause timer" : "Resume timer"}
+                  >
+                    {#if timerStore.isRunning}
+                      ⏸
+                    {:else}
+                      ▶
+                    {/if}
+                  </button>
+                  <button
+                    class="btn-icon-compact btn-stop"
+                    onclick={handleStopTimer}
+                    title="Stop timer and save"
+                  >
+                    ⏹
+                  </button>
+                  <button
+                    class="btn-icon-compact btn-reset"
+                    onclick={openResetModal}
+                    title="Reset timer (discard time)"
+                  >
+                    ⟲
+                  </button>
+                {:else}
+                  <button
+                    class="btn-icon-compact"
+                    onclick={() => handleToggleTimer(task.id)}
+                    title="Start timer"
+                  >
+                    ⏱
+                  </button>
                 {/if}
               </div>
-              <button
-                class="btn-icon"
-                onclick={() => handleToggleTimer(task.id)}
-                title={timerStore.active?.task_id === task.id
-                  ? timerStore.isRunning
-                    ? "Pause"
-                    : "Resume"
-                  : "Start timer"}
-              >
-                {#if timerStore.active && timerStore.active.task_id === task.id}
-                  {#if timerStore.isRunning}
-                    ⏸
-                  {:else}
-                    ▶
-                  {/if}
-                {:else}
-                  ⏱
-                {/if}
-              </button>
             </div>
           {/each}
 
           {#if taskStore.tasks.length === 0}
             <div class="empty-state">
               <p class="text-secondary text-sm">No tasks yet</p>
+              <p class="text-tertiary text-xs">Click "+ Task" to create your first task</p>
             </div>
           {/if}
         </div>
@@ -187,6 +232,9 @@
           </button>
         {/if}
         <button class="btn btn-sm btn-danger" onclick={handleStopTimer}>Stop</button>
+        <button class="btn btn-sm btn-warning" onclick={openResetModal} title="Reset timer">
+          ⟲ Reset
+        </button>
       </div>
     </div>
   {/if}
@@ -244,6 +292,30 @@
   {/snippet}
 </Modal>
 
+<Modal open={showResetModal} title="⚠️ Reset Timer" onClose={() => showResetModal = false}>
+  {#snippet children()}
+    <div class="reset-modal-content">
+      <div class="reset-warning">
+        <div class="warning-icon">⚠️</div>
+        <div class="warning-text">
+          <p class="warning-title">Are you sure you want to reset the timer?</p>
+          <p class="warning-description">
+            All time tracking for this session will be permanently lost. This action cannot be undone.
+          </p>
+        </div>
+      </div>
+      <div class="reset-actions">
+        <button type="button" class="btn btn-secondary" onclick={() => showResetModal = false}>
+          Cancel
+        </button>
+        <button type="button" class="btn btn-warning" onclick={handleResetTimer}>
+          Reset Timer
+        </button>
+      </div>
+    </div>
+  {/snippet}
+</Modal>
+
 <style>
   .main-content {
     flex: 1;
@@ -259,11 +331,14 @@
     align-items: center;
     justify-content: space-between;
     margin-bottom: var(--spacing-md);
+    padding-bottom: var(--spacing-sm);
+    border-bottom: 2px solid var(--border-light);
   }
 
   .section-header h2 {
     font-size: 16px;
     font-weight: 600;
+    color: var(--text-primary);
   }
 
   .projects-list,
@@ -308,11 +383,39 @@
     min-width: 0;
   }
 
+  .project-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
+    width: 100%;
+  }
+
   .project-name {
     font-weight: 500;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .project-time-badge {
+    display: flex;
+    align-items: center;
+    padding: 2px 6px;
+    background-color: var(--accent-light);
+    color: var(--accent);
+    border-radius: var(--radius-sm);
+    font-size: 10px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+    flex-shrink: 0;
+  }
+
+  .project-item.active .project-time-badge {
+    background-color: var(--accent);
+    color: white;
   }
 
   .task-item {
@@ -323,11 +426,24 @@
     background-color: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
-    transition: all var(--transition-fast);
+    transition: all var(--transition-normal);
   }
 
   .task-item:hover {
     background-color: var(--bg-hover);
+    border-color: var(--text-tertiary);
+  }
+
+  .task-item.task-timer-active {
+    border-color: var(--timer-active);
+    background-color: var(--success-light);
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+  }
+
+  .task-item.task-timer-paused {
+    border-color: var(--timer-paused);
+    background-color: var(--warning-light);
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
   }
 
   .task-checkbox {
@@ -335,59 +451,171 @@
     cursor: pointer;
     width: 18px;
     height: 18px;
+    accent-color: var(--accent);
   }
 
   .task-content {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
 
   .task-title {
     font-weight: 500;
     transition: all var(--transition-fast);
+    line-height: 1.3;
   }
 
   .task-title.completed {
     text-decoration: line-through;
     color: var(--text-secondary);
+    opacity: 0.6;
   }
 
-  .btn-icon {
-    width: 28px;
-    height: 28px;
+  .task-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+  }
+
+  .task-time {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--text-secondary);
+  }
+
+  .time-icon {
+    opacity: 0.5;
+    font-size: 10px;
+  }
+
+  .inline-timer {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    font-size: 11px;
+    font-weight: 600;
+    font-family: var(--font-mono);
+    transition: all var(--transition-fast);
+  }
+
+  .inline-timer.running {
+    background-color: var(--success);
+    color: white;
+    animation: pulse 2s ease-in-out infinite;
+  }
+
+  .inline-timer.paused {
+    background-color: var(--warning);
+    color: white;
+  }
+
+  .timer-indicator {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background-color: currentColor;
+  }
+
+  .inline-timer.running .timer-indicator {
+    animation: blink 1s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.85;
+    }
+  }
+
+  @keyframes blink {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.3;
+    }
+  }
+
+  .task-controls {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+
+  .btn-icon-compact {
+    width: 26px;
+    height: 26px;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: var(--radius-sm);
     color: var(--text-secondary);
     transition: all var(--transition-fast);
-    font-size: 14px;
-    flex-shrink: 0;
+    font-size: 13px;
+    background-color: transparent;
+    border: 1px solid transparent;
   }
 
-  .btn-icon:hover {
+  .btn-icon-compact:hover {
     background-color: var(--accent-light);
     color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .btn-icon-compact.btn-stop:hover {
+    background-color: var(--danger-light);
+    color: var(--danger);
+    border-color: var(--danger);
+  }
+
+  .btn-icon-compact.btn-reset {
+    color: var(--warning);
+    border-color: var(--border);
+  }
+
+  .btn-icon-compact.btn-reset:hover {
+    background-color: var(--warning-light);
+    color: var(--warning);
+    border-color: var(--warning);
+    transform: scale(1.1);
   }
 
   .empty-state {
     text-align: center;
-    padding: var(--spacing-lg);
+    padding: var(--spacing-xl) var(--spacing-lg);
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-md);
+    gap: var(--spacing-sm);
     align-items: center;
+    background-color: var(--bg-secondary);
+    border: 2px dashed var(--border);
+    border-radius: var(--radius-md);
+  }
+
+  .empty-state p {
+    margin-bottom: 0;
   }
 
   .timer-widget {
     flex-shrink: 0;
     padding: var(--spacing-md);
-    background-color: var(--success-light);
+    background: linear-gradient(135deg, var(--success-light) 0%, rgba(16, 185, 129, 0.15) 100%);
     border-top: 2px solid var(--success);
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: var(--spacing-md);
+    box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
   }
 
   .timer-info {
@@ -397,21 +625,81 @@
 
   .timer-task-name {
     font-weight: 600;
-    font-size: 14px;
+    font-size: 13px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    color: var(--text-primary);
+    margin-bottom: 2px;
   }
 
   .timer-elapsed {
     font-family: var(--font-mono);
-    font-size: 18px;
+    font-size: 20px;
     font-weight: 700;
     color: var(--success);
+    letter-spacing: 0.5px;
   }
 
   .timer-controls {
     display: flex;
     gap: var(--spacing-sm);
+  }
+
+  .reset-modal-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+  }
+
+  .reset-warning {
+    display: flex;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: linear-gradient(135deg, var(--warning-light) 0%, rgba(245, 158, 11, 0.1) 100%);
+    border: 2px solid var(--warning);
+    border-radius: var(--radius-md);
+  }
+
+  .warning-icon {
+    font-size: 32px;
+    flex-shrink: 0;
+    animation: warning-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes warning-pulse {
+    0%, 100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.1);
+    }
+  }
+
+  .warning-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+  }
+
+  .warning-title {
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--text-primary);
+    margin: 0;
+  }
+
+  .warning-description {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  .reset-actions {
+    display: flex;
+    gap: var(--spacing-sm);
+    justify-content: flex-end;
   }
 </style>

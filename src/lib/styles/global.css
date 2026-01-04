@@ -145,6 +145,15 @@ textarea:focus {
   background-color: #dc2626;
 }
 
+.btn-warning {
+  background-color: var(--warning);
+  color: white;
+}
+
+.btn-warning:hover {
+  background-color: #ea580c;
+}
+
 .btn-sm {
   padding: 4px 8px;
   font-size: 12px;

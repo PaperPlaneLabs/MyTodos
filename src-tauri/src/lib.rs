@@ -49,6 +49,7 @@ pub fn run() {
             commands::pause_timer,
             commands::resume_timer,
             commands::stop_timer,
+            commands::reset_timer,
             commands::create_manual_entry,
             commands::get_time_entries_by_task,
             commands::update_time_entry,

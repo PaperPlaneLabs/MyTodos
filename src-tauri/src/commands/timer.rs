@@ -176,3 +176,15 @@ pub fn stop_timer(db: State<DbConnection>) -> Result<TimeEntry> {
         created_at: now,
     })
 }
+
+#[tauri::command]
+pub fn reset_timer(db: State<DbConnection>) -> Result<()> {
+    let _timer = get_active_timer(db.clone())?
+        .ok_or(AppError::NoActiveTimer)?;
+
+    let conn = db.lock();
+
+    conn.execute("DELETE FROM active_timer WHERE id = 1", [])?;
+
+    Ok(())
+}

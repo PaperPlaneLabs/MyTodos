@@ -106,6 +106,7 @@ export const db = {
     pause: () => invoke<void>("pause_timer"),
     resume: () => invoke<void>("resume_timer"),
     stop: () => invoke<TimeEntry>("stop_timer"),
+    reset: () => invoke<void>("reset_timer"),
   },
 
   timeEntries: {

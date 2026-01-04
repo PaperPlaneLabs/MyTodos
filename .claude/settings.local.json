@@ -7,7 +7,9 @@
       "Bash(netstat:*)",
       "Bash(findstr:*)",
       "Bash(taskkill:*)",
-      "Bash(powershell -Command \"Stop-Process -Id 20280 -Force\")"
+      "Bash(powershell -Command \"Stop-Process -Id 20280 -Force\")",
+      "Bash(npm run check:*)",
+      "Bash(npm run build)"
     ]
   }
 }

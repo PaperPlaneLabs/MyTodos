@@ -85,6 +85,18 @@ export const timerStore = {
     }
   },
 
+  async reset() {
+    try {
+      await db.timer.reset();
+      activeTimer = null;
+      currentElapsed = 0;
+      this.stopInterval();
+    } catch (e) {
+      console.error("Failed to reset timer:", e);
+      throw e;
+    }
+  },
+
   startInterval() {
     if (intervalId !== null) return;
 
