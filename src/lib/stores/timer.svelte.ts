@@ -10,7 +10,7 @@ export const timerStore = {
   },
 
   get elapsed() {
-    return activeTimer ? currentElapsed + (Date.now() / 1000 - activeTimer.started_at) : 0;
+    return currentElapsed;
   },
 
   get isRunning() {

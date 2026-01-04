@@ -36,14 +36,14 @@ pub fn get_active_timer(db: State<DbConnection>) -> Result<Option<ActiveTimer>> 
 
 #[tauri::command]
 pub fn start_timer(db: State<DbConnection>, task_id: i64) -> Result<ActiveTimer> {
-    let conn = db.lock();
-
     if let Some(existing) = get_active_timer(db.clone())? {
         return Err(AppError::TimerActive(format!(
             "Timer already running for task {}",
             existing.task_id
         )));
     }
+
+    let conn = db.lock();
 
     let task_exists: bool = conn
         .query_row("SELECT 1 FROM tasks WHERE id = ?", [task_id], |_| Ok(true))
@@ -76,14 +76,14 @@ pub fn start_timer(db: State<DbConnection>, task_id: i64) -> Result<ActiveTimer>
 
 #[tauri::command]
 pub fn pause_timer(db: State<DbConnection>) -> Result<()> {
-    let conn = db.lock();
-
     let timer = get_active_timer(db.clone())?
         .ok_or(AppError::NoActiveTimer)?;
 
     if !timer.is_running {
         return Ok(());
     }
+
+    let conn = db.lock();
 
     let now = get_timestamp();
     let additional_time = now - timer.started_at;
@@ -98,14 +98,14 @@ pub fn pause_timer(db: State<DbConnection>) -> Result<()> {
 
 #[tauri::command]
 pub fn resume_timer(db: State<DbConnection>) -> Result<()> {
-    let conn = db.lock();
-
     let timer = get_active_timer(db.clone())?
         .ok_or(AppError::NoActiveTimer)?;
 
     if timer.is_running {
         return Ok(());
     }
+
+    let conn = db.lock();
 
     let now = get_timestamp();
 
@@ -119,10 +119,10 @@ pub fn resume_timer(db: State<DbConnection>) -> Result<()> {
 
 #[tauri::command]
 pub fn stop_timer(db: State<DbConnection>) -> Result<TimeEntry> {
-    let conn = db.lock();
-
     let timer = get_active_timer(db.clone())?
         .ok_or(AppError::NoActiveTimer)?;
+
+    let conn = db.lock();
 
     let now = get_timestamp();
     let total_duration = if timer.is_running {
