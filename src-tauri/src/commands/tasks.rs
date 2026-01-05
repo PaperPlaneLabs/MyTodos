@@ -34,6 +34,33 @@ pub fn get_tasks_by_project(db: State<DbConnection>, project_id: i64) -> Result<
 }
 
 #[tauri::command]
+pub fn get_unassigned_tasks(db: State<DbConnection>) -> Result<Vec<Task>> {
+    let conn = db.lock();
+    let mut stmt = conn.prepare(
+        "SELECT id, project_id, section_id, title, description, completed, position, total_time_seconds, created_at, updated_at
+         FROM tasks WHERE project_id IS NULL ORDER BY position ASC"
+    )?;
+
+    let tasks = stmt.query_map([], |row| {
+        Ok(Task {
+            id: row.get(0)?,
+            project_id: row.get(1)?,
+            section_id: row.get(2)?,
+            title: row.get(3)?,
+            description: row.get(4)?,
+            completed: row.get(5)?,
+            position: row.get(6)?,
+            total_time_seconds: row.get(7)?,
+            created_at: row.get(8)?,
+            updated_at: row.get(9)?,
+        })
+    })?
+    .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    Ok(tasks)
+}
+
+#[tauri::command]
 pub fn get_tasks_by_section(db: State<DbConnection>, section_id: i64) -> Result<Vec<Task>> {
     let conn = db.lock();
     let mut stmt = conn.prepare(
@@ -63,7 +90,7 @@ pub fn get_tasks_by_section(db: State<DbConnection>, section_id: i64) -> Result<
 #[tauri::command]
 pub fn create_task(
     db: State<DbConnection>,
-    project_id: i64,
+    project_id: Option<i64>,
     section_id: Option<i64>,
     title: String,
     description: Option<String>,
@@ -77,10 +104,16 @@ pub fn create_task(
             [sid],
             |row| row.get(0)
         )
-    } else {
+    } else if let Some(pid) = project_id {
         conn.query_row(
             "SELECT COALESCE(MAX(position), -1) FROM tasks WHERE project_id = ? AND section_id IS NULL",
-            [project_id],
+            [pid],
+            |row| row.get(0)
+        )
+    } else {
+        conn.query_row(
+            "SELECT COALESCE(MAX(position), -1) FROM tasks WHERE project_id IS NULL AND section_id IS NULL",
+            [],
             |row| row.get(0)
         )
     }

@@ -22,14 +22,14 @@
     await projectStore.loadAll();
     await timerStore.loadActive();
 
-    if (projectStore.projects.length > 0 && !projectStore.selectedId) {
-      projectStore.setSelected(projectStore.projects[0].id);
-      await taskStore.loadByProject(projectStore.projects[0].id);
-    }
+    // Default to Inbox (null) if no projects or just load tasks for whatever is selected
+    await taskStore.loadByProject(projectStore.selectedId);
   });
 
   $effect(() => {
-    if (projectStore.selectedId) {
+    // Only reload if selectedId changes (including to null)
+    // We use undefined as the initial state to trigger first load
+    if (projectStore.selectedId !== undefined) {
       taskStore.loadByProject(projectStore.selectedId);
     }
   });
@@ -42,10 +42,15 @@
   }
 
   async function handleCreateTask() {
-    if (!taskTitle.trim() || !projectStore.selectedId) return;
-    await taskStore.createTask(projectStore.selectedId, null, taskTitle);
-    taskTitle = "";
-    uiStore.closeTaskModal();
+    console.log("Creating task with title:", taskTitle, "Project ID:", projectStore.selectedId);
+    if (!taskTitle.trim()) return;
+    try {
+      await taskStore.createTask(projectStore.selectedId, null, taskTitle);
+      taskTitle = "";
+      uiStore.closeTaskModal();
+    } catch (e) {
+      console.error("Error creating task in UI:", e);
+    }
   }
 
   async function handleToggleTimer(taskId: number) {
@@ -110,6 +115,21 @@
       </div>
 
       <div class="projects-list">
+        <div transition:slide={{ duration: 200 }}>
+          <button
+            class="project-item inbox-item"
+            class:active={projectStore.selectedId === null}
+            onclick={() => projectStore.setSelected(null)}
+          >
+            <div class="project-color" style="background-color: var(--text-tertiary)"></div>
+            <div class="project-info">
+              <div class="project-header">
+                <div class="project-name">Inbox</div>
+              </div>
+            </div>
+          </button>
+        </div>
+
         {#each projectStore.projects as project (project.id)}
           <div transition:slide={{ duration: 200 }}>
             <button
@@ -144,10 +164,10 @@
       </div>
     </div>
 
-    {#if projectStore.selected}
+    {#if projectStore.selectedId !== undefined}
       <div class="tasks-section">
         <div class="section-header">
-          <h2>{projectStore.selected.name}</h2>
+          <h2>{projectStore.selected?.name || "Inbox"}</h2>
           <button class="btn btn-ghost btn-sm" onclick={() => uiStore.openTaskModal()}>
             + Task
           </button>

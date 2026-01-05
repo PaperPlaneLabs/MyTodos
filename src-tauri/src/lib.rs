@@ -38,6 +38,7 @@ pub fn run() {
             commands::delete_section,
             commands::reorder_sections,
             commands::get_tasks_by_project,
+            commands::get_unassigned_tasks,
             commands::get_tasks_by_section,
             commands::create_task,
             commands::update_task,
