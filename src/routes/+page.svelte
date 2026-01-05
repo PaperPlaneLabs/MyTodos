@@ -124,7 +124,7 @@
             <div class="project-color" style="background-color: var(--text-tertiary)"></div>
             <div class="project-info">
               <div class="project-header">
-                <div class="project-name">Inbox</div>
+                <div class="project-name">Tasks</div>
               </div>
             </div>
           </button>
@@ -167,7 +167,7 @@
     {#if projectStore.selectedId !== undefined}
       <div class="tasks-section">
         <div class="section-header">
-          <h2>{projectStore.selected?.name || "Inbox"}</h2>
+          <h2>{projectStore.selected?.name || "Tasks"}</h2>
           <button class="btn btn-ghost btn-sm" onclick={() => uiStore.openTaskModal()}>
             + Task
           </button>
@@ -193,7 +193,7 @@
               <div class="task-content">
                 <div class="task-title" class:completed={task.completed}>{task.title}</div>
                 <div class="task-meta">
-                  {#if task.total_time_seconds > 0}
+                  {#if task.total_time_seconds > 0 && task.project_id}
                     <div class="task-time text-xs">
                       <span class="time-icon">⏱</span>
                       <TimeDisplay seconds={task.total_time_seconds} />
@@ -236,7 +236,7 @@
                       ⟲
                     </button>
                   {/if}
-                {:else}
+                {:else if task.project_id}
                   <button
                     class="btn-icon-compact"
                     onclick={() => handleToggleTimer(task.id)}
