@@ -52,16 +52,31 @@
     display: flex;
     align-items: center;
     gap: var(--spacing-xs);
-    padding: 4px 8px;
-    border-radius: var(--radius-md);
+    padding: 4px 10px;
+    border-radius: 20px;
     background-color: var(--bg-secondary);
     font-size: 12px;
+    font-weight: 600;
+    font-family: var(--font-mono);
     border: 1px solid var(--border);
+    transition: all var(--transition-normal);
   }
 
   .timer-badge.running {
-    background-color: var(--success-light);
+    background-color: var(--success);
+    color: white;
     border-color: var(--success);
+    box-shadow: 0 0 10px var(--success-glow);
+    animation: header-pulse 2s ease-in-out infinite;
+  }
+
+  @keyframes header-pulse {
+    0%, 100% {
+      transform: scale(1);
+    }
+    50% {
+      transform: scale(1.03);
+    }
   }
 
   .timer-icon {
