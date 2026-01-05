@@ -1,17 +1,32 @@
 use parking_lot::Mutex;
 use rusqlite::Connection;
 use std::sync::Arc;
+use std::path::PathBuf;
 use crate::error::Result;
 
 pub type DbConnection = Arc<Mutex<Connection>>;
 
-pub fn initialize_connection() -> Result<DbConnection> {
-    let app_data_dir = std::env::var("APPDATA")
-        .or_else(|_| std::env::var("HOME"))
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|_| std::path::PathBuf::from("."));
+fn get_database_path() -> PathBuf {
+    #[cfg(target_os = "android")]
+    {
+        // On Android, use the app's cache directory which is writable
+        // This is set by the Android runtime and available through env var or relative path
+        // We use a relative path to the app's data directory
+        PathBuf::from("./my-todos")
+    }
 
-    let db_dir = app_data_dir.join("my-todos");
+    #[cfg(not(target_os = "android"))]
+    {
+        // On desktop platforms, use the standard data directory
+        dirs::data_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("my-todos")
+    }
+}
+
+pub fn initialize_connection() -> Result<DbConnection> {
+    let db_dir = get_database_path();
+
     std::fs::create_dir_all(&db_dir)
         .map_err(|e| crate::error::AppError::InvalidInput(format!("Could not create database directory: {}", e)))?;
 
