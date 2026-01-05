@@ -94,6 +94,18 @@ export const taskStore = {
     }
   },
 
+  async resetTaskTime(id: number) {
+    try {
+      error = null;
+      await db.tasks.resetTime(id);
+      tasks = tasks.map((t) => (t.id === id ? { ...t, total_time_seconds: 0 } : t));
+    } catch (e) {
+      error = e instanceof Error ? e.message : "Failed to reset task time";
+      console.error("Failed to reset task time:", e);
+      throw e;
+    }
+  },
+
   async createSection(projectId: number, name: string) {
     try {
       error = null;

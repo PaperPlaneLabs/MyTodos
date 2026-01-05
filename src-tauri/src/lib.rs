@@ -44,6 +44,7 @@ pub fn run() {
             commands::delete_task,
             commands::toggle_task_completion,
             commands::reorder_tasks,
+            commands::reset_task_time,
             commands::get_active_timer,
             commands::start_timer,
             commands::pause_timer,

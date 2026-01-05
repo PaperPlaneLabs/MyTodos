@@ -98,6 +98,7 @@ export const db = {
     delete: (id: number) => invoke<void>("delete_task", { id }),
     toggleCompletion: (id: number) => invoke<boolean>("toggle_task_completion", { id }),
     reorder: (taskIds: number[]) => invoke<void>("reorder_tasks", { taskIds }),
+    resetTime: (id: number) => invoke<void>("reset_task_time", { id }),
   },
 
   timer: {

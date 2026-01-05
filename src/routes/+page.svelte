@@ -14,6 +14,7 @@
   let taskTitle = $state("");
   let selectedTaskForTimer = $state<number | null>(null);
   let showResetModal = $state(false);
+  let taskToReset = $state<number | null>(null);
 
   onMount(async () => {
     uiStore.initTheme();
@@ -68,13 +69,30 @@
     }
   }
 
-  function openResetModal() {
+  function openResetModal(taskId: number) {
+    taskToReset = taskId;
     showResetModal = true;
   }
 
   async function handleResetTimer() {
-    await timerStore.reset();
+    if (taskToReset === null) return;
+
+    // If there's an active timer for this task, reset it
+    if (timerStore.active && timerStore.active.task_id === taskToReset) {
+      await timerStore.reset();
+    } else {
+      // Reset the task's total time
+      await taskStore.resetTaskTime(taskToReset);
+    }
+
     showResetModal = false;
+    taskToReset = null;
+
+    // Reload tasks and projects to reflect changes
+    await projectStore.loadAll();
+    if (projectStore.selectedId) {
+      await taskStore.loadByProject(projectStore.selectedId);
+    }
   }
 </script>
 
@@ -185,7 +203,7 @@
                   {#if !timerStore.isRunning}
                     <button
                       class="btn-icon-compact btn-reset"
-                      onclick={openResetModal}
+                      onclick={() => openResetModal(task.id)}
                       title="Reset timer (discard time)"
                     >
                       ⟲
@@ -202,8 +220,8 @@
                   {#if task.total_time_seconds > 0}
                     <button
                       class="btn-icon-compact btn-reset"
-                      onclick={openResetModal}
-                      title="Reset timer (discard time)"
+                      onclick={() => openResetModal(task.id)}
+                      title="Reset all time for this task"
                     >
                       ⟲
                     </button>

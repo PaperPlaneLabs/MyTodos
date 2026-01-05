@@ -199,3 +199,42 @@ pub fn reorder_tasks(db: State<DbConnection>, task_ids: Vec<i64>) -> Result<()> 
 
     Ok(())
 }
+
+#[tauri::command]
+pub fn reset_task_time(db: State<DbConnection>, id: i64) -> Result<()> {
+    let conn = db.lock();
+
+    // Get current task info
+    let (project_id, section_id, current_time): (i64, Option<i64>, i64) = conn
+        .query_row(
+            "SELECT project_id, section_id, total_time_seconds FROM tasks WHERE id = ?",
+            [id],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+        )
+        .map_err(|_| AppError::NotFound(format!("Task with id {} not found", id)))?;
+
+    // Delete all time entries for this task
+    conn.execute("DELETE FROM time_entries WHERE task_id = ?", [id])?;
+
+    // Reset task's total time
+    conn.execute(
+        "UPDATE tasks SET total_time_seconds = 0 WHERE id = ?",
+        [id]
+    )?;
+
+    // Update project's total time (subtract the task's time)
+    conn.execute(
+        "UPDATE projects SET total_time_seconds = total_time_seconds - ? WHERE id = ?",
+        (current_time, project_id)
+    )?;
+
+    // If task belongs to a section, update section's total time too
+    if let Some(sid) = section_id {
+        conn.execute(
+            "UPDATE sections SET total_time_seconds = total_time_seconds - ? WHERE id = ?",
+            (current_time, sid)
+        )?;
+    }
+
+    Ok(())
+}
