@@ -44,10 +44,18 @@ jobs:
         with:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
+      - name: Set Cargo target to D drive (Windows optimization)
+        if: matrix.platform == 'windows-latest'
+        run: echo "CARGO_TARGET_DIR=D:/a/cargo-target" >> $env:GITHUB_ENV
+        shell: pwsh
+
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
           workspaces: './src-tauri -> target'
+          key: ${{ matrix.platform }}
+          cache-directories: |
+            D:/a/cargo-target
 
       - name: Install frontend dependencies
         run: npm install

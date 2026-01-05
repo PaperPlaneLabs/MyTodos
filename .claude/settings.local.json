@@ -31,7 +31,9 @@
       "Bash(powershell -Command \"Start-Sleep -Seconds 60\")",
       "Bash(cat:*)",
       "Bash(npm run tauri:dev:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)"
     ]
   }
 }
