@@ -16,7 +16,19 @@
       "Bash(git push:*)",
       "Bash(git tag:*)",
       "Bash(adb logcat:*)",
-      "Bash(cargo check:*)"
+      "Bash(cargo check:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:v2.tauri.app)",
+      "Bash(powershell -Command \"Start-Sleep -Seconds 15\")",
+      "Bash(adb devices:*)",
+      "Bash(powershell -Command \"Start-Sleep -Seconds 30\")",
+      "Bash(powershell -Command \"Select-String -Pattern ''my_todos|my-todos|com.pintu|FATAL|AndroidRuntime: Process''\")",
+      "Bash(powershell -Command \"$input | Where-Object { $_-match ''4704|4726|my_todos'' }\")",
+      "Bash(adb shell am:*)",
+      "Bash(powershell -Command \"Start-Sleep -Seconds 45\")",
+      "Bash(powershell -Command \"Stop-Process -Id 36224 -Force\")",
+      "Bash(powershell -Command \"Start-Sleep -Seconds 60\")"
     ]
   }
 }

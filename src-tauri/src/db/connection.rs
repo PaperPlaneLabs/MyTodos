@@ -9,10 +9,14 @@ pub type DbConnection = Arc<Mutex<Connection>>;
 fn get_database_path() -> PathBuf {
     #[cfg(target_os = "android")]
     {
-        // On Android, use the app's cache directory which is writable
-        // This is set by the Android runtime and available through env var or relative path
-        // We use a relative path to the app's data directory
-        PathBuf::from("./my-todos")
+        // On Android, use the app's files directory which is writable
+        // Use /data/data/<package>/files as the base directory
+        let base_path = std::env::var("HOME")
+            .or_else(|_| std::env::var("TMPDIR"))
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| PathBuf::from("/data/local/tmp"));
+
+        base_path.join("my-todos")
     }
 
     #[cfg(not(target_os = "android"))]
