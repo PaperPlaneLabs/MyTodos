@@ -142,7 +142,7 @@ textarea:focus {
 }
 
 .btn-danger:hover {
-  background-color: #dc2626;
+  background-color: var(--danger-hover);
 }
 
 .btn-warning {
@@ -151,7 +151,7 @@ textarea:focus {
 }
 
 .btn-warning:hover {
-  background-color: #ea580c;
+  background-color: var(--warning-hover);
 }
 
 .btn-sm {

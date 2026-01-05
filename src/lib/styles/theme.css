@@ -28,6 +28,21 @@
   --timer-active: #10b981;
   --timer-paused: #f59e0b;
 
+  /* Button hover states */
+  --danger-hover: #dc2626;
+  --warning-hover: #ea580c;
+
+  /* Modal backdrop */
+  --modal-backdrop: rgba(0, 0, 0, 0.5);
+
+  /* Gradients */
+  --success-gradient-end: rgba(16, 185, 129, 0.15);
+  --warning-gradient-end: rgba(245, 158, 11, 0.1);
+
+  /* Glow effects */
+  --success-glow: rgba(16, 185, 129, 0.1);
+  --warning-glow: rgba(245, 158, 11, 0.1);
+
   /* Spacing */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
@@ -62,8 +77,8 @@
   --bg-hover: #333333;
 
   --text-primary: #f5f5f5;
-  --text-secondary: #9ca3af;
-  --text-tertiary: #6b7280;
+  --text-secondary: #d1d5db;
+  --text-tertiary: #9ca3af;
 
   --accent: #818cf8;
   --accent-hover: #6366f1;
@@ -84,4 +99,19 @@
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+
+  /* Button hover states - brighter for dark mode */
+  --danger-hover: #fca5a5;
+  --warning-hover: #fcd34d;
+
+  /* Modal backdrop - darker for better separation in dark mode */
+  --modal-backdrop: rgba(0, 0, 0, 0.75);
+
+  /* Gradients - adjusted for dark mode */
+  --success-gradient-end: rgba(52, 211, 153, 0.2);
+  --warning-gradient-end: rgba(251, 191, 36, 0.15);
+
+  /* Glow effects - stronger for dark mode */
+  --success-glow: rgba(52, 211, 153, 0.15);
+  --warning-glow: rgba(251, 191, 36, 0.15);
 }

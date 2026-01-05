@@ -182,13 +182,15 @@
                   >
                     ⏹
                   </button>
-                  <button
-                    class="btn-icon-compact btn-reset"
-                    onclick={openResetModal}
-                    title="Reset timer (discard time)"
-                  >
-                    ⟲
-                  </button>
+                  {#if !timerStore.isRunning}
+                    <button
+                      class="btn-icon-compact btn-reset"
+                      onclick={openResetModal}
+                      title="Reset timer (discard time)"
+                    >
+                      ⟲
+                    </button>
+                  {/if}
                 {:else}
                   <button
                     class="btn-icon-compact"
@@ -197,6 +199,15 @@
                   >
                     ⏱
                   </button>
+                  {#if task.total_time_seconds > 0}
+                    <button
+                      class="btn-icon-compact btn-reset"
+                      onclick={openResetModal}
+                      title="Reset timer (discard time)"
+                    >
+                      ⟲
+                    </button>
+                  {/if}
                 {/if}
               </div>
             </div>
@@ -232,9 +243,6 @@
           </button>
         {/if}
         <button class="btn btn-sm btn-danger" onclick={handleStopTimer}>Stop</button>
-        <button class="btn btn-sm btn-warning" onclick={openResetModal} title="Reset timer">
-          ⟲ Reset
-        </button>
       </div>
     </div>
   {/if}
@@ -437,13 +445,13 @@
   .task-item.task-timer-active {
     border-color: var(--timer-active);
     background-color: var(--success-light);
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    box-shadow: 0 0 0 3px var(--success-glow);
   }
 
   .task-item.task-timer-paused {
     border-color: var(--timer-paused);
     background-color: var(--warning-light);
-    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+    box-shadow: 0 0 0 3px var(--warning-glow);
   }
 
   .task-checkbox {
@@ -609,13 +617,13 @@
   .timer-widget {
     flex-shrink: 0;
     padding: var(--spacing-md);
-    background: linear-gradient(135deg, var(--success-light) 0%, rgba(16, 185, 129, 0.15) 100%);
+    background: linear-gradient(135deg, var(--success-light) 0%, var(--success-gradient-end) 100%);
     border-top: 2px solid var(--success);
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: var(--spacing-md);
-    box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.05);
+    box-shadow: var(--shadow-md);
   }
 
   .timer-info {
@@ -656,7 +664,7 @@
     display: flex;
     gap: var(--spacing-md);
     padding: var(--spacing-md);
-    background: linear-gradient(135deg, var(--warning-light) 0%, rgba(245, 158, 11, 0.1) 100%);
+    background: linear-gradient(135deg, var(--warning-light) 0%, var(--warning-gradient-end) 100%);
     border: 2px solid var(--warning);
     border-radius: var(--radius-md);
   }
