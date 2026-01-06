@@ -104,4 +104,4 @@ jobs:
           releaseDraft: false
           prerelease: false
           tauriScript: ${{ matrix.mobile && (matrix.args == 'android' && 'npm run tauri android' || 'npm run tauri ios') || 'npm run tauri' }}
-          args: ${{ matrix.mobile && (matrix.args == 'ios' && '--no-bundle' || '') || matrix.args }}
+          args: ${{ matrix.mobile && '' || matrix.args }}
