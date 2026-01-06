@@ -7,6 +7,7 @@ pub enum AppError {
     InvalidInput(String),
     TimerActive(String),
     NoActiveTimer,
+    Other(String),
 }
 
 impl fmt::Display for AppError {
@@ -17,6 +18,7 @@ impl fmt::Display for AppError {
             AppError::InvalidInput(msg) => write!(f, "Invalid input: {}", msg),
             AppError::TimerActive(msg) => write!(f, "Timer already active: {}", msg),
             AppError::NoActiveTimer => write!(f, "No active timer"),
+            AppError::Other(msg) => write!(f, "Error: {}", msg),
         }
     }
 }

@@ -1,9 +1,68 @@
 use crate::db::{DbConnection, WindowState};
-use crate::error::Result;
-use tauri::State;
+use crate::error::{Result, AppError};
+use tauri::{State, WebviewWindow, LogicalPosition, LogicalSize};
 
 fn get_timestamp() -> i64 {
     chrono::Utc::now().timestamp()
+}
+
+#[tauri::command]
+pub fn minimize_window(window: WebviewWindow) -> Result<()> {
+    window.minimize().map_err(|e| AppError::Other(e.to_string()))
+}
+
+#[tauri::command]
+pub fn toggle_maximize(window: WebviewWindow) -> Result<()> {
+    if window.is_maximized().unwrap_or(false) {
+        window.unmaximize().map_err(|e| AppError::Other(e.to_string()))
+    } else {
+        window.maximize().map_err(|e| AppError::Other(e.to_string()))
+    }
+}
+
+#[tauri::command]
+pub fn close_window(window: WebviewWindow) -> Result<()> {
+    window.close().map_err(|e| AppError::Other(e.to_string()))
+}
+
+#[tauri::command]
+pub fn dock_window(window: WebviewWindow, side: String) -> Result<()> {
+    let monitor = window
+        .current_monitor()
+        .map_err(|e| AppError::Other(e.to_string()))?
+        .ok_or_else(|| AppError::Other("Could not find current monitor".to_string()))?;
+
+    let scale_factor = monitor.scale_factor();
+    let work_area = monitor.work_area();
+    
+    // Convert physical work area to logical
+    let logical_work_x = (work_area.position.x as f64) / scale_factor;
+    let logical_work_y = (work_area.position.y as f64) / scale_factor;
+    let logical_work_width = (work_area.size.width as f64) / scale_factor;
+    let logical_work_height = (work_area.size.height as f64) / scale_factor;
+
+    // Logical size for the window
+    let logical_width = 380.0;
+    let logical_height = logical_work_height;
+    
+    let pos = if side == "left" {
+        LogicalPosition::new(logical_work_x, logical_work_y)
+    } else {
+        LogicalPosition::new(logical_work_x + logical_work_width - logical_width, logical_work_y)
+    };
+
+    window.set_size(LogicalSize::new(logical_width, logical_height))
+        .map_err(|e| AppError::Other(e.to_string()))?;
+    
+    window.set_position(pos)
+        .map_err(|e| AppError::Other(e.to_string()))?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn start_window_drag(window: WebviewWindow) -> Result<()> {
+    window.start_dragging().map_err(|e| AppError::Other(e.to_string()))
 }
 
 #[tauri::command]
