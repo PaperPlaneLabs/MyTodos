@@ -97,4 +97,5 @@ jobs:
           releaseBody: 'See the assets to download this version and install.'
           releaseDraft: false
           prerelease: false
-          args: ${{ matrix.args == 'android' && 'android' || (matrix.args == 'ios' && 'ios --no-bundle' || matrix.args) }}
+          tauriScript: ${{ matrix.args == 'android' && 'npm run tauri android' || (matrix.args == 'ios' && 'npm run tauri ios' || 'npm run tauri') }}
+          args: ${{ matrix.args == 'android' && 'build' || (matrix.args == 'ios' && 'build --no-bundle' || matrix.args) }}
