@@ -6,6 +6,7 @@
   import AppHeader from "$lib/components/layout/AppHeader.svelte";
   import Modal from "$lib/components/common/Modal.svelte";
   import TimeDisplay from "$lib/components/common/TimeDisplay.svelte";
+  import ContextMenu from "$lib/components/common/ContextMenu.svelte";
   import { projectStore } from "$lib/stores/projects.svelte";
   import { taskStore } from "$lib/stores/tasks.svelte";
   import { timerStore } from "$lib/stores/timer.svelte";
@@ -17,6 +18,10 @@
   let showResetModal = $state(false);
   let taskToReset = $state<number | null>(null);
 
+  // Deletion State
+  let showDeleteModal = $state(false);
+  let itemToDelete = $state<{ type: "project" | "task"; id: number } | null>(null);
+
   // Pointer-based Drag and Drop State
   let isDragging = $state(false);
   let dragType = $state<"project" | "task" | null>(null);
@@ -25,7 +30,31 @@
   let currentIndex = $state<number | null>(null);
   let pointerId = $state<number | null>(null);
   let startY = $state(0);
+  let startX = $state(0);
   let hasMovedThreshold = $state(false);
+
+  // Long-press State
+  let longPressTimer = $state<ReturnType<typeof setTimeout> | null>(null);
+
+  $effect(() => {
+    // Sync projectName when project modal opens for editing
+    if (uiStore.showProjectModal && uiStore.editingProjectId) {
+      const project = projectStore.projects.find(p => p.id === uiStore.editingProjectId);
+      if (project) projectName = project.name;
+    } else if (uiStore.showProjectModal && !uiStore.editingProjectId) {
+      projectName = "";
+    }
+  });
+
+  $effect(() => {
+    // Sync taskTitle when task modal opens for editing
+    if (uiStore.showTaskModal && uiStore.editingTaskId) {
+      const task = taskStore.tasks.find(t => t.id === uiStore.editingTaskId);
+      if (task) taskTitle = task.title;
+    } else if (uiStore.showTaskModal && !uiStore.editingTaskId) {
+      taskTitle = "";
+    }
+  });
 
   onMount(async () => {
     uiStore.initTheme();
@@ -106,9 +135,42 @@
     }
   }
 
+  // Deletion Handlers
+  function confirmDelete(type: "project" | "task", id: number) {
+    itemToDelete = { type, id };
+    showDeleteModal = true;
+  }
+
+  async function handleDelete() {
+    if (!itemToDelete) return;
+
+    try {
+      if (itemToDelete.type === "project") {
+        await projectStore.delete(itemToDelete.id);
+      } else {
+        // If deleting task that has active timer, stop timer first
+        if (timerStore.active && timerStore.active.task_id === itemToDelete.id) {
+          await timerStore.stop();
+        }
+        await taskStore.deleteTask(itemToDelete.id);
+      }
+    } catch (e) {
+      console.error(`Failed to delete ${itemToDelete.type}:`, e);
+    }
+
+    showDeleteModal = false;
+    itemToDelete = null;
+  }
+
+  // Context Menu Handler
+  function handleContextMenu(e: MouseEvent | PointerEvent, type: "project" | "task", id: number) {
+    e.preventDefault();
+    uiStore.openContextMenu(e.clientX, e.clientY, type, id);
+  }
+
   // Handlers for Pointer Events
   function handlePointerDown(e: PointerEvent, type: "project" | "task", id: number, index: number) {
-    if (e.button !== 0) return;
+    if (e.button === 2) return; // Ignore right click for drag
     
     pointerId = e.pointerId;
     dragType = type;
@@ -116,8 +178,17 @@
     startIndex = index;
     currentIndex = index;
     startY = e.clientY;
+    startX = e.clientX;
     hasMovedThreshold = false;
-    // We don't set isDragging = true yet, we wait for movement
+
+    // Start long press timer (for mobile)
+    if (longPressTimer) clearTimeout(longPressTimer);
+    longPressTimer = setTimeout(() => {
+      if (!hasMovedThreshold) {
+        uiStore.openContextMenu(startX, startY, type, id);
+        cancelDrag();
+      }
+    }, 600);
   }
 
   function handlePointerMove(e: PointerEvent) {
@@ -125,9 +196,13 @@
 
     // Check threshold
     if (!hasMovedThreshold) {
-      if (Math.abs(e.clientY - startY) > 5) {
+      if (Math.abs(e.clientY - startY) > 5 || Math.abs(e.clientX - startX) > 5) {
         hasMovedThreshold = true;
         isDragging = true;
+        if (longPressTimer) {
+          clearTimeout(longPressTimer);
+          longPressTimer = null;
+        }
       } else {
         return;
       }
@@ -161,6 +236,11 @@
   async function handlePointerUp(e: PointerEvent) {
     if (pointerId !== e.pointerId) return;
 
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+
     if (isDragging) {
       try {
         if (dragType === "project") {
@@ -179,6 +259,10 @@
   }
 
   function cancelDrag() {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
     isDragging = false;
     dragType = null;
     draggedId = null;
@@ -194,6 +278,44 @@
       projectStore.setSelected(id);
     }
   }
+
+  // Context Menu Items
+  let contextMenuItems = $derived.by(() => {
+    if (!uiStore.contextMenuType || uiStore.contextMenuId === null) return [];
+    
+    const id = uiStore.contextMenuId;
+    const type = uiStore.contextMenuType;
+    
+    if (type === "project") {
+      return [
+        { 
+          label: "Edit Project", 
+          icon: "✏️", 
+          onClick: () => uiStore.openProjectModal(id) 
+        },
+        { 
+          label: "Delete Project", 
+          icon: "🗑️", 
+          danger: true, 
+          onClick: () => confirmDelete("project", id) 
+        }
+      ];
+    } else {
+      return [
+        { 
+          label: "Edit Task", 
+          icon: "✏️", 
+          onClick: () => uiStore.openTaskModal(id) 
+        },
+        { 
+          label: "Delete Task", 
+          icon: "🗑️", 
+          danger: true, 
+          onClick: () => confirmDelete("task", id) 
+        }
+      ];
+    }
+  });
 </script>
 
 <svelte:window 
@@ -201,6 +323,7 @@
   onpointerup={handlePointerUp}
   onpointercancel={cancelDrag}
   onkeydown={(e) => { if (e.key === "Escape") cancelDrag(); }}
+  onclick={() => uiStore.closeContextMenu()}
 />
 
 <div class="app-container">
@@ -249,6 +372,7 @@
               tabindex="0"
               onclick={() => !isDragging && projectStore.setSelected(project.id)}
               onkeydown={(e) => handleKeySelect(e, project.id)}
+              oncontextmenu={(e) => handleContextMenu(e, "project", project.id)}
             >
               <div class="project-color" style="background-color: {project.color}"></div>
               <div class="project-info">
@@ -304,10 +428,20 @@
                 class="task-item"
                 class:task-timer-active={timerStore.active?.task_id === task.id && timerStore.isRunning}
                 class:task-timer-paused={timerStore.active?.task_id === task.id && !timerStore.isRunning}
+                oncontextmenu={(e) => handleContextMenu(e, "task", task.id)}
+                onpointerdown={(e) => {
+                  // If it's the checkbox or controls, don't trigger long press on the whole item
+                  const target = e.target as HTMLElement;
+                  if (target.closest('.checkbox-container') || target.closest('.task-controls')) return;
+                  handlePointerDown(e, "task", task.id, index);
+                }}
               >
                 <div 
                   class="drag-handle-task"
-                  onpointerdown={(e) => handlePointerDown(e, "task", task.id, index)}
+                  onpointerdown={(e) => {
+                    e.stopPropagation();
+                    handlePointerDown(e, "task", task.id, index);
+                  }}
                 >⋮⋮</div>
                 <label class="checkbox-container">
                   <input
@@ -390,34 +524,66 @@
   {/if}
 </div>
 
-<Modal open={uiStore.showProjectModal} title="New Project" onClose={() => uiStore.closeProjectModal()}>
+<ContextMenu items={contextMenuItems} />
+
+<Modal open={uiStore.showProjectModal} title={uiStore.editingProjectId ? "Edit Project" : "New Project"} onClose={() => uiStore.closeProjectModal()}>
   {#snippet children()}
-    <form onsubmit={(e) => { e.preventDefault(); handleCreateProject(); }}>
+    <form onsubmit={(e) => { 
+      e.preventDefault(); 
+      if (uiStore.editingProjectId) {
+        projectStore.update(uiStore.editingProjectId, projectName);
+        uiStore.closeProjectModal();
+      } else {
+        handleCreateProject(); 
+      }
+    }}>
       <div style="display: flex; flex-direction: column; gap: var(--spacing-md);">
         <div>
           <label for="project-name" class="text-sm text-secondary">Project Name</label>
-          <input id="project-name" class="input" type="text" bind:value={projectName} placeholder="My Project" autofocus />
+          <input 
+            id="project-name" 
+            class="input" 
+            type="text" 
+            bind:value={projectName} 
+            placeholder="My Project" 
+            autofocus 
+          />
         </div>
         <div style="display: flex; gap: var(--spacing-sm); justify-content: flex-end;">
           <button type="button" class="btn btn-secondary" onclick={() => uiStore.closeProjectModal()}>Cancel</button>
-          <button type="submit" class="btn btn-primary">Create</button>
+          <button type="submit" class="btn btn-primary">{uiStore.editingProjectId ? "Save" : "Create"}</button>
         </div>
       </div>
     </form>
   {/snippet}
 </Modal>
 
-<Modal open={uiStore.showTaskModal} title="New Task" onClose={() => uiStore.closeTaskModal()}>
+<Modal open={uiStore.showTaskModal} title={uiStore.editingTaskId ? "Edit Task" : "New Task"} onClose={() => uiStore.closeTaskModal()}>
   {#snippet children()}
-    <form onsubmit={(e) => { e.preventDefault(); handleCreateTask(); }}>
+    <form onsubmit={(e) => { 
+      e.preventDefault(); 
+      if (uiStore.editingTaskId) {
+        taskStore.updateTask(uiStore.editingTaskId, taskTitle);
+        uiStore.closeTaskModal();
+      } else {
+        handleCreateTask(); 
+      }
+    }}>
       <div style="display: flex; flex-direction: column; gap: var(--spacing-md);">
         <div>
           <label for="task-title" class="text-sm text-secondary">Task Title</label>
-          <input id="task-title" class="input" type="text" bind:value={taskTitle} placeholder="Task title" autofocus />
+          <input 
+            id="task-title" 
+            class="input" 
+            type="text" 
+            bind:value={taskTitle} 
+            placeholder="Task title" 
+            autofocus 
+          />
         </div>
         <div style="display: flex; gap: var(--spacing-sm); justify-content: flex-end;">
           <button type="button" class="btn btn-secondary" onclick={() => uiStore.closeTaskModal()}>Cancel</button>
-          <button type="submit" class="btn btn-primary">Create</button>
+          <button type="submit" class="btn btn-primary">{uiStore.editingTaskId ? "Save" : "Create"}</button>
         </div>
       </div>
     </form>
@@ -437,6 +603,24 @@
       <div class="reset-actions">
         <button type="button" class="btn btn-secondary" onclick={() => showResetModal = false}>Cancel</button>
         <button type="button" class="btn btn-warning" onclick={handleResetTimer}>Reset Timer</button>
+      </div>
+    </div>
+  {/snippet}
+</Modal>
+
+<Modal open={showDeleteModal} title="⚠️ Delete {itemToDelete?.type === 'project' ? 'Project' : 'Task'}" onClose={() => showDeleteModal = false}>
+  {#snippet children()}
+    <div class="reset-modal-content">
+      <div class="reset-warning" style="background: linear-gradient(135deg, var(--danger-light) 0%, var(--danger-glow) 100%); border-color: var(--danger);">
+        <div class="warning-icon">🗑️</div>
+        <div class="warning-text">
+          <p class="warning-title">Delete this {itemToDelete?.type}?</p>
+          <p class="warning-description">This action cannot be undone. All associated data will be lost.</p>
+        </div>
+      </div>
+      <div class="reset-actions">
+        <button type="button" class="btn btn-secondary" onclick={() => showDeleteModal = false}>Cancel</button>
+        <button type="button" class="btn btn-danger" onclick={handleDelete}>Delete</button>
       </div>
     </div>
   {/snippet}
