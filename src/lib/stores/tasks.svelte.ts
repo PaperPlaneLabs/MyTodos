@@ -22,16 +22,21 @@ export const taskStore = {
     return error;
   },
 
-  async loadByProject(projectId: number) {
+  async loadByProject(projectId: number | null) {
     try {
       loading = true;
       error = null;
-      const [loadedTasks, loadedSections] = await Promise.all([
-        db.tasks.getByProject(projectId),
-        db.sections.getByProject(projectId),
-      ]);
-      tasks = loadedTasks;
-      sections = loadedSections;
+      if (projectId === null) {
+        tasks = await db.tasks.getUnassigned();
+        sections = [];
+      } else {
+        const [loadedTasks, loadedSections] = await Promise.all([
+          db.tasks.getByProject(projectId),
+          db.sections.getByProject(projectId),
+        ]);
+        tasks = loadedTasks;
+        sections = loadedSections;
+      }
     } catch (e) {
       error = e instanceof Error ? e.message : "Failed to load tasks";
       console.error("Failed to load tasks:", e);
@@ -40,7 +45,7 @@ export const taskStore = {
     }
   },
 
-  async createTask(projectId: number, sectionId: number | null, title: string, description?: string) {
+  async createTask(projectId: number | null, sectionId: number | null, title: string, description?: string) {
     try {
       error = null;
       const task = await db.tasks.create(projectId, sectionId, title, description);

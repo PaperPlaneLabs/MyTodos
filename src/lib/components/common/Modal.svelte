@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { fade, fly } from "svelte/transition";
 
   let {
     open = false,
@@ -26,8 +27,16 @@
 </script>
 
 {#if open}
-  <div class="modal-backdrop" onclick={onClose}>
-    <div class="modal-content" onclick={(e) => e.stopPropagation()}>
+  <div
+    class="modal-backdrop"
+    onclick={onClose}
+    transition:fade={{ duration: 200 }}
+  >
+    <div
+      class="modal-content"
+      onclick={(e) => e.stopPropagation()}
+      transition:fly={{ y: 20, duration: 300 }}
+    >
       <div class="modal-header">
         <h3>{title}</h3>
         <button class="close-btn" onclick={onClose}>×</button>
@@ -47,11 +56,12 @@
     right: 0;
     bottom: 0;
     background-color: var(--modal-backdrop);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
-    animation: fadeIn var(--transition-fast);
   }
 
   .modal-content {
@@ -64,7 +74,7 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    animation: slideUp var(--transition-normal);
+    border: 1px solid var(--border);
   }
 
   .modal-header {
@@ -99,25 +109,5 @@
   .modal-body {
     padding: var(--spacing-md);
     overflow-y: auto;
-  }
-
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-    }
-    to {
-      opacity: 1;
-    }
-  }
-
-  @keyframes slideUp {
-    from {
-      transform: translateY(20px);
-      opacity: 0;
-    }
-    to {
-      transform: translateY(0);
-      opacity: 1;
-    }
   }
 </style>

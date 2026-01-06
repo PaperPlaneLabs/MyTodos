@@ -2,6 +2,7 @@ let showProjectModal = $state(false);
 let showTaskModal = $state(false);
 let showSectionModal = $state(false);
 let showManualTimeModal = $state(false);
+let showQuickAdd = $state(false);
 let editingProjectId = $state<number | null>(null);
 let editingTaskId = $state<number | null>(null);
 let editingSectionId = $state<number | null>(null);
@@ -41,8 +42,20 @@ export const uiStore = {
     return manualTimeTaskId;
   },
 
+  get showQuickAdd() {
+    return showQuickAdd;
+  },
+
   get theme() {
     return theme;
+  },
+
+  toggleQuickAdd() {
+    showQuickAdd = !showQuickAdd;
+  },
+
+  closeQuickAdd() {
+    showQuickAdd = false;
   },
 
   openProjectModal(projectId: number | null = null) {

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { fade, slide, fly } from "svelte/transition";
   import "$lib/styles/global.css";
   import AppHeader from "$lib/components/layout/AppHeader.svelte";
   import Modal from "$lib/components/common/Modal.svelte";
@@ -21,14 +22,14 @@
     await projectStore.loadAll();
     await timerStore.loadActive();
 
-    if (projectStore.projects.length > 0 && !projectStore.selectedId) {
-      projectStore.setSelected(projectStore.projects[0].id);
-      await taskStore.loadByProject(projectStore.projects[0].id);
-    }
+    // Default to Inbox (null) if no projects or just load tasks for whatever is selected
+    await taskStore.loadByProject(projectStore.selectedId);
   });
 
   $effect(() => {
-    if (projectStore.selectedId) {
+    // Only reload if selectedId changes (including to null)
+    // We use undefined as the initial state to trigger first load
+    if (projectStore.selectedId !== undefined) {
       taskStore.loadByProject(projectStore.selectedId);
     }
   });
@@ -41,10 +42,15 @@
   }
 
   async function handleCreateTask() {
-    if (!taskTitle.trim() || !projectStore.selectedId) return;
-    await taskStore.createTask(projectStore.selectedId, null, taskTitle);
-    taskTitle = "";
-    uiStore.closeTaskModal();
+    console.log("Creating task with title:", taskTitle, "Project ID:", projectStore.selectedId);
+    if (!taskTitle.trim()) return;
+    try {
+      await taskStore.createTask(projectStore.selectedId, null, taskTitle);
+      taskTitle = "";
+      uiStore.closeTaskModal();
+    } catch (e) {
+      console.error("Error creating task in UI:", e);
+    }
   }
 
   async function handleToggleTimer(taskId: number) {
@@ -109,24 +115,41 @@
       </div>
 
       <div class="projects-list">
-        {#each projectStore.projects as project (project.id)}
+        <div transition:slide={{ duration: 200 }}>
           <button
-            class="project-item"
-            class:active={projectStore.selectedId === project.id}
-            onclick={() => projectStore.setSelected(project.id)}
+            class="project-item inbox-item"
+            class:active={projectStore.selectedId === null}
+            onclick={() => projectStore.setSelected(null)}
           >
-            <div class="project-color" style="background-color: {project.color}"></div>
+            <div class="project-color" style="background-color: var(--text-tertiary)"></div>
             <div class="project-info">
               <div class="project-header">
-                <div class="project-name">{project.name}</div>
-                {#if project.total_time_seconds > 0}
-                  <div class="project-time-badge">
-                    <TimeDisplay seconds={project.total_time_seconds} />
-                  </div>
-                {/if}
+                <div class="project-name">Tasks</div>
               </div>
             </div>
           </button>
+        </div>
+
+        {#each projectStore.projects as project (project.id)}
+          <div transition:slide={{ duration: 200 }}>
+            <button
+              class="project-item"
+              class:active={projectStore.selectedId === project.id}
+              onclick={() => projectStore.setSelected(project.id)}
+            >
+              <div class="project-color" style="background-color: {project.color}"></div>
+              <div class="project-info">
+                <div class="project-header">
+                  <div class="project-name">{project.name}</div>
+                  {#if project.total_time_seconds > 0}
+                    <div class="project-time-badge">
+                      <TimeDisplay seconds={project.total_time_seconds} />
+                    </div>
+                  {/if}
+                </div>
+              </div>
+            </button>
+          </div>
         {/each}
 
         {#if projectStore.projects.length === 0}
@@ -141,10 +164,10 @@
       </div>
     </div>
 
-    {#if projectStore.selected}
+    {#if projectStore.selectedId !== undefined}
       <div class="tasks-section">
         <div class="section-header">
-          <h2>{projectStore.selected.name}</h2>
+          <h2>{projectStore.selected?.name || "Tasks"}</h2>
           <button class="btn btn-ghost btn-sm" onclick={() => uiStore.openTaskModal()}>
             + Task
           </button>
@@ -153,20 +176,24 @@
         <div class="tasks-list">
           {#each taskStore.tasks as task (task.id)}
             <div
+              transition:slide={{ duration: 200 }}
               class="task-item"
               class:task-timer-active={timerStore.active?.task_id === task.id && timerStore.isRunning}
               class:task-timer-paused={timerStore.active?.task_id === task.id && !timerStore.isRunning}
             >
-              <input
-                type="checkbox"
-                checked={task.completed}
-                onchange={() => taskStore.toggleCompletion(task.id)}
-                class="task-checkbox"
-              />
+              <label class="checkbox-container">
+                <input
+                  type="checkbox"
+                  checked={task.completed}
+                  onchange={() => taskStore.toggleCompletion(task.id)}
+                  class="task-checkbox-hidden"
+                />
+                <span class="checkbox-custom"></span>
+              </label>
               <div class="task-content">
                 <div class="task-title" class:completed={task.completed}>{task.title}</div>
                 <div class="task-meta">
-                  {#if task.total_time_seconds > 0}
+                  {#if task.total_time_seconds > 0 && task.project_id}
                     <div class="task-time text-xs">
                       <span class="time-icon">⏱</span>
                       <TimeDisplay seconds={task.total_time_seconds} />
@@ -209,7 +236,7 @@
                       ⟲
                     </button>
                   {/if}
-                {:else}
+                {:else if task.project_id}
                   <button
                     class="btn-icon-compact"
                     onclick={() => handleToggleTimer(task.id)}
@@ -243,7 +270,7 @@
   </div>
 
   {#if timerStore.active}
-    <div class="timer-widget">
+    <div class="timer-widget" transition:fly={{ y: 50, duration: 300 }}>
       <div class="timer-info">
         <div class="timer-task-name">{timerStore.active.task_title || "Task"}</div>
         <div class="timer-elapsed">
@@ -402,6 +429,11 @@
     height: 12px;
     border-radius: 50%;
     flex-shrink: 0;
+    transition: transform var(--transition-fast);
+  }
+
+  .project-item:hover .project-color {
+    transform: scale(1.3);
   }
 
   .project-info {
@@ -472,12 +504,64 @@
     box-shadow: 0 0 0 3px var(--warning-glow);
   }
 
-  .task-checkbox {
-    flex-shrink: 0;
+  .checkbox-container {
+    display: block;
+    position: relative;
+    width: 20px;
+    height: 20px;
     cursor: pointer;
-    width: 18px;
-    height: 18px;
-    accent-color: var(--accent);
+    user-select: none;
+    flex-shrink: 0;
+  }
+
+  .task-checkbox-hidden {
+    position: absolute;
+    opacity: 0;
+    cursor: pointer;
+    height: 0;
+    width: 0;
+  }
+
+  .checkbox-custom {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 20px;
+    width: 20px;
+    background-color: var(--bg-primary);
+    border: 2px solid var(--border);
+    border-radius: 6px;
+    transition: all var(--transition-fast);
+  }
+
+  .checkbox-container:hover input ~ .checkbox-custom {
+    border-color: var(--accent);
+    background-color: var(--bg-hover);
+  }
+
+  .checkbox-container input:checked ~ .checkbox-custom {
+    background-color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .checkbox-custom:after {
+    content: "";
+    position: absolute;
+    display: none;
+  }
+
+  .checkbox-container input:checked ~ .checkbox-custom:after {
+    display: block;
+  }
+
+  .checkbox-container .checkbox-custom:after {
+    left: 6px;
+    top: 2px;
+    width: 5px;
+    height: 10px;
+    border: solid white;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
   }
 
   .task-content {
@@ -635,13 +719,22 @@
   .timer-widget {
     flex-shrink: 0;
     padding: var(--spacing-md);
-    background: linear-gradient(135deg, var(--success-light) 0%, var(--success-gradient-end) 100%);
-    border-top: 2px solid var(--success);
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    border-top: 3px solid var(--success);
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: var(--spacing-md);
-    box-shadow: var(--shadow-md);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
+    margin: 0 var(--spacing-sm);
+    z-index: 100;
+  }
+
+  [data-theme="dark"] .timer-widget {
+    background: var(--bg-secondary);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
   }
 
   .timer-info {

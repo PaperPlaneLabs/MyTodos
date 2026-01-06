@@ -26,7 +26,8 @@ pub struct Section {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Task {
     pub id: i64,
-    pub project_id: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_id: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub section_id: Option<i64>,
     pub title: String,

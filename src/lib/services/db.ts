@@ -22,7 +22,7 @@ export interface Section {
 
 export interface Task {
   id: number;
-  project_id: number;
+  project_id?: number;
   section_id?: number;
   title: string;
   description?: string;
@@ -90,8 +90,9 @@ export const db = {
 
   tasks: {
     getByProject: (projectId: number) => invoke<Task[]>("get_tasks_by_project", { projectId }),
+    getUnassigned: () => invoke<Task[]>("get_unassigned_tasks"),
     getBySection: (sectionId: number) => invoke<Task[]>("get_tasks_by_section", { sectionId }),
-    create: (projectId: number, sectionId: number | null, title: string, description?: string) =>
+    create: (projectId: number | null, sectionId: number | null, title: string, description?: string) =>
       invoke<Task>("create_task", { projectId, sectionId, title, description }),
     update: (id: number, title?: string, description?: string, completed?: boolean) =>
       invoke<void>("update_task", { id, title, description, completed }),
