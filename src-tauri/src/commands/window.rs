@@ -32,19 +32,23 @@ pub fn dock_window(window: WebviewWindow, side: String) -> Result<()> {
         .map_err(|e| AppError::Other(e.to_string()))?
         .ok_or_else(|| AppError::Other("Could not find current monitor".to_string()))?;
 
-    let screen_size = monitor.size();
     let scale_factor = monitor.scale_factor();
+    let work_area = monitor.work_area();
     
+    // Convert physical work area to logical
+    let logical_work_x = (work_area.position.x as f64) / scale_factor;
+    let logical_work_y = (work_area.position.y as f64) / scale_factor;
+    let logical_work_width = (work_area.size.width as f64) / scale_factor;
+    let logical_work_height = (work_area.size.height as f64) / scale_factor;
+
     // Logical size for the window
     let logical_width = 380.0;
-    let logical_height = (screen_size.height as f64) / scale_factor;
+    let logical_height = logical_work_height;
     
-    let screen_logical_width = (screen_size.width as f64) / scale_factor;
-
     let pos = if side == "left" {
-        LogicalPosition::new(0.0, 0.0)
+        LogicalPosition::new(logical_work_x, logical_work_y)
     } else {
-        LogicalPosition::new(screen_logical_width - logical_width, 0.0)
+        LogicalPosition::new(logical_work_x + logical_work_width - logical_width, logical_work_y)
     };
 
     window.set_size(LogicalSize::new(logical_width, logical_height))
