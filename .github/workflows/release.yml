@@ -16,16 +16,22 @@ jobs:
         include:
           - platform: 'macos-latest'
             args: '--target aarch64-apple-darwin'
+            mobile: false
           - platform: 'macos-latest'
             args: '--target x86_64-apple-darwin'
+            mobile: false
           - platform: 'ubuntu-22.04'
             args: ''
+            mobile: false
           - platform: 'windows-latest'
             args: ''
+            mobile: false
           - platform: 'ubuntu-22.04'
             args: 'android'
+            mobile: true
           - platform: 'macos-latest'
             args: 'ios'
+            mobile: true
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -53,14 +59,14 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin,aarch64-apple-ios' || (matrix.platform == 'ubuntu-22.04' && 'aarch64-linux-android' || '') }}
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin,aarch64-apple-ios' || (matrix.args == 'android' && 'aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android' || '') }}
 
-      - name: Setup Android SDK (Ubuntu only)
-        if: contains(matrix.args, 'android')
+      - name: Setup Android SDK (Android only)
+        if: matrix.args == 'android'
         uses: android-actions/setup-android@v3
 
-      - name: Setup NDK (Ubuntu only)
-        if: contains(matrix.args, 'android')
+      - name: Setup NDK (Android only)
+        if: matrix.args == 'android'
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: r26b
@@ -97,5 +103,5 @@ jobs:
           releaseBody: 'See the assets to download this version and install.'
           releaseDraft: false
           prerelease: false
-          tauriScript: ${{ matrix.args == 'android' && 'npm run tauri android' || (matrix.args == 'ios' && 'npm run tauri ios' || 'npm run tauri') }}
-          args: ${{ matrix.args == 'android' && 'build' || (matrix.args == 'ios' && 'build --no-bundle' || matrix.args) }}
+          tauriScript: ${{ matrix.mobile && (matrix.args == 'android' && 'npm run tauri android' || 'npm run tauri ios') || 'npm run tauri' }}
+          args: ${{ matrix.mobile && (matrix.args == 'ios' && '--no-bundle' || '') || matrix.args }}
