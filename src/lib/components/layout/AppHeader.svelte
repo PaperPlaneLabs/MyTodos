@@ -5,18 +5,23 @@
   import { db } from "$lib/services/db";
   import TimeDisplay from "$lib/components/common/TimeDisplay.svelte";
   import { fly } from "svelte/transition";
-  import { type } from "@tauri-apps/api/core";
 
   let elapsed = $derived(Math.floor(timerStore.elapsed));
-  let isMobile = $state(false);
+  let isMobile = $state(true); // Default to true (safe for mobile/web) until confirmed
 
   onMount(async () => {
     try {
-      const platformName = await type();
-      isMobile = platformName === "android" || platformName === "ios";
+      const core = await import("@tauri-apps/api/core");
+      if (core && core.type) {
+        const platformName = await core.type();
+        isMobile = platformName === "android" || platformName === "ios";
+      } else {
+        isMobile = false; // Probably web browser
+      }
     } catch (e) {
       // If we're not in a tauri context (e.g. browser), we can assume not mobile for window buttons
-      console.warn("Failed to detect platform:", e);
+      isMobile = false; 
+      console.warn("Failed to detect platform, assuming non-mobile:", e);
     }
   });
 

@@ -22,6 +22,10 @@ jobs:
             args: ''
           - platform: 'windows-latest'
             args: ''
+          - platform: 'ubuntu-22.04'
+            args: 'android'
+          - platform: 'macos-latest'
+            args: 'ios'
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -31,18 +35,28 @@ jobs:
       - name: Install dependencies (Ubuntu only)
         if: matrix.platform == 'ubuntu-22.04'
         run: |
-          sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: 'npm'
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin,aarch64-apple-ios' || (matrix.platform == 'ubuntu-22.04' && 'aarch64-linux-android' || '') }}
+
+      - name: Setup Android SDK (Ubuntu only)
+        if: contains(matrix.args, 'android')
+        uses: android-actions/setup-android@v3
+
+      - name: Setup NDK (Ubuntu only)
+        if: contains(matrix.args, 'android')
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26b
 
       - name: Set Cargo target to D drive (Windows optimization)
         if: matrix.platform == 'windows-latest'
@@ -59,7 +73,7 @@ jobs:
         uses: swatinem/rust-cache@v2
         with:
           workspaces: './src-tauri -> target'
-          key: ${{ matrix.platform }}
+          key: ${{ matrix.platform }}-${{ matrix.args }}
           cache-directories: |
             D:/a/cargo-target
 
@@ -76,4 +90,4 @@ jobs:
           releaseBody: 'See the assets to download this version and install.'
           releaseDraft: false
           prerelease: false
-          args: ${{ matrix.args }}
+          args: ${{ matrix.args == 'android' && 'android build' || (matrix.args == 'ios' && 'ios build --no-bundle' || matrix.args) }}
