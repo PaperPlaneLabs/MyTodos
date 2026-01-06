@@ -1,11 +1,24 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import { uiStore } from "$lib/stores/ui.svelte";
   import { timerStore } from "$lib/stores/timer.svelte";
   import { db } from "$lib/services/db";
   import TimeDisplay from "$lib/components/common/TimeDisplay.svelte";
   import { fly } from "svelte/transition";
+  import { type } from "@tauri-apps/api/core";
 
   let elapsed = $derived(Math.floor(timerStore.elapsed));
+  let isMobile = $state(false);
+
+  onMount(async () => {
+    try {
+      const platformName = await type();
+      isMobile = platformName === "android" || platformName === "ios";
+    } catch (e) {
+      // If we're not in a tauri context (e.g. browser), we can assume not mobile for window buttons
+      console.warn("Failed to detect platform:", e);
+    }
+  });
 
   async function minimize() {
     await db.window.minimize();
@@ -24,6 +37,7 @@
   }
 
   async function handleDrag(e: MouseEvent) {
+    if (isMobile) return;
     // Only drag on left click and not on buttons
     if (e.button === 0 && !(e.target as HTMLElement).closest('button')) {
       await db.window.startDragging();
@@ -31,25 +45,27 @@
   }
 </script>
 
-<div class="title-bar" onmousedown={handleDrag} data-tauri-drag-region>
-  <div class="window-controls">
-    <button class="win-btn minimize" onclick={minimize} title="Minimize">
-      <svg width="12" height="12" viewBox="0 0 12 12"><rect fill="currentColor" x="1" y="5" width="10" height="1"/></svg>
-    </button>
-    <button class="win-btn dock-left" onclick={() => dock('left')} title="Dock Left">
-      <svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M1 1h4v10H1V1zm1 1v8h2V2H2z"/></svg>
-    </button>
-    <button class="win-btn maximize" onclick={toggleMaximize} title="Maximize">
-      <svg width="12" height="12" viewBox="0 0 12 12"><rect fill="none" stroke="currentColor" stroke-width="1" x="1.5" y="1.5" width="9" height="9"/></svg>
-    </button>
-    <button class="win-btn dock-right" onclick={() => dock('right')} title="Dock Right">
-      <svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M7 1h4v10H7V1zm1 1v8h2V2H8z"/></svg>
-    </button>
-    <button class="win-btn close" onclick={close} title="Close">
-      <svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M1.5 1.5l9 9m-9 0l9-9" stroke="currentColor" stroke-width="1.2"/></svg>
-    </button>
+{#if !isMobile}
+  <div class="title-bar" onmousedown={handleDrag} data-tauri-drag-region>
+    <div class="window-controls">
+      <button class="win-btn minimize" onclick={minimize} title="Minimize">
+        <svg width="12" height="12" viewBox="0 0 12 12"><rect fill="currentColor" x="1" y="5" width="10" height="1"/></svg>
+      </button>
+      <button class="win-btn dock-left" onclick={() => dock('left')} title="Dock Left">
+        <svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M1 1h4v10H1V1zm1 1v8h2V2H2z"/></svg>
+      </button>
+      <button class="win-btn maximize" onclick={toggleMaximize} title="Maximize">
+        <svg width="12" height="12" viewBox="0 0 12 12"><rect fill="none" stroke="currentColor" stroke-width="1" x="1.5" y="1.5" width="9" height="9"/></svg>
+      </button>
+      <button class="win-btn dock-right" onclick={() => dock('right')} title="Dock Right">
+        <svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M7 1h4v10H7V1zm1 1v8h2V2H8z"/></svg>
+      </button>
+      <button class="win-btn close" onclick={close} title="Close">
+        <svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M1.5 1.5l9 9m-9 0l9-9" stroke="currentColor" stroke-width="1.2"/></svg>
+      </button>
+    </div>
   </div>
-</div>
+{/if}
 
 <header class="app-header" onmousedown={handleDrag} data-tauri-drag-region>
   <div class="header-left">
