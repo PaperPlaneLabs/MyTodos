@@ -124,6 +124,10 @@ export const db = {
     saveState: (x?: number, y?: number, width?: number, height?: number) =>
       invoke<void>("save_window_state", { x, y, width, height }),
     getState: () => invoke<WindowState | null>("get_window_state"),
+    minimize: () => invoke<void>("minimize_window"),
+    toggleMaximize: () => invoke<void>("toggle_maximize"),
+    close: () => invoke<void>("close_window"),
+    dock: (side: "left" | "right") => invoke<void>("dock_window", { side }),
   },
 
   initialize: () => invoke<void>("initialize_database"),

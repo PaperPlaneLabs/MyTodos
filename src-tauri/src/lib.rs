@@ -58,6 +58,10 @@ pub fn run() {
             commands::delete_time_entry,
             commands::save_window_state,
             commands::get_window_state,
+            commands::minimize_window,
+            commands::toggle_maximize,
+            commands::close_window,
+            commands::dock_window,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
