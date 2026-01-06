@@ -21,8 +21,11 @@
   let isDragging = $state(false);
   let dragType = $state<"project" | "task" | null>(null);
   let draggedId = $state<number | null>(null);
+  let startIndex = $state<number | null>(null);
   let currentIndex = $state<number | null>(null);
   let pointerId = $state<number | null>(null);
+  let startY = $state(0);
+  let hasMovedThreshold = $state(false);
 
   onMount(async () => {
     uiStore.initTheme();
@@ -75,7 +78,7 @@
 
   async function handleStopTimer() {
     await timerStore.stop();
-    if (projectStore.selectedId) {
+    if (projectStore.selectedId !== undefined) {
       await taskStore.loadByProject(projectStore.selectedId);
     }
   }
@@ -98,7 +101,7 @@
     taskToReset = null;
 
     await projectStore.loadAll();
-    if (projectStore.selectedId) {
+    if (projectStore.selectedId !== undefined) {
       await taskStore.loadByProject(projectStore.selectedId);
     }
   }
@@ -107,18 +110,34 @@
   function handlePointerDown(e: PointerEvent, type: "project" | "task", id: number, index: number) {
     if (e.button !== 0) return;
     
-    const target = e.currentTarget as HTMLElement;
-    target.setPointerCapture(e.pointerId);
-    
     pointerId = e.pointerId;
-    isDragging = true;
     dragType = type;
     draggedId = id;
+    startIndex = index;
     currentIndex = index;
+    startY = e.clientY;
+    hasMovedThreshold = false;
+    // We don't set isDragging = true yet, we wait for movement
   }
 
   function handlePointerMove(e: PointerEvent) {
-    if (!isDragging || pointerId !== e.pointerId || currentIndex === null) return;
+    if (pointerId !== e.pointerId || draggedId === null) return;
+
+    // Check threshold
+    if (!hasMovedThreshold) {
+      if (Math.abs(e.clientY - startY) > 5) {
+        hasMovedThreshold = true;
+        isDragging = true;
+      } else {
+        return;
+      }
+    }
+
+    // Safety check: is the button still down?
+    if (e.buttons !== 1) {
+      handlePointerUp(e);
+      return;
+    }
 
     const elem = document.elementFromPoint(e.clientX, e.clientY);
     const wrapper = elem?.closest(".draggable-wrapper, .task-item-wrapper");
@@ -129,9 +148,9 @@
         const newIndex = parseInt(wrapper.getAttribute("data-index") || "-1");
         if (newIndex !== -1 && newIndex !== currentIndex) {
           if (dragType === "project") {
-            projectStore.reorderLocal(currentIndex, newIndex);
+            projectStore.reorderLocal(currentIndex!, newIndex);
           } else {
-            taskStore.reorderLocal(currentIndex, newIndex);
+            taskStore.reorderLocal(currentIndex!, newIndex);
           }
           currentIndex = newIndex;
         }
@@ -140,29 +159,33 @@
   }
 
   async function handlePointerUp(e: PointerEvent) {
-    if (!isDragging || pointerId !== e.pointerId) return;
+    if (pointerId !== e.pointerId) return;
 
-    try {
-      if (dragType === "project") {
-        const ids = projectStore.projects.map(p => p.id);
-        await projectStore.reorder(ids);
-      } else if (dragType === "task") {
-        const ids = taskStore.tasks.map(t => t.id);
-        await taskStore.reorder(ids);
+    if (isDragging) {
+      try {
+        if (dragType === "project") {
+          const ids = projectStore.projects.map(p => p.id);
+          await projectStore.reorder(ids);
+        } else if (dragType === "task") {
+          const ids = taskStore.tasks.map(t => t.id);
+          await taskStore.reorder(ids);
+        }
+      } catch (err) {
+        console.error("Failed to save order:", err);
       }
-    } catch (err) {
-      console.error("Failed to save order:", err);
     }
 
+    cancelDrag();
+  }
+
+  function cancelDrag() {
     isDragging = false;
     dragType = null;
     draggedId = null;
+    startIndex = null;
     currentIndex = null;
     pointerId = null;
-    
-    if (e.currentTarget instanceof HTMLElement) {
-      e.currentTarget.releasePointerCapture(e.pointerId);
-    }
+    hasMovedThreshold = false;
   }
 
   function handleKeySelect(e: KeyboardEvent, id: number | null) {
@@ -172,6 +195,13 @@
     }
   }
 </script>
+
+<svelte:window 
+  onpointermove={handlePointerMove} 
+  onpointerup={handlePointerUp}
+  onpointercancel={cancelDrag}
+  onkeydown={(e) => { if (e.key === "Escape") cancelDrag(); }}
+/>
 
 <div class="app-container">
   <AppHeader />
@@ -210,9 +240,6 @@
             transition:slide={{ duration: 200 }}
             class="draggable-wrapper"
             data-index={index}
-            onpointerdown={(e) => handlePointerDown(e, "project", project.id, index)}
-            onpointermove={handlePointerMove}
-            onpointerup={handlePointerUp}
             class:dragging={isDragging && draggedId === project.id}
           >
             <div
@@ -234,7 +261,11 @@
                   {/if}
                 </div>
               </div>
-              <div class="drag-handle" aria-label="Drag to reorder">⋮⋮</div>
+              <div 
+                class="drag-handle" 
+                aria-label="Drag to reorder"
+                onpointerdown={(e) => handlePointerDown(e, "project", project.id, index)}
+              >⋮⋮</div>
             </div>
           </div>
         {/each}
@@ -267,9 +298,6 @@
               transition:slide={{ duration: 200 }}
               class="task-item-wrapper"
               data-index={index}
-              onpointerdown={(e) => handlePointerDown(e, "task", task.id, index)}
-              onpointermove={handlePointerMove}
-              onpointerup={handlePointerUp}
               class:dragging={isDragging && draggedId === task.id}
             >
               <div
@@ -277,7 +305,10 @@
                 class:task-timer-active={timerStore.active?.task_id === task.id && timerStore.isRunning}
                 class:task-timer-paused={timerStore.active?.task_id === task.id && !timerStore.isRunning}
               >
-                <div class="drag-handle-task">⋮⋮</div>
+                <div 
+                  class="drag-handle-task"
+                  onpointerdown={(e) => handlePointerDown(e, "task", task.id, index)}
+                >⋮⋮</div>
                 <label class="checkbox-container">
                   <input
                     type="checkbox"
@@ -456,6 +487,7 @@
     opacity: 0.9;
     transform: scale(1.02);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+    pointer-events: none;
   }
 
   .drag-handle, .drag-handle-task {
