@@ -2,6 +2,7 @@ import { db, type Task, type Section } from "$lib/services/db";
 
 let tasks = $state<Task[]>([]);
 let sections = $state<Section[]>([]);
+let currentProjectId = $state<number | null>(null);
 let loading = $state(false);
 let error = $state<string | null>(null);
 
@@ -26,6 +27,7 @@ export const taskStore = {
     try {
       loading = true;
       error = null;
+      currentProjectId = projectId;
       if (projectId === null) {
         tasks = await db.tasks.getUnassigned();
         sections = [];
@@ -97,6 +99,46 @@ export const taskStore = {
       console.error("Failed to toggle task:", e);
       throw e;
     }
+  },
+
+  async reorder(taskIds: number[]) {
+    try {
+      error = null;
+      // Optimistically update local state if the ids match the current tasks
+      // But reordering is complex to do optimistically if we just have IDs. 
+      // The UI will likely have already updated the visual order.
+      await db.tasks.reorder(taskIds);
+      // Reload to ensure consistency
+      await this.loadByProject(currentProjectId);
+    } catch (e) {
+      error = e instanceof Error ? e.message : "Failed to reorder tasks";
+      console.error("Failed to reorder tasks:", e);
+      throw e;
+    }
+  },
+
+  async move(fromIndex: number, toIndex: number) {
+    if (fromIndex === toIndex) return;
+
+    this.reorderLocal(fromIndex, toIndex);
+
+    try {
+      error = null;
+      const ids = tasks.map(t => t.id);
+      await db.tasks.reorder(ids);
+    } catch (e) {
+      console.error("Failed to persist task order:", e);
+      error = e instanceof Error ? e.message : "Failed to save order";
+      await this.loadByProject(currentProjectId);
+    }
+  },
+
+  reorderLocal(fromIndex: number, toIndex: number) {
+    if (fromIndex === toIndex) return;
+    const newTasks = [...tasks];
+    const [moved] = newTasks.splice(fromIndex, 1);
+    newTasks.splice(toIndex, 0, moved);
+    tasks = newTasks;
   },
 
   async resetTaskTime(id: number) {

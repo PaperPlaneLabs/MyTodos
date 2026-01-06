@@ -94,4 +94,29 @@ export const projectStore = {
       throw e;
     }
   },
+
+  async move(fromIndex: number, toIndex: number) {
+    if (fromIndex === toIndex) return;
+    
+    this.reorderLocal(fromIndex, toIndex);
+
+    try {
+      error = null;
+      const ids = projects.map(p => p.id);
+      await db.projects.reorder(ids);
+    } catch (e) {
+      // Revert on error? For now just log and reload
+      console.error("Failed to persist project order:", e);
+      error = e instanceof Error ? e.message : "Failed to save order";
+      await this.loadAll();
+    }
+  },
+
+  reorderLocal(fromIndex: number, toIndex: number) {
+    if (fromIndex === toIndex) return;
+    const newProjects = [...projects];
+    const [moved] = newProjects.splice(fromIndex, 1);
+    newProjects.splice(toIndex, 0, moved);
+    projects = newProjects;
+  },
 };
