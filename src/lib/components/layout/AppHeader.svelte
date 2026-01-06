@@ -11,7 +11,8 @@
 
   onMount(async () => {
     try {
-      const core = await import("@tauri-apps/api/core");
+      // Cast to any because the language server might not see the exact types for dynamic import
+      const core = (await import("@tauri-apps/api/core")) as any;
       if (core && core.type) {
         const platformName = await core.type();
         isMobile = platformName === "android" || platformName === "ios";
