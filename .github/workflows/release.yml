@@ -43,6 +43,13 @@ jobs:
           node-version: 20
           cache: 'npm'
 
+      - name: Setup Java 17 (Android only)
+        if: matrix.args == 'android'
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -90,4 +97,4 @@ jobs:
           releaseBody: 'See the assets to download this version and install.'
           releaseDraft: false
           prerelease: false
-          args: ${{ matrix.args == 'android' && 'android build' || (matrix.args == 'ios' && 'ios build --no-bundle' || matrix.args) }}
+          args: ${{ matrix.args == 'android' && 'android' || (matrix.args == 'ios' && 'ios --no-bundle' || matrix.args) }}
