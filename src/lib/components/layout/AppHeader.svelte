@@ -22,9 +22,16 @@
   async function dock(side: "left" | "right") {
     await db.window.dock(side);
   }
+
+  async function handleDrag(e: MouseEvent) {
+    // Only drag on left click and not on buttons
+    if (e.button === 0 && !(e.target as HTMLElement).closest('button')) {
+      await db.window.startDragging();
+    }
+  }
 </script>
 
-<div class="title-bar" data-tauri-drag-region>
+<div class="title-bar" onmousedown={handleDrag} data-tauri-drag-region>
   <div class="window-controls">
     <button class="win-btn minimize" onclick={minimize} title="Minimize">
       <svg width="12" height="12" viewBox="0 0 12 12"><rect fill="currentColor" x="1" y="5" width="10" height="1"/></svg>
@@ -44,7 +51,7 @@
   </div>
 </div>
 
-<header class="app-header">
+<header class="app-header" onmousedown={handleDrag} data-tauri-drag-region>
   <div class="header-left">
     <h1>MyTodos</h1>
   </div>
@@ -147,6 +154,7 @@
     border-bottom: 1px solid var(--border);
     background-color: var(--bg-primary);
     flex-shrink: 0;
+    user-select: none;
   }
 
   .header-left h1 {

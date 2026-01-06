@@ -62,6 +62,7 @@ pub fn run() {
             commands::toggle_maximize,
             commands::close_window,
             commands::dock_window,
+            commands::start_window_drag,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

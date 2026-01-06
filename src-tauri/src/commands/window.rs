@@ -57,6 +57,11 @@ pub fn dock_window(window: WebviewWindow, side: String) -> Result<()> {
 }
 
 #[tauri::command]
+pub fn start_window_drag(window: WebviewWindow) -> Result<()> {
+    window.start_dragging().map_err(|e| AppError::Other(e.to_string()))
+}
+
+#[tauri::command]
 pub fn save_window_state(
     db: State<DbConnection>,
     x: Option<i32>,
