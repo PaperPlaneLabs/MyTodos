@@ -9,6 +9,12 @@ let editingSectionId = $state<number | null>(null);
 let manualTimeTaskId = $state<number | null>(null);
 let theme = $state<"light" | "dark">("light");
 
+// Context Menu State
+let contextMenuOpen = $state(false);
+let contextMenuPos = $state({ x: 0, y: 0 });
+let contextMenuType = $state<"project" | "task" | null>(null);
+let contextMenuId = $state<number | null>(null);
+
 export const uiStore = {
   get showProjectModal() {
     return showProjectModal;
@@ -49,6 +55,12 @@ export const uiStore = {
   get theme() {
     return theme;
   },
+
+  // Context Menu Getters
+  get contextMenuOpen() { return contextMenuOpen; },
+  get contextMenuPos() { return contextMenuPos; },
+  get contextMenuType() { return contextMenuType; },
+  get contextMenuId() { return contextMenuId; },
 
   toggleQuickAdd() {
     showQuickAdd = !showQuickAdd;
@@ -96,6 +108,18 @@ export const uiStore = {
   closeManualTimeModal() {
     showManualTimeModal = false;
     manualTimeTaskId = null;
+  },
+
+  // Context Menu Methods
+  openContextMenu(x: number, y: number, type: "project" | "task", id: number) {
+    contextMenuPos = { x, y };
+    contextMenuType = type;
+    contextMenuId = id;
+    contextMenuOpen = true;
+  },
+
+  closeContextMenu() {
+    contextMenuOpen = false;
   },
 
   toggleTheme() {
