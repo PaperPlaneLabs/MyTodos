@@ -119,4 +119,10 @@ export const projectStore = {
     newProjects.splice(toIndex, 0, moved);
     projects = newProjects;
   },
+
+  updateProjectTime(projectId: number, timeSeconds: number) {
+    projects = projects.map((p) =>
+      p.id === projectId ? { ...p, total_time_seconds: timeSeconds } : p
+    );
+  },
 };

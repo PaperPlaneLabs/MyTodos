@@ -195,6 +195,12 @@ export const taskStore = {
     return tasks.filter((t) => t.section_id === sectionId);
   },
 
+  updateTaskTime(taskId: number, timeSeconds: number) {
+    tasks = tasks.map((t) =>
+      t.id === taskId ? { ...t, total_time_seconds: timeSeconds } : t
+    );
+  },
+
   clear() {
     tasks = [];
     sections = [];
