@@ -128,6 +128,7 @@ export const db = {
     toggleMaximize: () => invoke<void>("toggle_maximize"),
     close: () => invoke<void>("close_window"),
     dock: (side: "left" | "right") => invoke<void>("dock_window", { side }),
+    setCollapsed: (collapsed: boolean) => invoke<void>("set_collapsed", { collapsed }),
     startDragging: () => invoke<void>("start_window_drag"),
   },
 
