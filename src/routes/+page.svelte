@@ -91,6 +91,22 @@
     }
   }
 
+  async function handleEditTask() {
+    if (!taskTitle.trim()) return;
+    if (!uiStore.editingTaskId) return;
+    
+    try {
+      await taskStore.updateTask(uiStore.editingTaskId, taskTitle);
+      uiStore.closeTaskModal();
+    } catch (e) {
+      console.error("Error updating task:", e);
+      // Could show a toast/alert to user here
+    }
+  } catch (e) {
+      console.error("Error creating task in UI:", e);
+    }
+  }
+
   async function handleToggleTimer(taskId: number) {
     if (timerStore.active && timerStore.active.task_id === taskId) {     
       if (timerStore.isRunning) {
@@ -568,8 +584,7 @@
     <form onsubmit={(e) => {
       e.preventDefault();
       if (uiStore.editingTaskId) {
-        taskStore.updateTask(uiStore.editingTaskId, taskTitle);
-        uiStore.closeTaskModal();
+        handleEditTask();
       } else {
         handleCreateTask();
       }
