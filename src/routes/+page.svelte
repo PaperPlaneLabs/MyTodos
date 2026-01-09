@@ -4,6 +4,7 @@
   import { flip } from "svelte/animate";
   import "$lib/styles/global.css";
   import AppHeader from "$lib/components/layout/AppHeader.svelte";
+  import CollapseHandle from "$lib/components/layout/CollapseHandle.svelte";
   import Modal from "$lib/components/common/Modal.svelte";
   import TimeDisplay from "$lib/components/common/TimeDisplay.svelte";
   import ContextMenu from "$lib/components/common/ContextMenu.svelte";
@@ -41,7 +42,7 @@
     if (uiStore.showProjectModal && uiStore.editingProjectId) {
       const project = projectStore.projects.find(p => p.id === uiStore.editingProjectId);
       if (project) projectName = project.name;
-    } else if (uiStore.showProjectModal && !uiStore.editingProjectId) {
+    } else if (uiStore.showProjectModal && !uiStore.editingProjectId) {  
       projectName = "";
     }
   });
@@ -51,7 +52,7 @@
     if (uiStore.showTaskModal && uiStore.editingTaskId) {
       const task = taskStore.tasks.find(t => t.id === uiStore.editingTaskId);
       if (task) taskTitle = task.title;
-    } else if (uiStore.showTaskModal && !uiStore.editingTaskId) {
+    } else if (uiStore.showTaskModal && !uiStore.editingTaskId) {        
       taskTitle = "";
     }
   });
@@ -91,7 +92,7 @@
   }
 
   async function handleToggleTimer(taskId: number) {
-    if (timerStore.active && timerStore.active.task_id === taskId) {
+    if (timerStore.active && timerStore.active.task_id === taskId) {     
       if (timerStore.isRunning) {
         await timerStore.pause();
       } else {
@@ -148,14 +149,14 @@
       if (itemToDelete.type === "project") {
         await projectStore.delete(itemToDelete.id);
       } else {
-        // If deleting task that has active timer, stop timer first
+        // If deleting task that has active timer, stop timer first      
         if (timerStore.active && timerStore.active.task_id === itemToDelete.id) {
           await timerStore.stop();
         }
         await taskStore.deleteTask(itemToDelete.id);
       }
     } catch (e) {
-      console.error(`Failed to delete ${itemToDelete.type}:`, e);
+      console.error(`Failed to delete ${itemToDelete.type}:`, e);        
     }
 
     showDeleteModal = false;
@@ -171,7 +172,7 @@
   // Handlers for Pointer Events
   function handlePointerDown(e: PointerEvent, type: "project" | "task", id: number, index: number) {
     if (e.button === 2) return; // Ignore right click for drag
-    
+
     pointerId = e.pointerId;
     dragType = type;
     draggedId = id;
@@ -214,9 +215,9 @@
       return;
     }
 
-    const elem = document.elementFromPoint(e.clientX, e.clientY);
+    const elem = document.elementFromPoint(e.clientX, e.clientY);        
     const wrapper = elem?.closest(".draggable-wrapper, .task-item-wrapper");
-    
+
     if (wrapper) {
       const type = wrapper.classList.contains("draggable-wrapper") ? "project" : "task";
       if (type === dragType) {
@@ -272,7 +273,7 @@
     hasMovedThreshold = false;
   }
 
-  function handleKeySelect(e: KeyboardEvent, id: number | null) {
+  function handleKeySelect(e: KeyboardEvent, id: number | null) {        
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       projectStore.setSelected(id);
@@ -282,245 +283,249 @@
   // Context Menu Items
   let contextMenuItems = $derived.by(() => {
     if (!uiStore.contextMenuType || uiStore.contextMenuId === null) return [];
-    
+
     const id = uiStore.contextMenuId;
     const type = uiStore.contextMenuType;
-    
+
     if (type === "project") {
       return [
-        { 
-          label: "Edit Project", 
-          icon: "✏️", 
-          onClick: () => uiStore.openProjectModal(id) 
+        {
+          label: "Edit Project",
+          icon: "✏️",
+          onClick: () => uiStore.openProjectModal(id)
         },
-        { 
-          label: "Delete Project", 
-          icon: "🗑️", 
-          danger: true, 
-          onClick: () => confirmDelete("project", id) 
+        {
+          label: "Delete Project",
+          icon: "🗑️",
+          danger: true,
+          onClick: () => confirmDelete("project", id)
         }
       ];
     } else {
       return [
-        { 
-          label: "Edit Task", 
-          icon: "✏️", 
-          onClick: () => uiStore.openTaskModal(id) 
+        {
+          label: "Edit Task",
+          icon: "✏️",
+          onClick: () => uiStore.openTaskModal(id)
         },
-        { 
-          label: "Delete Task", 
-          icon: "🗑️", 
-          danger: true, 
-          onClick: () => confirmDelete("task", id) 
+        {
+          label: "Delete Task",
+          icon: "🗑️",
+          danger: true,
+          onClick: () => confirmDelete("task", id)
         }
       ];
     }
   });
 </script>
 
-<svelte:window 
-  onpointermove={handlePointerMove} 
+<svelte:window
+  onpointermove={handlePointerMove}
   onpointerup={handlePointerUp}
   onpointercancel={cancelDrag}
   onkeydown={(e) => { if (e.key === "Escape") cancelDrag(); }}
   onclick={() => uiStore.closeContextMenu()}
 />
 
-<div class="app-container">
-  <AppHeader />
+<div class="app-container" class:app-collapsed={uiStore.isCollapsed}>
+  <CollapseHandle />
 
-  <div class="main-content">
-    <div class="projects-section">
-      <div class="section-header">
-        <h2>Projects</h2>
-        <button class="btn btn-ghost btn-sm" onclick={() => uiStore.openProjectModal()}>
-          + New
-        </button>
-      </div>
+  {#if !uiStore.isCollapsed}
+    <AppHeader />
 
-      <div class="projects-list" role="list">
-        <div transition:slide={{ duration: 200 }}>
-          <div
-            class="project-item inbox-item"
-            class:active={projectStore.selectedId === null}
-            role="button"
-            tabindex="0"
-            onclick={() => projectStore.setSelected(null)}
-            onkeydown={(e) => handleKeySelect(e, null)}
-          >
-            <div class="project-color" style="background-color: var(--text-tertiary)"></div>
-            <div class="project-info">
-              <div class="project-header">
-                <div class="project-name">Tasks</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {#each projectStore.projects as project, index (project.id)}
-          <div 
-            animate:flip={{ duration: 300 }}
-            transition:slide={{ duration: 200 }}
-            class="draggable-wrapper"
-            data-index={index}
-            class:dragging={isDragging && draggedId === project.id}
-          >
-            <div
-              class="project-item"
-              class:active={projectStore.selectedId === project.id}
-              role="button"
-              tabindex="0"
-              onclick={() => !isDragging && projectStore.setSelected(project.id)}
-              onkeydown={(e) => handleKeySelect(e, project.id)}
-              oncontextmenu={(e) => handleContextMenu(e, "project", project.id)}
-            >
-              <div class="project-color" style="background-color: {project.color}"></div>
-              <div class="project-info">
-                <div class="project-header">
-                  <div class="project-name">{project.name}</div>
-                  {#if project.total_time_seconds > 0}
-                    <div class="project-time-badge">
-                      <TimeDisplay seconds={project.total_time_seconds} />
-                    </div>
-                  {/if}
-                </div>
-              </div>
-              <div 
-                class="drag-handle" 
-                aria-label="Drag to reorder"
-                onpointerdown={(e) => handlePointerDown(e, "project", project.id, index)}
-              >⋮⋮</div>
-            </div>
-          </div>
-        {/each}
-
-        {#if projectStore.projects.length === 0}
-          <div class="empty-state">
-            <p class="text-secondary text-sm">No projects yet</p>
-            <p class="text-tertiary text-xs">Click "+ New" to create your first project</p>
-            <button class="btn btn-primary btn-sm" onclick={() => uiStore.openProjectModal()}>
-              Create Project
-            </button>
-          </div>
-        {/if}
-      </div>
-    </div>
-
-    {#if projectStore.selectedId !== undefined}
-      <div class="tasks-section">
+    <div class="main-content">
+      <div class="projects-section">
         <div class="section-header">
-          <h2>{projectStore.selected?.name || "Tasks"}</h2>
-          <button class="btn btn-ghost btn-sm" onclick={() => uiStore.openTaskModal()}>
-            + Task
+          <h2>Projects</h2>
+          <button class="btn btn-ghost btn-sm" onclick={() => uiStore.openProjectModal()}>
+            + New
           </button>
         </div>
 
-        <div class="tasks-list" role="list">
-          {#each taskStore.tasks as task, index (task.id)}
+        <div class="projects-list" role="list">
+          <div transition:slide={{ duration: 200 }}>
+            <div
+              class="project-item inbox-item"
+              class:active={projectStore.selectedId === null}
+              role="button"
+              tabindex="0"
+              onclick={() => projectStore.setSelected(null)}
+              onkeydown={(e) => handleKeySelect(e, null)}
+            >
+              <div class="project-color" style="background-color: var(--text-tertiary)"></div>
+              <div class="project-info">
+                <div class="project-header">
+                  <div class="project-name">Tasks</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {#each projectStore.projects as project, index (project.id)}     
             <div
               animate:flip={{ duration: 300 }}
               transition:slide={{ duration: 200 }}
-              class="task-item-wrapper"
+              class="draggable-wrapper"
               data-index={index}
-              class:dragging={isDragging && draggedId === task.id}
+              class:dragging={isDragging && draggedId === project.id}      
             >
               <div
-                class="task-item"
-                class:task-timer-active={timerStore.active?.task_id === task.id && timerStore.isRunning}
-                class:task-timer-paused={timerStore.active?.task_id === task.id && !timerStore.isRunning}
-                oncontextmenu={(e) => handleContextMenu(e, "task", task.id)}
-                onpointerdown={(e) => {
-                  // If it's the checkbox or controls, don't trigger long press on the whole item
-                  const target = e.target as HTMLElement;
-                  if (target.closest('.checkbox-container') || target.closest('.task-controls')) return;
-                  handlePointerDown(e, "task", task.id, index);
-                }}
+                class="project-item"
+                class:active={projectStore.selectedId === project.id}      
+                role="button"
+                tabindex="0"
+                onclick={() => !isDragging && projectStore.setSelected(project.id)}
+                onkeydown={(e) => handleKeySelect(e, project.id)}
+                oncontextmenu={(e) => handleContextMenu(e, "project", project.id)}
               >
-                <div 
-                  class="drag-handle-task"
-                  onpointerdown={(e) => {
-                    e.stopPropagation();
-                    handlePointerDown(e, "task", task.id, index);
-                  }}
-                >⋮⋮</div>
-                <label class="checkbox-container">
-                  <input
-                    type="checkbox"
-                    checked={task.completed}
-                    onchange={() => taskStore.toggleCompletion(task.id)}
-                    class="task-checkbox-hidden"
-                  />
-                  <span class="checkbox-custom"></span>
-                </label>
-                <div class="task-content">
-                  <div class="task-title" class:completed={task.completed}>{task.title}</div>
-                  <div class="task-meta">
-                    {#if task.total_time_seconds > 0 && task.project_id}
-                      <div class="task-time text-xs">
-                        <span class="time-icon">⏱</span>
-                        <TimeDisplay seconds={task.total_time_seconds} />
-                      </div>
-                    {/if}
-                    {#if timerStore.active && timerStore.active.task_id === task.id}
-                      <div class="inline-timer" class:running={timerStore.isRunning} class:paused={!timerStore.isRunning}>
-                        <span class="timer-indicator"></span>
-                        <TimeDisplay seconds={Math.floor(timerStore.elapsed)} format="short" />
+                <div class="project-color" style="background-color: {project.color}"></div>
+                <div class="project-info">
+                  <div class="project-header">
+                    <div class="project-name">{project.name}</div>
+                    {#if project.total_time_seconds > 0}
+                      <div class="project-time-badge">
+                        <TimeDisplay seconds={project.total_time_seconds} />
                       </div>
                     {/if}
                   </div>
                 </div>
-                <div class="task-controls">
-                  {#if timerStore.active && timerStore.active.task_id === task.id}
-                    <button
-                      class="btn-icon-compact"
-                      onclick={() => timerStore.isRunning ? timerStore.pause() : timerStore.resume()}
-                      title={timerStore.isRunning ? "Pause timer" : "Resume timer"}
-                    >
-                      {#if timerStore.isRunning}⏸{:else}▶{/if}
-                    </button>
-                    <button class="btn-icon-compact btn-stop" onclick={handleStopTimer} title="Stop timer and save">⏹</button>
-                    {#if !timerStore.isRunning}
-                      <button class="btn-icon-compact btn-reset" onclick={() => openResetModal(task.id)} title="Reset timer (discard time)">⟲</button>
-                    {/if}
-                  {:else if task.project_id}
-                    <button class="btn-icon-compact" onclick={() => handleToggleTimer(task.id)} title="Start timer">⏱</button>
-                    {#if task.total_time_seconds > 0}
-                      <button class="btn-icon-compact btn-reset" onclick={() => openResetModal(task.id)} title="Reset all time for this task">⟲</button>
-                    {/if}
-                  {/if}
-                </div>
+                <div
+                  class="drag-handle"
+                  aria-label="Drag to reorder"
+                  onpointerdown={(e) => handlePointerDown(e, "project", project.id, index)}
+                >⋮⋮</div>
               </div>
             </div>
           {/each}
 
-          {#if taskStore.tasks.length === 0}
+          {#if projectStore.projects.length === 0}
             <div class="empty-state">
-              <p class="text-secondary text-sm">No tasks yet</p>
-              <p class="text-tertiary text-xs">Click "+ Task" to create your first task</p>
+              <p class="text-secondary text-sm">No projects yet</p>        
+              <p class="text-tertiary text-xs">Click "+ New" to create your first project</p>
+              <button class="btn btn-primary btn-sm" onclick={() => uiStore.openProjectModal()}>
+                Create Project
+              </button>
             </div>
           {/if}
         </div>
       </div>
-    {/if}
-  </div>
 
-  {#if timerStore.active}
-    <div class="timer-widget" transition:fly={{ y: 50, duration: 300 }}>
-      <div class="timer-info">
-        <div class="timer-task-name">{timerStore.active.task_title || "Task"}</div>
-        <div class="timer-elapsed">
-          <TimeDisplay seconds={Math.floor(timerStore.elapsed)} format="hms" />
+      {#if projectStore.selectedId !== undefined}
+        <div class="tasks-section">
+          <div class="section-header">
+            <h2>{projectStore.selected?.name || "Tasks"}</h2>
+            <button class="btn btn-ghost btn-sm" onclick={() => uiStore.openTaskModal()}>
+              + Task
+            </button>
+          </div>
+
+          <div class="tasks-list" role="list">
+            {#each taskStore.tasks as task, index (task.id)}
+              <div
+                animate:flip={{ duration: 300 }}
+                transition:slide={{ duration: 200 }}
+                class="task-item-wrapper"
+                data-index={index}
+                class:dragging={isDragging && draggedId === task.id}       
+              >
+                <div
+                  class="task-item"
+                  class:task-timer-active={timerStore.active?.task_id === task.id && timerStore.isRunning}
+                  class:task-timer-paused={timerStore.active?.task_id === task.id && !timerStore.isRunning}
+                  oncontextmenu={(e) => handleContextMenu(e, "task", task.id)}
+                  onpointerdown={(e) => {
+                    // If it's the checkbox or controls, don't trigger long press on the whole item
+                    const target = e.target as HTMLElement;
+                    if (target.closest('.checkbox-container') || target.closest('.task-controls')) return;
+                    handlePointerDown(e, "task", task.id, index);
+                  }}
+                >
+                  <div
+                    class="drag-handle-task"
+                    onpointerdown={(e) => {
+                      e.stopPropagation();
+                      handlePointerDown(e, "task", task.id, index);        
+                    }}
+                  >⋮⋮</div>
+                  <label class="checkbox-container">
+                    <input
+                      type="checkbox"
+                      checked={task.completed}
+                      onchange={() => taskStore.toggleCompletion(task.id)} 
+                      class="task-checkbox-hidden"
+                    />
+                    <span class="checkbox-custom"></span>
+                  </label>
+                  <div class="task-content">
+                    <div class="task-title" class:completed={task.completed}>{task.title}</div>
+                    <div class="task-meta">
+                      {#if task.total_time_seconds > 0 && task.project_id} 
+                        <div class="task-time text-xs">
+                          <span class="time-icon">⏱</span>
+                          <TimeDisplay seconds={task.total_time_seconds} />
+                        </div>
+                      {/if}
+                      {#if timerStore.active && timerStore.active.task_id === task.id}
+                        <div class="inline-timer" class:running={timerStore.isRunning} class:paused={!timerStore.isRunning}>
+                          <span class="timer-indicator"></span>
+                          <TimeDisplay seconds={Math.floor(timerStore.elapsed)} format="short" />
+                        </div>
+                      {/if}
+                    </div>
+                  </div>
+                  <div class="task-controls">
+                    {#if timerStore.active && timerStore.active.task_id === task.id}
+                      <button
+                        class="btn-icon-compact"
+                        onclick={() => timerStore.isRunning ? timerStore.pause() : timerStore.resume()}
+                        title={timerStore.isRunning ? "Pause timer" : "Resume timer"}
+                      >
+                        {#if timerStore.isRunning}⏸{:else}▶{/if}
+                      </button>
+                      <button class="btn-icon-compact btn-stop" onclick={handleStopTimer} title="Stop timer and save">⏹</button>
+                      {#if !timerStore.isRunning}
+                        <button class="btn-icon-compact btn-reset" onclick={() => openResetModal(task.id)} title="Reset timer (discard time)">⟲</button>
+                      {/if}
+                    {:else if task.project_id}
+                      <button class="btn-icon-compact" onclick={() => handleToggleTimer(task.id)} title="Start timer">⏱</button>
+                      {#if task.total_time_seconds > 0}
+                        <button class="btn-icon-compact btn-reset" onclick={() => openResetModal(task.id)} title="Reset all time for this task">⟲</button>
+                      {/if}
+                    {/if}
+                  </div>
+                </div>
+              </div>
+            {/each}
+
+            {#if taskStore.tasks.length === 0}
+              <div class="empty-state">
+                <p class="text-secondary text-sm">No tasks yet</p>
+                <p class="text-tertiary text-xs">Click "+ Task" to create your first task</p>
+              </div>
+            {/if}
+          </div>
+        </div>
+      {/if}
+    </div>
+
+    {#if timerStore.active}
+      <div class="timer-widget" transition:fly={{ y: 50, duration: 300 }}> 
+        <div class="timer-info">
+          <div class="timer-task-name">{timerStore.active.task_title || "Task"}</div>
+          <div class="timer-elapsed">
+            <TimeDisplay seconds={Math.floor(timerStore.elapsed)} format="hms" />
+          </div>
+        </div>
+        <div class="timer-controls">
+          {#if timerStore.isRunning}
+            <button class="btn btn-sm btn-secondary" onclick={() => timerStore.pause()}>Pause</button>
+          {:else}
+            <button class="btn btn-sm btn-primary" onclick={() => timerStore.resume()}>Resume</button>
+          {/if}
+          <button class="btn btn-sm btn-danger" onclick={handleStopTimer}>Stop</button>
         </div>
       </div>
-      <div class="timer-controls">
-        {#if timerStore.isRunning}
-          <button class="btn btn-sm btn-secondary" onclick={() => timerStore.pause()}>Pause</button>
-        {:else}
-          <button class="btn btn-sm btn-primary" onclick={() => timerStore.resume()}>Resume</button>
-        {/if}
-        <button class="btn btn-sm btn-danger" onclick={handleStopTimer}>Stop</button>
-      </div>
-    </div>
+    {/if}
   {/if}
 </div>
 
@@ -528,25 +533,25 @@
 
 <Modal open={uiStore.showProjectModal} title={uiStore.editingProjectId ? "Edit Project" : "New Project"} onClose={() => uiStore.closeProjectModal()}>
   {#snippet children()}
-    <form onsubmit={(e) => { 
-      e.preventDefault(); 
+    <form onsubmit={(e) => {
+      e.preventDefault();
       if (uiStore.editingProjectId) {
-        projectStore.update(uiStore.editingProjectId, projectName);
+        projectStore.update(uiStore.editingProjectId, projectName);      
         uiStore.closeProjectModal();
       } else {
-        handleCreateProject(); 
+        handleCreateProject();
       }
     }}>
       <div style="display: flex; flex-direction: column; gap: var(--spacing-md);">
         <div>
           <label for="project-name" class="text-sm text-secondary">Project Name</label>
-          <input 
-            id="project-name" 
-            class="input" 
-            type="text" 
-            bind:value={projectName} 
-            placeholder="My Project" 
-            autofocus 
+          <input
+            id="project-name"
+            class="input"
+            type="text"
+            bind:value={projectName}
+            placeholder="My Project"
+            autofocus
           />
         </div>
         <div style="display: flex; gap: var(--spacing-sm); justify-content: flex-end;">
@@ -560,25 +565,25 @@
 
 <Modal open={uiStore.showTaskModal} title={uiStore.editingTaskId ? "Edit Task" : "New Task"} onClose={() => uiStore.closeTaskModal()}>
   {#snippet children()}
-    <form onsubmit={(e) => { 
-      e.preventDefault(); 
+    <form onsubmit={(e) => {
+      e.preventDefault();
       if (uiStore.editingTaskId) {
         taskStore.updateTask(uiStore.editingTaskId, taskTitle);
         uiStore.closeTaskModal();
       } else {
-        handleCreateTask(); 
+        handleCreateTask();
       }
     }}>
       <div style="display: flex; flex-direction: column; gap: var(--spacing-md);">
         <div>
           <label for="task-title" class="text-sm text-secondary">Task Title</label>
-          <input 
-            id="task-title" 
-            class="input" 
-            type="text" 
-            bind:value={taskTitle} 
-            placeholder="Task title" 
-            autofocus 
+          <input
+            id="task-title"
+            class="input"
+            type="text"
+            bind:value={taskTitle}
+            placeholder="Task title"
+            autofocus
           />
         </div>
         <div style="display: flex; gap: var(--spacing-sm); justify-content: flex-end;">
@@ -608,13 +613,13 @@
   {/snippet}
 </Modal>
 
-<Modal open={showDeleteModal} title="⚠️ Delete {itemToDelete?.type === 'project' ? 'Project' : 'Task'}" onClose={() => showDeleteModal = false}>
+<Modal open={showDeleteModal} title="⚠️ Delete {itemToDelete?.type === 'project' ? 'Project' : 'Task'}" onClose={() => showDeleteModal = false}>  
   {#snippet children()}
     <div class="reset-modal-content">
       <div class="reset-warning" style="background: linear-gradient(135deg, var(--danger-light) 0%, var(--danger-glow) 100%); border-color: var(--danger);">
         <div class="warning-icon">🗑️</div>
         <div class="warning-text">
-          <p class="warning-title">Delete this {itemToDelete?.type}?</p>
+          <p class="warning-title">Delete this {itemToDelete?.type}?</p> 
           <p class="warning-description">This action cannot be undone. All associated data will be lost.</p>
         </div>
       </div>
@@ -627,6 +632,18 @@
 </Modal>
 
 <style>
+  .app-container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background-color: var(--bg-primary);
+    overflow: hidden;
+  }
+
+  .app-container.app-collapsed {
+    background-color: transparent;
+  }
+
   .main-content {
     flex: 1;
     overflow-y: auto;

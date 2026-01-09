@@ -62,6 +62,8 @@ pub fn run() {
             commands::toggle_maximize,
             commands::close_window,
             commands::dock_window,
+            commands::set_collapsed,
+            commands::move_window,
             commands::start_window_drag,
         ])
         .run(tauri::generate_context!())
