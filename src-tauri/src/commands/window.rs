@@ -61,7 +61,7 @@ pub fn dock_window(window: WebviewWindow, side: String) -> Result<()> {
 }
 
 #[tauri::command]
-pub fn set_collapsed(window: WebviewWindow, collapsed: bool) -> Result<()> {
+pub fn set_collapsed(window: WebviewWindow, collapsed: bool, top: f64) -> Result<()> {
     let monitor = window
         .current_monitor()
         .map_err(|e| AppError::Other(e.to_string()))?
@@ -70,30 +70,48 @@ pub fn set_collapsed(window: WebviewWindow, collapsed: bool) -> Result<()> {
     let scale_factor = monitor.scale_factor();
     let work_area = monitor.work_area();
     
-    // Convert physical work area to logical
     let logical_work_x = (work_area.position.x as f64) / scale_factor;
-    let _logical_work_y = (work_area.position.y as f64) / scale_factor;
+    let logical_work_y = (work_area.position.y as f64) / scale_factor;
     let logical_work_width = (work_area.size.width as f64) / scale_factor;
+    let logical_work_height = (work_area.size.height as f64) / scale_factor;
 
-    let logical_width = 380.0;
-    let handle_width = 44.0; // Same as window control buttons
+    let full_width = 380.0;
+    let handle_width = 44.0;
+    let handle_height = 140.0;
 
     if collapsed {
-        // Move to the right, showing only handle_width
+        window.set_min_size(Some(LogicalSize::new(handle_width, handle_height)))
+            .map_err(|e| AppError::Other(e.to_string()))?;
+
         let x = logical_work_x + logical_work_width - handle_width;
-        window.set_position(LogicalPosition::new(x, _logical_work_y))
+        
+        window.set_size(LogicalSize::new(handle_width, handle_height))
+            .map_err(|e| AppError::Other(e.to_string()))?;
+        window.set_position(LogicalPosition::new(x, logical_work_y + top))
             .map_err(|e| AppError::Other(e.to_string()))?;
         window.set_always_on_top(true)
             .map_err(|e| AppError::Other(e.to_string()))?;
     } else {
-        // Move back to docked position
-        let x = logical_work_x + logical_work_width - logical_width;
-        window.set_position(LogicalPosition::new(x, _logical_work_y))
+        window.set_min_size(Some(LogicalSize::new(320.0, 400.0)))
+            .map_err(|e| AppError::Other(e.to_string()))?;
+
+        let x = logical_work_x + logical_work_width - full_width;
+        
+        window.set_size(LogicalSize::new(full_width, logical_work_height))
+            .map_err(|e| AppError::Other(e.to_string()))?;
+        window.set_position(LogicalPosition::new(x, logical_work_y))
             .map_err(|e| AppError::Other(e.to_string()))?;
         window.set_always_on_top(false)
             .map_err(|e| AppError::Other(e.to_string()))?;
     }
 
+    Ok(())
+}
+
+#[tauri::command]
+pub fn move_window(window: WebviewWindow, x: f64, y: f64) -> Result<()> {
+    window.set_position(LogicalPosition::new(x, y))
+        .map_err(|e| AppError::Other(e.to_string()))?;
     Ok(())
 }
 

@@ -7,45 +7,79 @@
 
   let elapsed = $derived(Math.floor(timerStore.elapsed));
   let isDragging = $state(false);
+  let hasMoved = $state(false);
   let startY = $state(0);
+  let startScreenY = $state<number | null>(null);
   let startTop = $state(0);
 
   async function toggleCollapse(e: MouseEvent | PointerEvent) {
-    // Prevent toggle if we were dragging
-    if (Math.abs(startY - (e as PointerEvent).clientY) > 5) return;
+    // If we moved more than a tiny bit, it's a drag, not a click
+    if (hasMoved) return;
     
     const newState = !uiStore.isCollapsed;
     uiStore.setCollapsed(newState);
-    await db.window.setCollapsed(newState);
+    await db.window.setCollapsed(newState, uiStore.handleTop);
   }
 
   function handlePointerDown(e: PointerEvent) {
-    if (e.button !== 0) return; // Only left click
+    if (e.button !== 0) return;
     isDragging = true;
+    hasMoved = false;
+    startScreenY = e.screenY;
     startY = e.clientY;
     startTop = uiStore.handleTop;
     const target = e.currentTarget as HTMLElement;
     target.setPointerCapture(e.pointerId);
   }
 
-  function handlePointerMove(e: PointerEvent) {
-    if (!isDragging) return;
+  async function handlePointerMove(e: PointerEvent) {
+    if (!isDragging || startScreenY === null) return;
     
-    const deltaY = e.clientY - startY;
+    const deltaY = e.screenY - startScreenY;
+    
+    // Only start moving if we've crossed a 3px threshold
+    if (!hasMoved) {
+      if (Math.abs(deltaY) < 3) return;
+      hasMoved = true;
+    }
+    
     let newTop = startTop + deltaY;
     
-    // Boundary checks (prevent dragging off screen)
     const padding = 10;
-    const handleHeight = uiStore.isCollapsed ? 140 : 56;
-    const maxTop = window.innerHeight - handleHeight - padding;
+    const handleHeight = 140;
     
-    newTop = Math.max(padding, Math.min(newTop, maxTop));
-    uiStore.setHandleTop(newTop);
+    try {
+      const { currentMonitor } = await import("@tauri-apps/api/window");
+      const monitor = await currentMonitor();
+      if (monitor) {
+        const scaleFactor = monitor.scaleFactor;
+        const workArea = monitor.workArea;
+        const monitorTop = workArea.position.y / scaleFactor;
+        const monitorHeight = workArea.size.height / scaleFactor;
+        const monitorWidth = workArea.size.width / scaleFactor;
+        const monitorLeft = workArea.position.x / scaleFactor;
+        
+        const maxTop = monitorHeight - (uiStore.isCollapsed ? handleHeight : 56) - padding;
+        newTop = Math.max(padding, Math.min(newTop, maxTop));
+        
+        uiStore.setHandleTop(newTop);
+
+        if (uiStore.isCollapsed) {
+          const logicalX = monitorLeft + monitorWidth - 44;
+          const logicalY = monitorTop + newTop;
+          await db.window.move(logicalX, logicalY);
+        }
+      }
+    } catch (err) {
+      console.error("Drag error:", err);
+      uiStore.setHandleTop(newTop);
+    }
   }
 
   function handlePointerUp(e: PointerEvent) {
     if (!isDragging) return;
     isDragging = false;
+    startScreenY = null;
     (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId);
   }
 </script>
@@ -53,7 +87,7 @@
 <div 
   class="collapse-handle-wrapper" 
   class:collapsed={uiStore.isCollapsed}
-  style="top: {uiStore.handleTop}px"
+  style={uiStore.isCollapsed ? "top: 0" : `top: ${uiStore.handleTop}px`}
 >
   {#if uiStore.isCollapsed}
     <button 
@@ -100,29 +134,31 @@
     right: 0;
     z-index: 10000;
     touch-action: none;
+    width: 44px; /* Fix wrapper width to handle size */
+    display: flex;
+    justify-content: flex-end;
   }
 
   .collapse-handle-wrapper.collapsed {
     left: 0;
-    right: auto;
-    width: 44px;
+    width: 100%; /* Take full width of the now-small window */
   }
 
   .handle {
-    width: 44px;
+    width: 100%;
     height: 140px;
     background: var(--accent);
     color: white;
     border: none;
-    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+    border-radius: 0; /* Square edges when collapsed against screen edge */
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     cursor: ns-resize;
-    box-shadow: 4px 0 15px rgba(0, 0, 0, 0.3);
+    box-shadow: none; /* Shadow not needed when window is tiny */
     padding: 0;
-    transition: width var(--transition-normal), background var(--transition-normal);
+    transition: background var(--transition-normal);
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-left: none;
   }
@@ -204,16 +240,13 @@
     transition: width var(--transition-fast), background var(--transition-fast);
     box-shadow: var(--shadow-md);
     z-index: 1000;
-  }
-
-  .collapse-btn.dragging {
-    background: var(--accent-hover);
-    box-shadow: var(--shadow-lg);
+    margin-right: -16px; /* Shift it slightly left so it's more visible on the edge */
   }
 
   .collapse-btn:hover {
     background: var(--accent-hover);
     width: 32px;
+    margin-right: -12px;
   }
 
   .idle-icon {
