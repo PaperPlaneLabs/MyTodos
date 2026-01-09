@@ -37,23 +37,38 @@
   // Long-press State
   let longPressTimer = $state<ReturnType<typeof setTimeout> | null>(null);
 
+  let lastEditingProjectId = $state<number | null>(null);
+
   $effect(() => {
-    // Sync projectName when project modal opens for editing
-    if (uiStore.showProjectModal && uiStore.editingProjectId) {
-      const project = projectStore.projects.find(p => p.id === uiStore.editingProjectId);
-      if (project) projectName = project.name;
-    } else if (uiStore.showProjectModal && !uiStore.editingProjectId) {  
-      projectName = "";
+    // Sync projectName ONLY when the modal opens or a different project is selected
+    if (uiStore.showProjectModal && uiStore.editingProjectId !== lastEditingProjectId) {
+      lastEditingProjectId = uiStore.editingProjectId;
+      if (uiStore.editingProjectId) {
+        const project = projectStore.projects.find(p => p.id === uiStore.editingProjectId);
+        if (project) projectName = project.name;
+      } else {
+        projectName = "";
+      }
+    } else if (!uiStore.showProjectModal) {
+      lastEditingProjectId = null;
     }
   });
 
+  let lastEditingTaskId = $state<number | null>(null);
+
   $effect(() => {
-    // Sync taskTitle when task modal opens for editing
-    if (uiStore.showTaskModal && uiStore.editingTaskId) {
-      const task = taskStore.tasks.find(t => t.id === uiStore.editingTaskId);
-      if (task) taskTitle = task.title;
-    } else if (uiStore.showTaskModal && !uiStore.editingTaskId) {        
-      taskTitle = "";
+    // Sync taskTitle ONLY when the modal opens or a different task is selected
+    // Don't reset if the tasks array updates while editing
+    if (uiStore.showTaskModal && uiStore.editingTaskId !== lastEditingTaskId) {
+      lastEditingTaskId = uiStore.editingTaskId;
+      if (uiStore.editingTaskId) {
+        const task = taskStore.tasks.find(t => t.id === uiStore.editingTaskId);
+        if (task) taskTitle = task.title;
+      } else {
+        taskTitle = "";
+      }
+    } else if (!uiStore.showTaskModal) {
+      lastEditingTaskId = null;
     }
   });
 
@@ -94,16 +109,13 @@
   async function handleEditTask() {
     if (!taskTitle.trim()) return;
     if (!uiStore.editingTaskId) return;
-    
+
     try {
       await taskStore.updateTask(uiStore.editingTaskId, taskTitle);
       uiStore.closeTaskModal();
     } catch (e) {
       console.error("Error updating task:", e);
       // Could show a toast/alert to user here
-    }
-  } catch (e) {
-      console.error("Error creating task in UI:", e);
     }
   }
 
