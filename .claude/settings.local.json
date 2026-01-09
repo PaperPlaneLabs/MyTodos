@@ -33,7 +33,11 @@
       "Bash(npm run tauri:dev:*)",
       "Bash(npm run:*)",
       "Bash(gh run list:*)",
-      "Bash(gh run view:*)"
+      "Bash(gh run view:*)",
+      "mcp__plugin_serena_serena__find_symbol",
+      "mcp__plugin_serena_serena__activate_project",
+      "mcp__plugin_serena_serena__search_for_pattern",
+      "mcp__plugin_serena_serena__replace_symbol_body"
     ]
   }
 }

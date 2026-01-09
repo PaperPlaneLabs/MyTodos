@@ -107,14 +107,29 @@ pub fn update_project(
     let conn = db.lock();
     let now = get_timestamp();
 
-    let project = get_project(db.clone(), id)?;
+    // Fetch current project values within the same lock scope
+    let mut stmt = conn.prepare(
+        "SELECT name, description, color FROM projects WHERE id = ?"
+    )?;
+    
+    let (current_name, current_description, current_color) = stmt
+        .query_row([id], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, Option<String>>(1)?,
+                row.get::<_, String>(2)?,
+            ))
+        })
+        .map_err(|_| AppError::NotFound(format!("Project with id {} not found", id)))?;
+
+    drop(stmt);
 
     conn.execute(
         "UPDATE projects SET name = ?, description = ?, color = ?, updated_at = ? WHERE id = ?",
         (
-            name.unwrap_or(project.name),
-            description.or(project.description),
-            color.unwrap_or(project.color),
+            name.unwrap_or(current_name),
+            description.or(current_description),
+            color.unwrap_or(current_color),
             now,
             id,
         ),
