@@ -11,22 +11,23 @@ pub fn get_all_projects(db: State<DbConnection>) -> Result<Vec<Project>> {
     let conn = db.lock();
     let mut stmt = conn.prepare(
         "SELECT id, name, description, color, position, total_time_seconds, created_at, updated_at
-         FROM projects ORDER BY position ASC"
+         FROM projects ORDER BY position ASC",
     )?;
 
-    let projects = stmt.query_map([], |row| {
-        Ok(Project {
-            id: row.get(0)?,
-            name: row.get(1)?,
-            description: row.get(2)?,
-            color: row.get(3)?,
-            position: row.get(4)?,
-            total_time_seconds: row.get(5)?,
-            created_at: row.get(6)?,
-            updated_at: row.get(7)?,
-        })
-    })?
-    .collect::<std::result::Result<Vec<_>, _>>()?;
+    let projects = stmt
+        .query_map([], |row| {
+            Ok(Project {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                description: row.get(2)?,
+                color: row.get(3)?,
+                position: row.get(4)?,
+                total_time_seconds: row.get(5)?,
+                created_at: row.get(6)?,
+                updated_at: row.get(7)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
 
     Ok(projects)
 }
@@ -36,7 +37,7 @@ pub fn get_project(db: State<DbConnection>, id: i64) -> Result<Project> {
     let conn = db.lock();
     let mut stmt = conn.prepare(
         "SELECT id, name, description, color, position, total_time_seconds, created_at, updated_at
-         FROM projects WHERE id = ?"
+         FROM projects WHERE id = ?",
     )?;
 
     stmt.query_row([id], |row| {
@@ -66,20 +67,17 @@ pub fn create_project(
     let color = color.unwrap_or_else(|| "#6366f1".to_string());
 
     let max_position: i32 = conn
-        .query_row("SELECT COALESCE(MAX(position), -1) FROM projects", [], |row| row.get(0))
+        .query_row(
+            "SELECT COALESCE(MAX(position), -1) FROM projects",
+            [],
+            |row| row.get(0),
+        )
         .unwrap_or(0);
 
     conn.execute(
         "INSERT INTO projects (name, description, color, position, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?, ?)",
-        (
-            &name,
-            &description,
-            &color,
-            max_position + 1,
-            now,
-            now,
-        ),
+        (&name, &description, &color, max_position + 1, now, now),
     )?;
 
     let id = conn.last_insert_rowid();
@@ -108,10 +106,8 @@ pub fn update_project(
     let now = get_timestamp();
 
     // Fetch current project values within the same lock scope
-    let mut stmt = conn.prepare(
-        "SELECT name, description, color FROM projects WHERE id = ?"
-    )?;
-    
+    let mut stmt = conn.prepare("SELECT name, description, color FROM projects WHERE id = ?")?;
+
     let (current_name, current_description, current_color) = stmt
         .query_row([id], |row| {
             Ok((
@@ -144,7 +140,10 @@ pub fn delete_project(db: State<DbConnection>, id: i64) -> Result<()> {
     let rows = conn.execute("DELETE FROM projects WHERE id = ?", [id])?;
 
     if rows == 0 {
-        return Err(AppError::NotFound(format!("Project with id {} not found", id)));
+        return Err(AppError::NotFound(format!(
+            "Project with id {} not found",
+            id
+        )));
     }
 
     Ok(())
@@ -172,7 +171,7 @@ pub fn get_project_stats(db: State<DbConnection>, project_id: i64) -> Result<Pro
         "SELECT COUNT(*) as task_count,
                 SUM(CASE WHEN completed = 1 THEN 1 ELSE 0 END) as completed_count,
                 COALESCE(SUM(total_time_seconds), 0) as total_time
-         FROM tasks WHERE project_id = ?"
+         FROM tasks WHERE project_id = ?",
     )?;
 
     let stats = stmt.query_row([project_id], |row| {

@@ -1,8 +1,8 @@
+use crate::error::Result;
 use parking_lot::Mutex;
 use rusqlite::Connection;
-use std::sync::Arc;
 use std::path::PathBuf;
-use crate::error::Result;
+use std::sync::Arc;
 
 pub type DbConnection = Arc<Mutex<Connection>>;
 
@@ -31,8 +31,9 @@ fn get_database_path() -> PathBuf {
 pub fn initialize_connection() -> Result<DbConnection> {
     let db_dir = get_database_path();
 
-    std::fs::create_dir_all(&db_dir)
-        .map_err(|e| crate::error::AppError::InvalidInput(format!("Could not create database directory: {}", e)))?;
+    std::fs::create_dir_all(&db_dir).map_err(|e| {
+        crate::error::AppError::InvalidInput(format!("Could not create database directory: {}", e))
+    })?;
 
     let db_path = db_dir.join("todos.db");
     let conn = Connection::open(db_path)?;

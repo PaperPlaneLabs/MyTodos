@@ -1,6 +1,6 @@
 use crate::db::{DbConnection, WindowState};
-use crate::error::{Result, AppError};
-use tauri::{State, WebviewWindow, LogicalPosition, LogicalSize};
+use crate::error::{AppError, Result};
+use tauri::{LogicalPosition, LogicalSize, State, WebviewWindow};
 
 fn get_timestamp() -> i64 {
     chrono::Utc::now().timestamp()
@@ -8,15 +8,21 @@ fn get_timestamp() -> i64 {
 
 #[tauri::command]
 pub fn minimize_window(window: WebviewWindow) -> Result<()> {
-    window.minimize().map_err(|e| AppError::Other(e.to_string()))
+    window
+        .minimize()
+        .map_err(|e| AppError::Other(e.to_string()))
 }
 
 #[tauri::command]
 pub fn toggle_maximize(window: WebviewWindow) -> Result<()> {
     if window.is_maximized().unwrap_or(false) {
-        window.unmaximize().map_err(|e| AppError::Other(e.to_string()))
+        window
+            .unmaximize()
+            .map_err(|e| AppError::Other(e.to_string()))
     } else {
-        window.maximize().map_err(|e| AppError::Other(e.to_string()))
+        window
+            .maximize()
+            .map_err(|e| AppError::Other(e.to_string()))
     }
 }
 
@@ -34,7 +40,7 @@ pub fn dock_window(window: WebviewWindow, side: String) -> Result<()> {
 
     let scale_factor = monitor.scale_factor();
     let work_area = monitor.work_area();
-    
+
     // Convert physical work area to logical
     let logical_work_x = (work_area.position.x as f64) / scale_factor;
     let logical_work_y = (work_area.position.y as f64) / scale_factor;
@@ -44,17 +50,22 @@ pub fn dock_window(window: WebviewWindow, side: String) -> Result<()> {
     // Logical size for the window
     let logical_width = 380.0;
     let logical_height = logical_work_height;
-    
+
     let pos = if side == "left" {
         LogicalPosition::new(logical_work_x, logical_work_y)
     } else {
-        LogicalPosition::new(logical_work_x + logical_work_width - logical_width, logical_work_y)
+        LogicalPosition::new(
+            logical_work_x + logical_work_width - logical_width,
+            logical_work_y,
+        )
     };
 
-    window.set_size(LogicalSize::new(logical_width, logical_height))
+    window
+        .set_size(LogicalSize::new(logical_width, logical_height))
         .map_err(|e| AppError::Other(e.to_string()))?;
-    
-    window.set_position(pos)
+
+    window
+        .set_position(pos)
         .map_err(|e| AppError::Other(e.to_string()))?;
 
     Ok(())
@@ -69,7 +80,7 @@ pub fn set_collapsed(window: WebviewWindow, collapsed: bool, top: f64) -> Result
 
     let scale_factor = monitor.scale_factor();
     let work_area = monitor.work_area();
-    
+
     let logical_work_x = (work_area.position.x as f64) / scale_factor;
     let logical_work_y = (work_area.position.y as f64) / scale_factor;
     let logical_work_width = (work_area.size.width as f64) / scale_factor;
@@ -80,28 +91,36 @@ pub fn set_collapsed(window: WebviewWindow, collapsed: bool, top: f64) -> Result
     let handle_height = 140.0;
 
     if collapsed {
-        window.set_min_size(Some(LogicalSize::new(handle_width, handle_height)))
+        window
+            .set_min_size(Some(LogicalSize::new(handle_width, handle_height)))
             .map_err(|e| AppError::Other(e.to_string()))?;
 
         let x = logical_work_x + logical_work_width - handle_width;
-        
-        window.set_size(LogicalSize::new(handle_width, handle_height))
+
+        window
+            .set_size(LogicalSize::new(handle_width, handle_height))
             .map_err(|e| AppError::Other(e.to_string()))?;
-        window.set_position(LogicalPosition::new(x, logical_work_y + top))
+        window
+            .set_position(LogicalPosition::new(x, logical_work_y + top))
             .map_err(|e| AppError::Other(e.to_string()))?;
-        window.set_always_on_top(true)
+        window
+            .set_always_on_top(true)
             .map_err(|e| AppError::Other(e.to_string()))?;
     } else {
-        window.set_min_size(Some(LogicalSize::new(320.0, 400.0)))
+        window
+            .set_min_size(Some(LogicalSize::new(320.0, 400.0)))
             .map_err(|e| AppError::Other(e.to_string()))?;
 
         let x = logical_work_x + logical_work_width - full_width;
-        
-        window.set_size(LogicalSize::new(full_width, logical_work_height))
+
+        window
+            .set_size(LogicalSize::new(full_width, logical_work_height))
             .map_err(|e| AppError::Other(e.to_string()))?;
-        window.set_position(LogicalPosition::new(x, logical_work_y))
+        window
+            .set_position(LogicalPosition::new(x, logical_work_y))
             .map_err(|e| AppError::Other(e.to_string()))?;
-        window.set_always_on_top(false)
+        window
+            .set_always_on_top(false)
             .map_err(|e| AppError::Other(e.to_string()))?;
     }
 
@@ -110,14 +129,17 @@ pub fn set_collapsed(window: WebviewWindow, collapsed: bool, top: f64) -> Result
 
 #[tauri::command]
 pub fn move_window(window: WebviewWindow, x: f64, y: f64) -> Result<()> {
-    window.set_position(LogicalPosition::new(x, y))
+    window
+        .set_position(LogicalPosition::new(x, y))
         .map_err(|e| AppError::Other(e.to_string()))?;
     Ok(())
 }
 
 #[tauri::command]
 pub fn start_window_drag(window: WebviewWindow) -> Result<()> {
-    window.start_dragging().map_err(|e| AppError::Other(e.to_string()))
+    window
+        .start_dragging()
+        .map_err(|e| AppError::Other(e.to_string()))
 }
 
 #[tauri::command]

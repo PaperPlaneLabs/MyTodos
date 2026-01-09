@@ -14,21 +14,22 @@ pub fn get_tasks_by_project(db: State<DbConnection>, project_id: i64) -> Result<
          FROM tasks WHERE project_id = ? ORDER BY position ASC"
     )?;
 
-    let tasks = stmt.query_map([project_id], |row| {
-        Ok(Task {
-            id: row.get(0)?,
-            project_id: row.get(1)?,
-            section_id: row.get(2)?,
-            title: row.get(3)?,
-            description: row.get(4)?,
-            completed: row.get(5)?,
-            position: row.get(6)?,
-            total_time_seconds: row.get(7)?,
-            created_at: row.get(8)?,
-            updated_at: row.get(9)?,
-        })
-    })?
-    .collect::<std::result::Result<Vec<_>, _>>()?;
+    let tasks = stmt
+        .query_map([project_id], |row| {
+            Ok(Task {
+                id: row.get(0)?,
+                project_id: row.get(1)?,
+                section_id: row.get(2)?,
+                title: row.get(3)?,
+                description: row.get(4)?,
+                completed: row.get(5)?,
+                position: row.get(6)?,
+                total_time_seconds: row.get(7)?,
+                created_at: row.get(8)?,
+                updated_at: row.get(9)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
 
     Ok(tasks)
 }
@@ -41,21 +42,22 @@ pub fn get_unassigned_tasks(db: State<DbConnection>) -> Result<Vec<Task>> {
          FROM tasks WHERE project_id IS NULL ORDER BY position ASC"
     )?;
 
-    let tasks = stmt.query_map([], |row| {
-        Ok(Task {
-            id: row.get(0)?,
-            project_id: row.get(1)?,
-            section_id: row.get(2)?,
-            title: row.get(3)?,
-            description: row.get(4)?,
-            completed: row.get(5)?,
-            position: row.get(6)?,
-            total_time_seconds: row.get(7)?,
-            created_at: row.get(8)?,
-            updated_at: row.get(9)?,
-        })
-    })?
-    .collect::<std::result::Result<Vec<_>, _>>()?;
+    let tasks = stmt
+        .query_map([], |row| {
+            Ok(Task {
+                id: row.get(0)?,
+                project_id: row.get(1)?,
+                section_id: row.get(2)?,
+                title: row.get(3)?,
+                description: row.get(4)?,
+                completed: row.get(5)?,
+                position: row.get(6)?,
+                total_time_seconds: row.get(7)?,
+                created_at: row.get(8)?,
+                updated_at: row.get(9)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
 
     Ok(tasks)
 }
@@ -68,21 +70,22 @@ pub fn get_tasks_by_section(db: State<DbConnection>, section_id: i64) -> Result<
          FROM tasks WHERE section_id = ? ORDER BY position ASC"
     )?;
 
-    let tasks = stmt.query_map([section_id], |row| {
-        Ok(Task {
-            id: row.get(0)?,
-            project_id: row.get(1)?,
-            section_id: row.get(2)?,
-            title: row.get(3)?,
-            description: row.get(4)?,
-            completed: row.get(5)?,
-            position: row.get(6)?,
-            total_time_seconds: row.get(7)?,
-            created_at: row.get(8)?,
-            updated_at: row.get(9)?,
-        })
-    })?
-    .collect::<std::result::Result<Vec<_>, _>>()?;
+    let tasks = stmt
+        .query_map([section_id], |row| {
+            Ok(Task {
+                id: row.get(0)?,
+                project_id: row.get(1)?,
+                section_id: row.get(2)?,
+                title: row.get(3)?,
+                description: row.get(4)?,
+                completed: row.get(5)?,
+                position: row.get(6)?,
+                total_time_seconds: row.get(7)?,
+                created_at: row.get(8)?,
+                updated_at: row.get(9)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
 
     Ok(tasks)
 }
@@ -160,9 +163,7 @@ pub fn update_task(
     let conn = db.lock();
     let now = get_timestamp();
 
-    let mut stmt = conn.prepare(
-        "SELECT title, description, completed FROM tasks WHERE id = ?"
-    )?;
+    let mut stmt = conn.prepare("SELECT title, description, completed FROM tasks WHERE id = ?")?;
 
     let (current_title, current_description, current_completed) = stmt
         .query_row([id], |row| {
@@ -206,7 +207,9 @@ pub fn toggle_task_completion(db: State<DbConnection>, id: i64) -> Result<bool> 
     let now = get_timestamp();
 
     let completed: bool = conn
-        .query_row("SELECT completed FROM tasks WHERE id = ?", [id], |row| row.get(0))
+        .query_row("SELECT completed FROM tasks WHERE id = ?", [id], |row| {
+            row.get(0)
+        })
         .map_err(|_| AppError::NotFound(format!("Task with id {} not found", id)))?;
 
     let new_completed = !completed;
@@ -242,7 +245,7 @@ pub fn reset_task_time(db: State<DbConnection>, id: i64) -> Result<()> {
         .query_row(
             "SELECT project_id, section_id, total_time_seconds FROM tasks WHERE id = ?",
             [id],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?))
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )
         .map_err(|_| AppError::NotFound(format!("Task with id {} not found", id)))?;
 
@@ -250,22 +253,19 @@ pub fn reset_task_time(db: State<DbConnection>, id: i64) -> Result<()> {
     conn.execute("DELETE FROM time_entries WHERE task_id = ?", [id])?;
 
     // Reset task's total time
-    conn.execute(
-        "UPDATE tasks SET total_time_seconds = 0 WHERE id = ?",
-        [id]
-    )?;
+    conn.execute("UPDATE tasks SET total_time_seconds = 0 WHERE id = ?", [id])?;
 
     // Update project's total time (subtract the task's time)
     conn.execute(
         "UPDATE projects SET total_time_seconds = total_time_seconds - ? WHERE id = ?",
-        (current_time, project_id)
+        (current_time, project_id),
     )?;
 
     // If task belongs to a section, update section's total time too
     if let Some(sid) = section_id {
         conn.execute(
             "UPDATE sections SET total_time_seconds = total_time_seconds - ? WHERE id = ?",
-            (current_time, sid)
+            (current_time, sid),
         )?;
     }
 

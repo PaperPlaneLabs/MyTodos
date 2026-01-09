@@ -1,5 +1,5 @@
-use rusqlite::Connection;
 use crate::error::Result;
+use rusqlite::Connection;
 
 pub fn initialize_schema(conn: &Connection) -> Result<()> {
     conn.execute_batch(
@@ -84,7 +84,7 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
 
     // Try to check if we need to migrate (this is a simple way to handle it for now)
     let _ = conn.execute("PRAGMA foreign_keys = OFF", []);
-    // We won't do a full migration here to avoid data loss risk, 
+    // We won't do a full migration here to avoid data loss risk,
     // but the issue is likely that existing databases have NOT NULL.
     let _ = conn.execute("PRAGMA foreign_keys = ON", []);
 

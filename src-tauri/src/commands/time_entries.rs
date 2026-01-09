@@ -20,11 +20,16 @@ pub fn create_manual_entry(
         .unwrap_or(false);
 
     if !task_exists {
-        return Err(AppError::NotFound(format!("Task with id {} not found", task_id)));
+        return Err(AppError::NotFound(format!(
+            "Task with id {} not found",
+            task_id
+        )));
     }
 
     if duration_seconds <= 0 {
-        return Err(AppError::InvalidInput("Duration must be positive".to_string()));
+        return Err(AppError::InvalidInput(
+            "Duration must be positive".to_string(),
+        ));
     }
 
     let now = get_timestamp();
@@ -42,8 +47,11 @@ pub fn create_manual_entry(
         (duration_seconds, task_id),
     )?;
 
-    let project_id: i64 = conn
-        .query_row("SELECT project_id FROM tasks WHERE id = ?", [task_id], |row| row.get(0))?;
+    let project_id: i64 = conn.query_row(
+        "SELECT project_id FROM tasks WHERE id = ?",
+        [task_id],
+        |row| row.get(0),
+    )?;
 
     conn.execute(
         "UPDATE projects SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
@@ -51,7 +59,11 @@ pub fn create_manual_entry(
     )?;
 
     let section_id: Option<i64> = conn
-        .query_row("SELECT section_id FROM tasks WHERE id = ?", [task_id], |row| row.get(0))
+        .query_row(
+            "SELECT section_id FROM tasks WHERE id = ?",
+            [task_id],
+            |row| row.get(0),
+        )
         .ok();
 
     if let Some(sid) = section_id {
@@ -78,22 +90,23 @@ pub fn get_time_entries_by_task(db: State<DbConnection>, task_id: i64) -> Result
     let conn = db.lock();
     let mut stmt = conn.prepare(
         "SELECT id, task_id, entry_type, duration_seconds, started_at, ended_at, note, created_at
-         FROM time_entries WHERE task_id = ? ORDER BY created_at DESC"
+         FROM time_entries WHERE task_id = ? ORDER BY created_at DESC",
     )?;
 
-    let entries = stmt.query_map([task_id], |row| {
-        Ok(TimeEntry {
-            id: row.get(0)?,
-            task_id: row.get(1)?,
-            entry_type: row.get(2)?,
-            duration_seconds: row.get(3)?,
-            started_at: row.get(4)?,
-            ended_at: row.get(5)?,
-            note: row.get(6)?,
-            created_at: row.get(7)?,
-        })
-    })?
-    .collect::<std::result::Result<Vec<_>, _>>()?;
+    let entries = stmt
+        .query_map([task_id], |row| {
+            Ok(TimeEntry {
+                id: row.get(0)?,
+                task_id: row.get(1)?,
+                entry_type: row.get(2)?,
+                duration_seconds: row.get(3)?,
+                started_at: row.get(4)?,
+                ended_at: row.get(5)?,
+                note: row.get(6)?,
+                created_at: row.get(7)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
 
     Ok(entries)
 }
@@ -108,15 +121,24 @@ pub fn update_time_entry(
     let conn = db.lock();
 
     if duration_seconds <= 0 {
-        return Err(AppError::InvalidInput("Duration must be positive".to_string()));
+        return Err(AppError::InvalidInput(
+            "Duration must be positive".to_string(),
+        ));
     }
 
     let old_duration: i64 = conn
-        .query_row("SELECT duration_seconds FROM time_entries WHERE id = ?", [id], |row| row.get(0))
+        .query_row(
+            "SELECT duration_seconds FROM time_entries WHERE id = ?",
+            [id],
+            |row| row.get(0),
+        )
         .map_err(|_| AppError::NotFound(format!("Time entry with id {} not found", id)))?;
 
-    let task_id: i64 = conn
-        .query_row("SELECT task_id FROM time_entries WHERE id = ?", [id], |row| row.get(0))?;
+    let task_id: i64 = conn.query_row(
+        "SELECT task_id FROM time_entries WHERE id = ?",
+        [id],
+        |row| row.get(0),
+    )?;
 
     conn.execute(
         "UPDATE time_entries SET duration_seconds = ?, note = ? WHERE id = ?",
@@ -130,8 +152,11 @@ pub fn update_time_entry(
         (diff, task_id),
     )?;
 
-    let project_id: i64 = conn
-        .query_row("SELECT project_id FROM tasks WHERE id = ?", [task_id], |row| row.get(0))?;
+    let project_id: i64 = conn.query_row(
+        "SELECT project_id FROM tasks WHERE id = ?",
+        [task_id],
+        |row| row.get(0),
+    )?;
 
     conn.execute(
         "UPDATE projects SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
@@ -139,7 +164,11 @@ pub fn update_time_entry(
     )?;
 
     let section_id: Option<i64> = conn
-        .query_row("SELECT section_id FROM tasks WHERE id = ?", [task_id], |row| row.get(0))
+        .query_row(
+            "SELECT section_id FROM tasks WHERE id = ?",
+            [task_id],
+            |row| row.get(0),
+        )
         .ok();
 
     if let Some(sid) = section_id {
@@ -160,7 +189,7 @@ pub fn delete_time_entry(db: State<DbConnection>, id: i64) -> Result<()> {
         .query_row(
             "SELECT task_id, duration_seconds FROM time_entries WHERE id = ?",
             [id],
-            |row| Ok((row.get(0)?, row.get(1)?))
+            |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .map_err(|_| AppError::NotFound(format!("Time entry with id {} not found", id)))?;
 
@@ -171,8 +200,11 @@ pub fn delete_time_entry(db: State<DbConnection>, id: i64) -> Result<()> {
         (duration, task_id),
     )?;
 
-    let project_id: i64 = conn
-        .query_row("SELECT project_id FROM tasks WHERE id = ?", [task_id], |row| row.get(0))?;
+    let project_id: i64 = conn.query_row(
+        "SELECT project_id FROM tasks WHERE id = ?",
+        [task_id],
+        |row| row.get(0),
+    )?;
 
     conn.execute(
         "UPDATE projects SET total_time_seconds = total_time_seconds - ? WHERE id = ?",
@@ -180,7 +212,11 @@ pub fn delete_time_entry(db: State<DbConnection>, id: i64) -> Result<()> {
     )?;
 
     let section_id: Option<i64> = conn
-        .query_row("SELECT section_id FROM tasks WHERE id = ?", [task_id], |row| row.get(0))
+        .query_row(
+            "SELECT section_id FROM tasks WHERE id = ?",
+            [task_id],
+            |row| row.get(0),
+        )
         .ok();
 
     if let Some(sid) = section_id {

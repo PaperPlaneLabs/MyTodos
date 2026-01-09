@@ -50,7 +50,10 @@ pub fn start_timer(db: State<DbConnection>, task_id: i64) -> Result<ActiveTimer>
         .unwrap_or(false);
 
     if !task_exists {
-        return Err(AppError::NotFound(format!("Task with id {} not found", task_id)));
+        return Err(AppError::NotFound(format!(
+            "Task with id {} not found",
+            task_id
+        )));
     }
 
     let now = get_timestamp();
@@ -62,7 +65,9 @@ pub fn start_timer(db: State<DbConnection>, task_id: i64) -> Result<ActiveTimer>
     )?;
 
     let task_title: Option<String> = conn
-        .query_row("SELECT title FROM tasks WHERE id = ?", [task_id], |row| row.get(0))
+        .query_row("SELECT title FROM tasks WHERE id = ?", [task_id], |row| {
+            row.get(0)
+        })
         .ok();
 
     Ok(ActiveTimer {
@@ -76,8 +81,7 @@ pub fn start_timer(db: State<DbConnection>, task_id: i64) -> Result<ActiveTimer>
 
 #[tauri::command]
 pub fn pause_timer(db: State<DbConnection>) -> Result<()> {
-    let timer = get_active_timer(db.clone())?
-        .ok_or(AppError::NoActiveTimer)?;
+    let timer = get_active_timer(db.clone())?.ok_or(AppError::NoActiveTimer)?;
 
     if !timer.is_running {
         return Ok(());
@@ -98,8 +102,7 @@ pub fn pause_timer(db: State<DbConnection>) -> Result<()> {
 
 #[tauri::command]
 pub fn resume_timer(db: State<DbConnection>) -> Result<()> {
-    let timer = get_active_timer(db.clone())?
-        .ok_or(AppError::NoActiveTimer)?;
+    let timer = get_active_timer(db.clone())?.ok_or(AppError::NoActiveTimer)?;
 
     if timer.is_running {
         return Ok(());
@@ -119,8 +122,7 @@ pub fn resume_timer(db: State<DbConnection>) -> Result<()> {
 
 #[tauri::command]
 pub fn stop_timer(db: State<DbConnection>) -> Result<TimeEntry> {
-    let timer = get_active_timer(db.clone())?
-        .ok_or(AppError::NoActiveTimer)?;
+    let timer = get_active_timer(db.clone())?.ok_or(AppError::NoActiveTimer)?;
 
     let conn = db.lock();
 
@@ -144,8 +146,11 @@ pub fn stop_timer(db: State<DbConnection>) -> Result<TimeEntry> {
         (total_duration, timer.task_id),
     )?;
 
-    let project_id: i64 = conn
-        .query_row("SELECT project_id FROM tasks WHERE id = ?", [timer.task_id], |row| row.get(0))?;
+    let project_id: i64 = conn.query_row(
+        "SELECT project_id FROM tasks WHERE id = ?",
+        [timer.task_id],
+        |row| row.get(0),
+    )?;
 
     conn.execute(
         "UPDATE projects SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
@@ -153,7 +158,11 @@ pub fn stop_timer(db: State<DbConnection>) -> Result<TimeEntry> {
     )?;
 
     let section_id: Option<i64> = conn
-        .query_row("SELECT section_id FROM tasks WHERE id = ?", [timer.task_id], |row| row.get(0))
+        .query_row(
+            "SELECT section_id FROM tasks WHERE id = ?",
+            [timer.task_id],
+            |row| row.get(0),
+        )
         .ok();
 
     if let Some(sid) = section_id {
@@ -179,8 +188,7 @@ pub fn stop_timer(db: State<DbConnection>) -> Result<TimeEntry> {
 
 #[tauri::command]
 pub fn reset_timer(db: State<DbConnection>) -> Result<()> {
-    let _timer = get_active_timer(db.clone())?
-        .ok_or(AppError::NoActiveTimer)?;
+    let _timer = get_active_timer(db.clone())?.ok_or(AppError::NoActiveTimer)?;
 
     let conn = db.lock();
 
