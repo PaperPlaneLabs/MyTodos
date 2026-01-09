@@ -448,7 +448,7 @@
           </div>
 
           <div class="tasks-list" role="list">
-            {#each taskStore.tasks as task, index (task.id)}
+            {#each taskStore.activeTasks as task, index (task.id)}
               <div
                 animate:flip={{ duration: 300 }}
                 transition:slide={{ duration: 200 }}
@@ -524,6 +524,68 @@
                 </div>
               </div>
             {/each}
+
+            {#if taskStore.completedTasks.length > 0}
+              <div class="completed-separator" transition:slide={{ duration: 200 }}>
+                <span class="completed-label">Completed</span>
+                <div class="completed-line"></div>
+                <span class="completed-count">{taskStore.completedTasks.length}</span>
+              </div>
+
+              {#each taskStore.completedTasks as task, index (task.id)}
+                {@const globalIndex = index + taskStore.activeTasks.length}
+                <div
+                  animate:flip={{ duration: 300 }}
+                  transition:slide={{ duration: 200 }}
+                  class="task-item-wrapper"
+                  data-index={globalIndex}
+                  class:dragging={isDragging && draggedId === task.id}       
+                >
+                  <div
+                    class="task-item"
+                    oncontextmenu={(e) => handleContextMenu(e, "task", task.id)}
+                    onpointerdown={(e) => {
+                      const target = e.target as HTMLElement;
+                      if (target.closest('.checkbox-container') || target.closest('.task-controls')) return;
+                      handlePointerDown(e, "task", task.id, globalIndex);
+                    }}
+                  >
+                    <div
+                      class="drag-handle-task"
+                      onpointerdown={(e) => {
+                        e.stopPropagation();
+                        handlePointerDown(e, "task", task.id, globalIndex);        
+                      }}
+                    >⋮⋮</div>
+                    <label class="checkbox-container">
+                      <input
+                        type="checkbox"
+                        checked={task.completed}
+                        onchange={() => taskStore.toggleCompletion(task.id)} 
+                        class="task-checkbox-hidden"
+                      />
+                      <span class="checkbox-custom"></span>
+                    </label>
+                    <div class="task-content">
+                      <div class="task-title" class:completed={task.completed}>{task.title}</div>
+                      <div class="task-meta">
+                        {#if task.total_time_seconds > 0 && task.project_id} 
+                          <div class="task-time text-xs">
+                            <span class="time-icon">⏱</span>
+                            <TimeDisplay seconds={task.total_time_seconds} />
+                          </div>
+                        {/if}
+                      </div>
+                    </div>
+                    <div class="task-controls">
+                      {#if task.project_id && task.total_time_seconds > 0}
+                        <button class="btn-icon-compact btn-reset" onclick={() => openResetModal(task.id)} title="Reset all time for this task">⟲</button>
+                      {/if}
+                    </div>
+                  </div>
+                </div>
+              {/each}
+            {/if}
 
             {#if taskStore.tasks.length === 0}
               <div class="empty-state">
@@ -700,6 +762,39 @@
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
+  }
+
+  .completed-separator {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md) 0 var(--spacing-sm);
+    user-select: none;
+  }
+
+  .completed-label {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-tertiary);
+    white-space: nowrap;
+  }
+
+  .completed-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--border) 0%, transparent 100%);
+  }
+
+  .completed-count {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    background-color: var(--bg-secondary);
+    padding: 2px 6px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
   }
 
   .draggable-wrapper, .task-item-wrapper {

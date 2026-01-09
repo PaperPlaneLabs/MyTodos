@@ -6,9 +6,22 @@ let currentProjectId = $state<number | null>(null);
 let loading = $state(false);
 let error = $state<string | null>(null);
 
+let sortedTasks = $derived([...tasks].sort((a, b) => {
+  if (a.completed !== b.completed) return a.completed ? 1 : -1;
+  return a.position - b.position;
+}));
+
 export const taskStore = {
   get tasks() {
-    return tasks;
+    return sortedTasks;
+  },
+
+  get activeTasks() {
+    return sortedTasks.filter(t => !t.completed);
+  },
+
+  get completedTasks() {
+    return sortedTasks.filter(t => t.completed);
   },
 
   get sections() {
@@ -69,6 +82,9 @@ export const taskStore = {
           ? { ...t, title: title ?? t.title, description: description ?? t.description, completed: completed ?? t.completed }
           : t
       );
+      if (completed !== undefined) {
+        await db.tasks.reorder(sortedTasks.map(t => t.id));
+      }
     } catch (e) {
       error = e instanceof Error ? e.message : "Failed to update task";
       console.error("Failed to update task:", e);
@@ -93,6 +109,11 @@ export const taskStore = {
       error = null;
       const newCompleted = await db.tasks.toggleCompletion(id);
       tasks = tasks.map((t) => (t.id === id ? { ...t, completed: newCompleted } : t));
+      
+      // Persist the new order because completed tasks should move to the bottom
+      const sortedIds = sortedTasks.map(t => t.id);
+      await db.tasks.reorder(sortedIds);
+      
       return newCompleted;
     } catch (e) {
       error = e instanceof Error ? e.message : "Failed to toggle task";
@@ -135,10 +156,13 @@ export const taskStore = {
 
   reorderLocal(fromIndex: number, toIndex: number) {
     if (fromIndex === toIndex) return;
-    const newTasks = [...tasks];
+    const currentTasks = sortedTasks;
+    const newTasks = [...currentTasks];
     const [moved] = newTasks.splice(fromIndex, 1);
     newTasks.splice(toIndex, 0, moved);
-    tasks = newTasks;
+    
+    // Update the position property to match the new order
+    tasks = newTasks.map((t, i) => ({ ...t, position: i }));
   },
 
   async resetTaskTime(id: number) {
