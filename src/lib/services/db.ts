@@ -133,5 +133,11 @@ export const db = {
     startDragging: () => invoke<void>("start_window_drag"),
   },
 
+  autostart: {
+    enable: () => invoke<void>("enable_autostart"),
+    disable: () => invoke<void>("disable_autostart"),
+    isEnabled: () => invoke<boolean>("is_autostart_enabled"),
+  },
+
   initialize: () => invoke<void>("initialize_database"),
 };
