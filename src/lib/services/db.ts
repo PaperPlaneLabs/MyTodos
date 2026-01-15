@@ -134,9 +134,9 @@ export const db = {
   },
 
   autostart: {
-    enable: () => invoke<void>("enable_autostart"),
-    disable: () => invoke<void>("disable_autostart"),
-    isEnabled: () => invoke<boolean>("is_autostart_enabled"),
+    enable: () => invoke<void>("plugin:autostart|enable"),
+    disable: () => invoke<void>("plugin:autostart|disable"),
+    isEnabled: () => invoke<boolean>("plugin:autostart|is_enabled"),
   },
 
   initialize: () => invoke<void>("initialize_database"),

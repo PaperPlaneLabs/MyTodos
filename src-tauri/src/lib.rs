@@ -3,6 +3,7 @@ mod db;
 mod error;
 
 use db::{initialize_connection, initialize_schema, DbConnection};
+use tauri_plugin_autostart::MacosLauncher::LaunchAgent;
 
 #[tauri::command]
 fn initialize_database(db: tauri::State<DbConnection>) -> Result<(), String> {
@@ -22,13 +23,13 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_autostart::init())
+        .plugin(tauri_plugin_autostart::init(
+            LaunchAgent,
+            Some(vec![]),
+        ))
         .manage(db_conn)
         .invoke_handler(tauri::generate_handler![
             initialize_database,
-            commands::enable_autostart,
-            commands::disable_autostart,
-            commands::is_autostart_enabled,
             commands::get_all_projects,
             commands::get_project,
             commands::create_project,
