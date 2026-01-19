@@ -39,10 +39,10 @@ $packageJson = Get-Content $packageJsonPath -Raw
 $packageJson = $packageJson -replace '"version"\s*:\s*"[^"]*"', "`"version`": `"$v`""
 Set-Content -Path $packageJsonPath -Value $packageJson -NoNewline
 
-# Update Cargo.toml
+# Update Cargo.toml (only package version, not dependencies)
 Write-Host "  - $cargoTomlPath"
 $cargoToml = Get-Content $cargoTomlPath -Raw
-$cargoToml = $cargoToml -replace 'version\s*=\s*"[^"]*"', "version = `"$v`""
+$cargoToml = $cargoToml -replace '(\[package\][^\[]*?version\s*=\s*")[^"]*"', "`${1}$v`""
 Set-Content -Path $cargoTomlPath -Value $cargoToml -NoNewline
 
 Write-Host "`nFiles updated successfully!" -ForegroundColor Green
