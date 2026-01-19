@@ -16,22 +16,12 @@ jobs:
         include:
           - platform: 'macos-latest'
             args: '--target aarch64-apple-darwin'
-            mobile: false
           - platform: 'macos-latest'
             args: '--target x86_64-apple-darwin'
-            mobile: false
           - platform: 'ubuntu-22.04'
             args: ''
-            mobile: false
           - platform: 'windows-latest'
             args: ''
-            mobile: false
-          - platform: 'ubuntu-22.04'
-            args: 'android'
-            mobile: true
-          - platform: 'macos-latest'
-            args: 'ios'
-            mobile: true
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -49,46 +39,16 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      - name: Setup Java 17 (Android only)
-        if: matrix.args == 'android'
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin,aarch64-apple-ios' || (matrix.args == 'android' && 'aarch64-linux-android,armv7-linux-androideabi,i686-linux-android,x86_64-linux-android' || '') }}
-
-      - name: Setup Android SDK (Android only)
-        if: matrix.args == 'android'
-        uses: android-actions/setup-android@v3
-
-      - name: Setup NDK (Android only)
-        if: matrix.args == 'android'
-        uses: nttld/setup-ndk@v1
-        with:
-          ndk-version: r26b
-
-      - name: Set Cargo target to D drive (Windows optimization)
-        if: matrix.platform == 'windows-latest'
-        run: echo "CARGO_TARGET_DIR=D:/a/cargo-target" >> $env:GITHUB_ENV
-        shell: pwsh
-
-      - name: Configure Cargo for faster builds
-        run: |
-          echo "CARGO_BUILD_JOBS=4" >> $GITHUB_ENV
-          echo "CARGO_INCREMENTAL=0" >> $GITHUB_ENV
-        shell: bash
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
           workspaces: './src-tauri -> target'
           key: ${{ matrix.platform }}-${{ matrix.args }}
-          cache-directories: |
-            D:/a/cargo-target
 
       - name: Install frontend dependencies
         run: npm install
@@ -96,12 +56,13 @@ jobs:
       - name: Build the app
         uses: tauri-apps/tauri-action@v0
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.RELEASES_REPO_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: 'MyTodos ${{ github.ref_name }}'
           releaseBody: 'See the assets to download this version and install.'
           releaseDraft: false
           prerelease: false
-          tauriScript: ${{ matrix.mobile && (matrix.args == 'android' && 'npm run tauri android' || 'npm run tauri ios') || 'npm run tauri' }}
-          args: ${{ matrix.mobile && '' || matrix.args }}
+          args: ${{ matrix.args }}
+          repositoryOwner: SujithChristopher
+          repositoryName: MyTodos-releases
