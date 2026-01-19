@@ -4,6 +4,7 @@ let showSectionModal = $state(false);
 let showManualTimeModal = $state(false);
 let showQuickAdd = $state(false);
 let isCollapsed = $state(false);
+let completedTasksCollapsed = $state(true);
 let handleTop = $state(120);
 let editingProjectId = $state<number | null>(null);
 let editingTaskId = $state<number | null>(null);
@@ -66,6 +67,10 @@ export const uiStore = {
     return handleTop;
   },
 
+  get completedTasksCollapsed() {
+    return completedTasksCollapsed;
+  },
+
   // Context Menu Getters
   get contextMenuOpen() { return contextMenuOpen; },
   get contextMenuPos() { return contextMenuPos; },
@@ -86,6 +91,10 @@ export const uiStore = {
 
   setHandleTop(top: number) {
     handleTop = top;
+  },
+
+  toggleCompletedTasks() {
+    completedTasksCollapsed = !completedTasksCollapsed;
   },
 
   openProjectModal(projectId: number | null = null) {

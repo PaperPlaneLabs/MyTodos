@@ -21,7 +21,9 @@
 
   // Deletion State
   let showDeleteModal = $state(false);
-  let itemToDelete = $state<{ type: "project" | "task"; id: number } | null>(null);
+  let itemToDelete = $state<{ type: "project" | "task"; id: number } | null>(
+    null,
+  );
 
   // Pointer-based Drag and Drop State
   let isDragging = $state(false);
@@ -41,10 +43,15 @@
 
   $effect(() => {
     // Sync projectName ONLY when the modal opens or a different project is selected
-    if (uiStore.showProjectModal && uiStore.editingProjectId !== lastEditingProjectId) {
+    if (
+      uiStore.showProjectModal &&
+      uiStore.editingProjectId !== lastEditingProjectId
+    ) {
       lastEditingProjectId = uiStore.editingProjectId;
       if (uiStore.editingProjectId) {
-        const project = projectStore.projects.find(p => p.id === uiStore.editingProjectId);
+        const project = projectStore.projects.find(
+          (p) => p.id === uiStore.editingProjectId,
+        );
         if (project) projectName = project.name;
       } else {
         projectName = "";
@@ -62,7 +69,9 @@
     if (uiStore.showTaskModal && uiStore.editingTaskId !== lastEditingTaskId) {
       lastEditingTaskId = uiStore.editingTaskId;
       if (uiStore.editingTaskId) {
-        const task = taskStore.tasks.find(t => t.id === uiStore.editingTaskId);
+        const task = taskStore.tasks.find(
+          (t) => t.id === uiStore.editingTaskId,
+        );
         if (task) taskTitle = task.title;
       } else {
         taskTitle = "";
@@ -120,7 +129,7 @@
   }
 
   async function handleToggleTimer(taskId: number) {
-    if (timerStore.active && timerStore.active.task_id === taskId) {     
+    if (timerStore.active && timerStore.active.task_id === taskId) {
       if (timerStore.isRunning) {
         await timerStore.pause();
       } else {
@@ -177,14 +186,17 @@
       if (itemToDelete.type === "project") {
         await projectStore.delete(itemToDelete.id);
       } else {
-        // If deleting task that has active timer, stop timer first      
-        if (timerStore.active && timerStore.active.task_id === itemToDelete.id) {
+        // If deleting task that has active timer, stop timer first
+        if (
+          timerStore.active &&
+          timerStore.active.task_id === itemToDelete.id
+        ) {
           await timerStore.stop();
         }
         await taskStore.deleteTask(itemToDelete.id);
       }
     } catch (e) {
-      console.error(`Failed to delete ${itemToDelete.type}:`, e);        
+      console.error(`Failed to delete ${itemToDelete.type}:`, e);
     }
 
     showDeleteModal = false;
@@ -192,13 +204,22 @@
   }
 
   // Context Menu Handler
-  function handleContextMenu(e: MouseEvent | PointerEvent, type: "project" | "task", id: number) {
+  function handleContextMenu(
+    e: MouseEvent | PointerEvent,
+    type: "project" | "task",
+    id: number,
+  ) {
     e.preventDefault();
     uiStore.openContextMenu(e.clientX, e.clientY, type, id);
   }
 
   // Handlers for Pointer Events
-  function handlePointerDown(e: PointerEvent, type: "project" | "task", id: number, index: number) {
+  function handlePointerDown(
+    e: PointerEvent,
+    type: "project" | "task",
+    id: number,
+    index: number,
+  ) {
     if (e.button === 2) return; // Ignore right click for drag
 
     pointerId = e.pointerId;
@@ -225,7 +246,10 @@
 
     // Check threshold
     if (!hasMovedThreshold) {
-      if (Math.abs(e.clientY - startY) > 5 || Math.abs(e.clientX - startX) > 5) {
+      if (
+        Math.abs(e.clientY - startY) > 5 ||
+        Math.abs(e.clientX - startX) > 5
+      ) {
         hasMovedThreshold = true;
         isDragging = true;
         if (longPressTimer) {
@@ -243,11 +267,13 @@
       return;
     }
 
-    const elem = document.elementFromPoint(e.clientX, e.clientY);        
+    const elem = document.elementFromPoint(e.clientX, e.clientY);
     const wrapper = elem?.closest(".draggable-wrapper, .task-item-wrapper");
 
     if (wrapper) {
-      const type = wrapper.classList.contains("draggable-wrapper") ? "project" : "task";
+      const type = wrapper.classList.contains("draggable-wrapper")
+        ? "project"
+        : "task";
       if (type === dragType) {
         const newIndex = parseInt(wrapper.getAttribute("data-index") || "-1");
         if (newIndex !== -1 && newIndex !== currentIndex) {
@@ -273,10 +299,10 @@
     if (isDragging) {
       try {
         if (dragType === "project") {
-          const ids = projectStore.projects.map(p => p.id);
+          const ids = projectStore.projects.map((p) => p.id);
           await projectStore.reorder(ids);
         } else if (dragType === "task") {
-          const ids = taskStore.tasks.map(t => t.id);
+          const ids = taskStore.tasks.map((t) => t.id);
           await taskStore.reorder(ids);
         }
       } catch (err) {
@@ -301,7 +327,7 @@
     hasMovedThreshold = false;
   }
 
-  function handleKeySelect(e: KeyboardEvent, id: number | null) {        
+  function handleKeySelect(e: KeyboardEvent, id: number | null) {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
       projectStore.setSelected(id);
@@ -320,28 +346,28 @@
         {
           label: "Edit Project",
           icon: "✏️",
-          onClick: () => uiStore.openProjectModal(id)
+          onClick: () => uiStore.openProjectModal(id),
         },
         {
           label: "Delete Project",
           icon: "🗑️",
           danger: true,
-          onClick: () => confirmDelete("project", id)
-        }
+          onClick: () => confirmDelete("project", id),
+        },
       ];
     } else {
       return [
         {
           label: "Edit Task",
           icon: "✏️",
-          onClick: () => uiStore.openTaskModal(id)
+          onClick: () => uiStore.openTaskModal(id),
         },
         {
           label: "Delete Task",
           icon: "🗑️",
           danger: true,
-          onClick: () => confirmDelete("task", id)
-        }
+          onClick: () => confirmDelete("task", id),
+        },
       ];
     }
   });
@@ -351,7 +377,9 @@
   onpointermove={handlePointerMove}
   onpointerup={handlePointerUp}
   onpointercancel={cancelDrag}
-  onkeydown={(e) => { if (e.key === "Escape") cancelDrag(); }}
+  onkeydown={(e) => {
+    if (e.key === "Escape") cancelDrag();
+  }}
   onclick={() => uiStore.closeContextMenu()}
 />
 
@@ -365,7 +393,10 @@
       <div class="projects-section">
         <div class="section-header">
           <h2>Projects</h2>
-          <button class="btn btn-ghost btn-sm" onclick={() => uiStore.openProjectModal()}>
+          <button
+            class="btn btn-ghost btn-sm"
+            onclick={() => uiStore.openProjectModal()}
+          >
             + New
           </button>
         </div>
@@ -380,7 +411,10 @@
               onclick={() => projectStore.setSelected(null)}
               onkeydown={(e) => handleKeySelect(e, null)}
             >
-              <div class="project-color" style="background-color: var(--text-tertiary)"></div>
+              <div
+                class="project-color"
+                style="background-color: var(--text-tertiary)"
+              ></div>
               <div class="project-info">
                 <div class="project-header">
                   <div class="project-name">Tasks</div>
@@ -389,24 +423,29 @@
             </div>
           </div>
 
-          {#each projectStore.projects as project, index (project.id)}     
+          {#each projectStore.projects as project, index (project.id)}
             <div
               animate:flip={{ duration: 300 }}
               transition:slide={{ duration: 200 }}
               class="draggable-wrapper"
               data-index={index}
-              class:dragging={isDragging && draggedId === project.id}      
+              class:dragging={isDragging && draggedId === project.id}
             >
               <div
                 class="project-item"
-                class:active={projectStore.selectedId === project.id}      
+                class:active={projectStore.selectedId === project.id}
                 role="button"
                 tabindex="0"
-                onclick={() => !isDragging && projectStore.setSelected(project.id)}
+                onclick={() =>
+                  !isDragging && projectStore.setSelected(project.id)}
                 onkeydown={(e) => handleKeySelect(e, project.id)}
-                oncontextmenu={(e) => handleContextMenu(e, "project", project.id)}
+                oncontextmenu={(e) =>
+                  handleContextMenu(e, "project", project.id)}
               >
-                <div class="project-color" style="background-color: {project.color}"></div>
+                <div
+                  class="project-color"
+                  style="background-color: {project.color}"
+                ></div>
                 <div class="project-info">
                   <div class="project-header">
                     <div class="project-name">{project.name}</div>
@@ -420,17 +459,25 @@
                 <div
                   class="drag-handle"
                   aria-label="Drag to reorder"
-                  onpointerdown={(e) => handlePointerDown(e, "project", project.id, index)}
-                >⋮⋮</div>
+                  onpointerdown={(e) =>
+                    handlePointerDown(e, "project", project.id, index)}
+                >
+                  ⋮⋮
+                </div>
               </div>
             </div>
           {/each}
 
           {#if projectStore.projects.length === 0}
             <div class="empty-state">
-              <p class="text-secondary text-sm">No projects yet</p>        
-              <p class="text-tertiary text-xs">Click "+ New" to create your first project</p>
-              <button class="btn btn-primary btn-sm" onclick={() => uiStore.openProjectModal()}>
+              <p class="text-secondary text-sm">No projects yet</p>
+              <p class="text-tertiary text-xs">
+                Click "+ New" to create your first project
+              </p>
+              <button
+                class="btn btn-primary btn-sm"
+                onclick={() => uiStore.openProjectModal()}
+              >
                 Create Project
               </button>
             </div>
@@ -442,7 +489,10 @@
         <div class="tasks-section">
           <div class="section-header">
             <h2>{projectStore.selected?.name || "Tasks"}</h2>
-            <button class="btn btn-ghost btn-sm" onclick={() => uiStore.openTaskModal()}>
+            <button
+              class="btn btn-ghost btn-sm"
+              onclick={() => uiStore.openTaskModal()}
+            >
               + Task
             </button>
           </div>
@@ -454,17 +504,23 @@
                 transition:slide={{ duration: 200 }}
                 class="task-item-wrapper"
                 data-index={index}
-                class:dragging={isDragging && draggedId === task.id}       
+                class:dragging={isDragging && draggedId === task.id}
               >
                 <div
                   class="task-item"
-                  class:task-timer-active={timerStore.active?.task_id === task.id && timerStore.isRunning}
-                  class:task-timer-paused={timerStore.active?.task_id === task.id && !timerStore.isRunning}
+                  class:task-timer-active={timerStore.active?.task_id ===
+                    task.id && timerStore.isRunning}
+                  class:task-timer-paused={timerStore.active?.task_id ===
+                    task.id && !timerStore.isRunning}
                   oncontextmenu={(e) => handleContextMenu(e, "task", task.id)}
                   onpointerdown={(e) => {
                     // If it's the checkbox or controls, don't trigger long press on the whole item
                     const target = e.target as HTMLElement;
-                    if (target.closest('.checkbox-container') || target.closest('.task-controls')) return;
+                    if (
+                      target.closest(".checkbox-container") ||
+                      target.closest(".task-controls")
+                    )
+                      return;
                     handlePointerDown(e, "task", task.id, index);
                   }}
                 >
@@ -472,31 +528,42 @@
                     class="drag-handle-task"
                     onpointerdown={(e) => {
                       e.stopPropagation();
-                      handlePointerDown(e, "task", task.id, index);        
+                      handlePointerDown(e, "task", task.id, index);
                     }}
-                  >⋮⋮</div>
+                  >
+                    ⋮⋮
+                  </div>
                   <label class="checkbox-container">
                     <input
                       type="checkbox"
                       checked={task.completed}
-                      onchange={() => taskStore.toggleCompletion(task.id)} 
+                      onchange={() => taskStore.toggleCompletion(task.id)}
                       class="task-checkbox-hidden"
                     />
                     <span class="checkbox-custom"></span>
                   </label>
                   <div class="task-content">
-                    <div class="task-title" class:completed={task.completed}>{task.title}</div>
+                    <div class="task-title" class:completed={task.completed}>
+                      {task.title}
+                    </div>
                     <div class="task-meta">
-                      {#if task.total_time_seconds > 0 && task.project_id} 
+                      {#if task.total_time_seconds > 0 && task.project_id}
                         <div class="task-time text-xs">
                           <span class="time-icon">⏱</span>
                           <TimeDisplay seconds={task.total_time_seconds} />
                         </div>
                       {/if}
                       {#if timerStore.active && timerStore.active.task_id === task.id}
-                        <div class="inline-timer" class:running={timerStore.isRunning} class:paused={!timerStore.isRunning}>
+                        <div
+                          class="inline-timer"
+                          class:running={timerStore.isRunning}
+                          class:paused={!timerStore.isRunning}
+                        >
                           <span class="timer-indicator"></span>
-                          <TimeDisplay seconds={Math.floor(timerStore.elapsed)} format="short" />
+                          <TimeDisplay
+                            seconds={Math.floor(timerStore.elapsed)}
+                            format="short"
+                          />
                         </div>
                       {/if}
                     </div>
@@ -505,19 +572,40 @@
                     {#if timerStore.active && timerStore.active.task_id === task.id}
                       <button
                         class="btn-icon-compact"
-                        onclick={() => timerStore.isRunning ? timerStore.pause() : timerStore.resume()}
-                        title={timerStore.isRunning ? "Pause timer" : "Resume timer"}
+                        onclick={() =>
+                          timerStore.isRunning
+                            ? timerStore.pause()
+                            : timerStore.resume()}
+                        title={timerStore.isRunning
+                          ? "Pause timer"
+                          : "Resume timer"}
                       >
                         {#if timerStore.isRunning}⏸{:else}▶{/if}
                       </button>
-                      <button class="btn-icon-compact btn-stop" onclick={handleStopTimer} title="Stop timer and save">⏹</button>
+                      <button
+                        class="btn-icon-compact btn-stop"
+                        onclick={handleStopTimer}
+                        title="Stop timer and save">⏹</button
+                      >
                       {#if !timerStore.isRunning}
-                        <button class="btn-icon-compact btn-reset" onclick={() => openResetModal(task.id)} title="Reset timer (discard time)">⟲</button>
+                        <button
+                          class="btn-icon-compact btn-reset"
+                          onclick={() => openResetModal(task.id)}
+                          title="Reset timer (discard time)">⟲</button
+                        >
                       {/if}
                     {:else if task.project_id}
-                      <button class="btn-icon-compact" onclick={() => handleToggleTimer(task.id)} title="Start timer">⏱</button>
+                      <button
+                        class="btn-icon-compact"
+                        onclick={() => handleToggleTimer(task.id)}
+                        title="Start timer">⏱</button
+                      >
                       {#if task.total_time_seconds > 0}
-                        <button class="btn-icon-compact btn-reset" onclick={() => openResetModal(task.id)} title="Reset all time for this task">⟲</button>
+                        <button
+                          class="btn-icon-compact btn-reset"
+                          onclick={() => openResetModal(task.id)}
+                          title="Reset all time for this task">⟲</button
+                        >
                       {/if}
                     {/if}
                   </div>
@@ -526,71 +614,119 @@
             {/each}
 
             {#if taskStore.completedTasks.length > 0}
-              <div class="completed-separator" transition:slide={{ duration: 200 }}>
+              <button
+                class="completed-separator"
+                transition:slide={{ duration: 200 }}
+                onclick={() => uiStore.toggleCompletedTasks()}
+                aria-expanded={!uiStore.completedTasksCollapsed}
+              >
+                <span
+                  class="completed-caret"
+                  class:expanded={!uiStore.completedTasksCollapsed}
+                >
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="3"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg
+                  >
+                </span>
                 <span class="completed-label">Completed</span>
                 <div class="completed-line"></div>
-                <span class="completed-count">{taskStore.completedTasks.length}</span>
-              </div>
-
-              {#each taskStore.completedTasks as task, index (task.id)}
-                {@const globalIndex = index + taskStore.activeTasks.length}
-                <div
-                  animate:flip={{ duration: 300 }}
-                  transition:slide={{ duration: 200 }}
-                  class="task-item-wrapper"
-                  data-index={globalIndex}
-                  class:dragging={isDragging && draggedId === task.id}       
+                <span class="completed-count"
+                  >{taskStore.completedTasks.length}</span
                 >
-                  <div
-                    class="task-item"
-                    oncontextmenu={(e) => handleContextMenu(e, "task", task.id)}
-                    onpointerdown={(e) => {
-                      const target = e.target as HTMLElement;
-                      if (target.closest('.checkbox-container') || target.closest('.task-controls')) return;
-                      handlePointerDown(e, "task", task.id, globalIndex);
-                    }}
-                  >
+              </button>
+
+              {#if !uiStore.completedTasksCollapsed}
+                <div
+                  class="completed-tasks-container"
+                  transition:slide={{ duration: 250 }}
+                >
+                  {#each taskStore.completedTasks as task, index (task.id)}
+                    {@const globalIndex = index + taskStore.activeTasks.length}
                     <div
-                      class="drag-handle-task"
-                      onpointerdown={(e) => {
-                        e.stopPropagation();
-                        handlePointerDown(e, "task", task.id, globalIndex);        
-                      }}
-                    >⋮⋮</div>
-                    <label class="checkbox-container">
-                      <input
-                        type="checkbox"
-                        checked={task.completed}
-                        onchange={() => taskStore.toggleCompletion(task.id)} 
-                        class="task-checkbox-hidden"
-                      />
-                      <span class="checkbox-custom"></span>
-                    </label>
-                    <div class="task-content">
-                      <div class="task-title" class:completed={task.completed}>{task.title}</div>
-                      <div class="task-meta">
-                        {#if task.total_time_seconds > 0 && task.project_id} 
-                          <div class="task-time text-xs">
-                            <span class="time-icon">⏱</span>
-                            <TimeDisplay seconds={task.total_time_seconds} />
+                      animate:flip={{ duration: 300 }}
+                      class="task-item-wrapper"
+                      data-index={globalIndex}
+                      class:dragging={isDragging && draggedId === task.id}
+                    >
+                      <div
+                        class="task-item completed-task-item"
+                        oncontextmenu={(e) =>
+                          handleContextMenu(e, "task", task.id)}
+                        onpointerdown={(e) => {
+                          const target = e.target as HTMLElement;
+                          if (
+                            target.closest(".checkbox-container") ||
+                            target.closest(".task-controls")
+                          )
+                            return;
+                          handlePointerDown(e, "task", task.id, globalIndex);
+                        }}
+                      >
+                        <div
+                          class="drag-handle-task"
+                          onpointerdown={(e) => {
+                            e.stopPropagation();
+                            handlePointerDown(e, "task", task.id, globalIndex);
+                          }}
+                        >
+                          ⋮⋮
+                        </div>
+                        <label class="checkbox-container">
+                          <input
+                            type="checkbox"
+                            checked={task.completed}
+                            onchange={() => taskStore.toggleCompletion(task.id)}
+                            class="task-checkbox-hidden"
+                          />
+                          <span class="checkbox-custom"></span>
+                        </label>
+                        <div class="task-content">
+                          <div
+                            class="task-title"
+                            class:completed={task.completed}
+                          >
+                            {task.title}
                           </div>
-                        {/if}
+                          <div class="task-meta">
+                            {#if task.total_time_seconds > 0 && task.project_id}
+                              <div class="task-time text-xs">
+                                <span class="time-icon">⏱</span>
+                                <TimeDisplay
+                                  seconds={task.total_time_seconds}
+                                />
+                              </div>
+                            {/if}
+                          </div>
+                        </div>
+                        <div class="task-controls">
+                          {#if task.project_id && task.total_time_seconds > 0}
+                            <button
+                              class="btn-icon-compact btn-reset"
+                              onclick={() => openResetModal(task.id)}
+                              title="Reset all time for this task">⟲</button
+                            >
+                          {/if}
+                        </div>
                       </div>
                     </div>
-                    <div class="task-controls">
-                      {#if task.project_id && task.total_time_seconds > 0}
-                        <button class="btn-icon-compact btn-reset" onclick={() => openResetModal(task.id)} title="Reset all time for this task">⟲</button>
-                      {/if}
-                    </div>
-                  </div>
+                  {/each}
                 </div>
-              {/each}
+              {/if}
             {/if}
 
             {#if taskStore.tasks.length === 0}
               <div class="empty-state">
                 <p class="text-secondary text-sm">No tasks yet</p>
-                <p class="text-tertiary text-xs">Click "+ Task" to create your first task</p>
+                <p class="text-tertiary text-xs">
+                  Click "+ Task" to create your first task
+                </p>
               </div>
             {/if}
           </div>
@@ -599,20 +735,33 @@
     </div>
 
     {#if timerStore.active}
-      <div class="timer-widget" transition:fly={{ y: 50, duration: 300 }}> 
+      <div class="timer-widget" transition:fly={{ y: 50, duration: 300 }}>
         <div class="timer-info">
-          <div class="timer-task-name">{timerStore.active.task_title || "Task"}</div>
+          <div class="timer-task-name">
+            {timerStore.active.task_title || "Task"}
+          </div>
           <div class="timer-elapsed">
-            <TimeDisplay seconds={Math.floor(timerStore.elapsed)} format="hms" />
+            <TimeDisplay
+              seconds={Math.floor(timerStore.elapsed)}
+              format="hms"
+            />
           </div>
         </div>
         <div class="timer-controls">
           {#if timerStore.isRunning}
-            <button class="btn btn-sm btn-secondary" onclick={() => timerStore.pause()}>Pause</button>
+            <button
+              class="btn btn-sm btn-secondary"
+              onclick={() => timerStore.pause()}>Pause</button
+            >
           {:else}
-            <button class="btn btn-sm btn-primary" onclick={() => timerStore.resume()}>Resume</button>
+            <button
+              class="btn btn-sm btn-primary"
+              onclick={() => timerStore.resume()}>Resume</button
+            >
           {/if}
-          <button class="btn btn-sm btn-danger" onclick={handleStopTimer}>Stop</button>
+          <button class="btn btn-sm btn-danger" onclick={handleStopTimer}
+            >Stop</button
+          >
         </div>
       </div>
     {/if}
@@ -621,20 +770,30 @@
 
 <ContextMenu items={contextMenuItems} />
 
-<Modal open={uiStore.showProjectModal} title={uiStore.editingProjectId ? "Edit Project" : "New Project"} onClose={() => uiStore.closeProjectModal()}>
+<Modal
+  open={uiStore.showProjectModal}
+  title={uiStore.editingProjectId ? "Edit Project" : "New Project"}
+  onClose={() => uiStore.closeProjectModal()}
+>
   {#snippet children()}
-    <form onsubmit={(e) => {
-      e.preventDefault();
-      if (uiStore.editingProjectId) {
-        projectStore.update(uiStore.editingProjectId, projectName);      
-        uiStore.closeProjectModal();
-      } else {
-        handleCreateProject();
-      }
-    }}>
-      <div style="display: flex; flex-direction: column; gap: var(--spacing-md);">
+    <form
+      onsubmit={(e) => {
+        e.preventDefault();
+        if (uiStore.editingProjectId) {
+          projectStore.update(uiStore.editingProjectId, projectName);
+          uiStore.closeProjectModal();
+        } else {
+          handleCreateProject();
+        }
+      }}
+    >
+      <div
+        style="display: flex; flex-direction: column; gap: var(--spacing-md);"
+      >
         <div>
-          <label for="project-name" class="text-sm text-secondary">Project Name</label>
+          <label for="project-name" class="text-sm text-secondary"
+            >Project Name</label
+          >
           <input
             id="project-name"
             class="input"
@@ -644,28 +803,46 @@
             autofocus
           />
         </div>
-        <div style="display: flex; gap: var(--spacing-sm); justify-content: flex-end;">
-          <button type="button" class="btn btn-secondary" onclick={() => uiStore.closeProjectModal()}>Cancel</button>
-          <button type="submit" class="btn btn-primary">{uiStore.editingProjectId ? "Save" : "Create"}</button>
+        <div
+          style="display: flex; gap: var(--spacing-sm); justify-content: flex-end;"
+        >
+          <button
+            type="button"
+            class="btn btn-secondary"
+            onclick={() => uiStore.closeProjectModal()}>Cancel</button
+          >
+          <button type="submit" class="btn btn-primary"
+            >{uiStore.editingProjectId ? "Save" : "Create"}</button
+          >
         </div>
       </div>
     </form>
   {/snippet}
 </Modal>
 
-<Modal open={uiStore.showTaskModal} title={uiStore.editingTaskId ? "Edit Task" : "New Task"} onClose={() => uiStore.closeTaskModal()}>
+<Modal
+  open={uiStore.showTaskModal}
+  title={uiStore.editingTaskId ? "Edit Task" : "New Task"}
+  onClose={() => uiStore.closeTaskModal()}
+>
   {#snippet children()}
-    <form onsubmit={(e) => {
-      e.preventDefault();
-      if (uiStore.editingTaskId) {
-        handleEditTask();
-      } else {
-        handleCreateTask();
-      }
-    }}>
-      <div style="display: flex; flex-direction: column; gap: var(--spacing-md);">
+    <form
+      onsubmit={(e) => {
+        e.preventDefault();
+        if (uiStore.editingTaskId) {
+          handleEditTask();
+        } else {
+          handleCreateTask();
+        }
+      }}
+    >
+      <div
+        style="display: flex; flex-direction: column; gap: var(--spacing-md);"
+      >
         <div>
-          <label for="task-title" class="text-sm text-secondary">Task Title</label>
+          <label for="task-title" class="text-sm text-secondary"
+            >Task Title</label
+          >
           <input
             id="task-title"
             class="input"
@@ -675,46 +852,81 @@
             autofocus
           />
         </div>
-        <div style="display: flex; gap: var(--spacing-sm); justify-content: flex-end;">
-          <button type="button" class="btn btn-secondary" onclick={() => uiStore.closeTaskModal()}>Cancel</button>
-          <button type="submit" class="btn btn-primary">{uiStore.editingTaskId ? "Save" : "Create"}</button>
+        <div
+          style="display: flex; gap: var(--spacing-sm); justify-content: flex-end;"
+        >
+          <button
+            type="button"
+            class="btn btn-secondary"
+            onclick={() => uiStore.closeTaskModal()}>Cancel</button
+          >
+          <button type="submit" class="btn btn-primary"
+            >{uiStore.editingTaskId ? "Save" : "Create"}</button
+          >
         </div>
       </div>
     </form>
   {/snippet}
 </Modal>
 
-<Modal open={showResetModal} title="⚠️ Reset Timer" onClose={() => showResetModal = false}>
+<Modal
+  open={showResetModal}
+  title="⚠️ Reset Timer"
+  onClose={() => (showResetModal = false)}
+>
   {#snippet children()}
     <div class="reset-modal-content">
       <div class="reset-warning">
         <div class="warning-icon">⚠️</div>
         <div class="warning-text">
           <p class="warning-title">Are you sure you want to reset the timer?</p>
-          <p class="warning-description">All time tracking for this session will be permanently lost.</p>
+          <p class="warning-description">
+            All time tracking for this session will be permanently lost.
+          </p>
         </div>
       </div>
       <div class="reset-actions">
-        <button type="button" class="btn btn-secondary" onclick={() => showResetModal = false}>Cancel</button>
-        <button type="button" class="btn btn-warning" onclick={handleResetTimer}>Reset Timer</button>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          onclick={() => (showResetModal = false)}>Cancel</button
+        >
+        <button type="button" class="btn btn-warning" onclick={handleResetTimer}
+          >Reset Timer</button
+        >
       </div>
     </div>
   {/snippet}
 </Modal>
 
-<Modal open={showDeleteModal} title="⚠️ Delete {itemToDelete?.type === 'project' ? 'Project' : 'Task'}" onClose={() => showDeleteModal = false}>  
+<Modal
+  open={showDeleteModal}
+  title="⚠️ Delete {itemToDelete?.type === 'project' ? 'Project' : 'Task'}"
+  onClose={() => (showDeleteModal = false)}
+>
   {#snippet children()}
     <div class="reset-modal-content">
-      <div class="reset-warning" style="background: linear-gradient(135deg, var(--danger-light) 0%, var(--danger-glow) 100%); border-color: var(--danger);">
+      <div
+        class="reset-warning"
+        style="background: linear-gradient(135deg, var(--danger-light) 0%, var(--danger-glow) 100%); border-color: var(--danger);"
+      >
         <div class="warning-icon">🗑️</div>
         <div class="warning-text">
-          <p class="warning-title">Delete this {itemToDelete?.type}?</p> 
-          <p class="warning-description">This action cannot be undone. All associated data will be lost.</p>
+          <p class="warning-title">Delete this {itemToDelete?.type}?</p>
+          <p class="warning-description">
+            This action cannot be undone. All associated data will be lost.
+          </p>
         </div>
       </div>
       <div class="reset-actions">
-        <button type="button" class="btn btn-secondary" onclick={() => showDeleteModal = false}>Cancel</button>
-        <button type="button" class="btn btn-danger" onclick={handleDelete}>Delete</button>
+        <button
+          type="button"
+          class="btn btn-secondary"
+          onclick={() => (showDeleteModal = false)}>Cancel</button
+        >
+        <button type="button" class="btn btn-danger" onclick={handleDelete}
+          >Delete</button
+        >
       </div>
     </div>
   {/snippet}
@@ -770,6 +982,27 @@
     gap: var(--spacing-sm);
     padding: var(--spacing-md) 0 var(--spacing-sm);
     user-select: none;
+    background: none;
+    border: none;
+    width: 100%;
+    cursor: pointer;
+    transition: opacity var(--transition-fast);
+  }
+
+  .completed-separator:hover {
+    opacity: 0.8;
+  }
+
+  .completed-caret {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-tertiary);
+    transition: transform var(--transition-normal);
+  }
+
+  .completed-caret.expanded {
+    transform: rotate(90deg);
   }
 
   .completed-label {
@@ -797,7 +1030,8 @@
     border: 1px solid var(--border);
   }
 
-  .draggable-wrapper, .task-item-wrapper {
+  .draggable-wrapper,
+  .task-item-wrapper {
     transition: transform 0.2s ease;
     border-radius: var(--radius-md);
     min-height: 10px;
@@ -813,7 +1047,8 @@
     pointer-events: none;
   }
 
-  .drag-handle, .drag-handle-task {
+  .drag-handle,
+  .drag-handle-task {
     cursor: grab;
     color: var(--text-tertiary);
     opacity: 0;
@@ -1082,13 +1317,40 @@
   }
 
   @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.85; }
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.85;
+    }
   }
 
   @keyframes blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.3;
+    }
+  }
+
+  .completed-tasks-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .completed-task-item {
+    opacity: 0.7;
+    filter: grayscale(0.5);
+    transition: all var(--transition-normal);
+  }
+
+  .completed-task-item:hover {
+    opacity: 1;
+    filter: grayscale(0);
   }
 
   .task-controls {
@@ -1207,7 +1469,11 @@
     display: flex;
     gap: var(--spacing-md);
     padding: var(--spacing-md);
-    background: linear-gradient(135deg, var(--warning-light) 0%, var(--warning-gradient-end) 100%);
+    background: linear-gradient(
+      135deg,
+      var(--warning-light) 0%,
+      var(--warning-gradient-end) 100%
+    );
     border: 2px solid var(--warning);
     border-radius: var(--radius-md);
   }
