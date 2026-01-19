@@ -1,6 +1,6 @@
 [package]
 name = "my-todos"
-version = "0.1.5"
+version = "0.1.17"
 description = "A Tauri App"
 authors = ["you"]
 edition = "2021"
@@ -15,18 +15,18 @@ name = "my_todos_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "0.1.5", features = [] }
+tauri-build = { version = "0.1.17", features = [] }
 
 [dependencies]
-tauri = { version = "0.1.5", features = [] }
+tauri = { version = "0.1.17", features = [] }
 tauri-plugin-opener = "2.5.3"
 tauri-plugin-autostart = "2.5.1"
-serde = { version = "0.1.5", features = ["derive"] }
+serde = { version = "0.1.17", features = ["derive"] }
 serde_json = "1.0.149"
-rusqlite = { version = "0.1.5", features = ["bundled"] }
+rusqlite = { version = "0.1.17", features = ["bundled"] }
 chrono = "0.4.43"
 anyhow = "1.0.100"
-tokio = { version = "0.1.5", features = ["sync"] }
+tokio = { version = "0.1.17", features = ["sync"] }
 parking_lot = "0.12.5"
 dirs = "6.0.0"
 
