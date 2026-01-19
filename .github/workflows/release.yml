@@ -64,5 +64,5 @@ jobs:
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}
-          repositoryOwner: SujithChristopher
-          repositoryName: MyTodos-releases
+          owner: SujithChristopher
+          repo: MyTodos-releases
