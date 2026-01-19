@@ -3,6 +3,7 @@ let showTaskModal = $state(false);
 let showSectionModal = $state(false);
 let showManualTimeModal = $state(false);
 let showQuickAdd = $state(false);
+let showStatsView = $state(false);
 let isCollapsed = $state(false);
 let completedTasksCollapsed = $state(true);
 let handleTop = $state(120);
@@ -55,6 +56,10 @@ export const uiStore = {
     return showQuickAdd;
   },
 
+  get showStatsView() {
+    return showStatsView;
+  },
+
   get theme() {
     return theme;
   },
@@ -95,6 +100,14 @@ export const uiStore = {
 
   toggleCompletedTasks() {
     completedTasksCollapsed = !completedTasksCollapsed;
+  },
+
+  openStatsView() {
+    showStatsView = true;
+  },
+
+  closeStatsView() {
+    showStatsView = false;
   },
 
   openProjectModal(projectId: number | null = null) {

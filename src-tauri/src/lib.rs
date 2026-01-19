@@ -22,7 +22,6 @@ pub fn run() {
     }
 
     tauri::Builder::default()
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::init(LaunchAgent, Some(vec![])))
         .manage(db_conn)
@@ -60,6 +59,7 @@ pub fn run() {
             commands::update_time_entry,
             commands::delete_time_entry,
             commands::get_daily_total_time,
+            commands::get_time_stats,
             commands::save_window_state,
             commands::get_window_state,
             commands::minimize_window,
