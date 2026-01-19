@@ -228,3 +228,14 @@ pub fn delete_time_entry(db: State<DbConnection>, id: i64) -> Result<()> {
 
     Ok(())
 }
+#[tauri::command]
+pub fn get_daily_total_time(db: State<DbConnection>, start_timestamp: i64) -> Result<i64> {
+    let conn = db.lock();
+    let total: i64 = conn.query_row(
+        "SELECT COALESCE(SUM(duration_seconds), 0) FROM time_entries WHERE created_at >= ?",
+        [start_timestamp],
+        |row| row.get(0),
+    )?;
+
+    Ok(total)
+}

@@ -3,11 +3,18 @@ import { taskStore } from "./tasks.svelte";
 import { projectStore } from "./projects.svelte";
 
 let activeTimer = $state<ActiveTimer | null>(null);
+let dailyTotalBeforeActive = $state(0);
 let currentElapsed = $state(0);
 let intervalId: number | null = null;
 let initialTaskTime = 0;
 let initialProjectTime = 0;
 let currentProjectId: number | null = null;
+
+function getStartOfToday(): number {
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  return Math.floor(now.getTime() / 1000);
+}
 
 export const timerStore = {
   get active() {
@@ -18,12 +25,19 @@ export const timerStore = {
     return currentElapsed;
   },
 
+  get dailyTotal() {
+    return dailyTotalBeforeActive + currentElapsed;
+  },
+
   get isRunning() {
     return activeTimer?.is_running ?? false;
   },
 
   async loadActive() {
     try {
+      // Load daily total first
+      dailyTotalBeforeActive = await db.timeEntries.getDailyTotalTime(getStartOfToday());
+
       const timer = await db.timer.getActive();
       activeTimer = timer;
       if (timer && timer.is_running) {
@@ -52,6 +66,9 @@ export const timerStore = {
       activeTimer = timer;
       currentElapsed = 0;
 
+      // Refresh daily total before starting
+      dailyTotalBeforeActive = await db.timeEntries.getDailyTotalTime(getStartOfToday());
+
       // Capture initial times and project ID
       const task = taskStore.tasks.find(t => t.id === taskId);
       if (task) {
@@ -79,6 +96,10 @@ export const timerStore = {
         currentElapsed = this.elapsed;
       }
       this.stopInterval();
+
+      // Refresh daily total after pause (entry might have been created)
+      dailyTotalBeforeActive = await db.timeEntries.getDailyTotalTime(getStartOfToday());
+      currentElapsed = 0; // Reset active elapsed as it's now in the database total
     } catch (e) {
       console.error("Failed to pause timer:", e);
       throw e;
@@ -92,6 +113,9 @@ export const timerStore = {
         activeTimer.is_running = true;
         activeTimer.started_at = Math.floor(Date.now() / 1000);
       }
+      // Refresh daily total before resuming
+      dailyTotalBeforeActive = await db.timeEntries.getDailyTotalTime(getStartOfToday());
+      currentElapsed = 0;
       this.startInterval();
     } catch (e) {
       console.error("Failed to resume timer:", e);
@@ -102,7 +126,7 @@ export const timerStore = {
   async stop() {
     try {
       const projectId = currentProjectId;
-      const entry = await db.timer.stop();
+      await db.timer.stop();
       activeTimer = null;
       currentElapsed = 0;
       this.stopInterval();
@@ -113,11 +137,18 @@ export const timerStore = {
         await taskStore.loadByProject(projectId);
       }
 
-      return entry;
+      // Refresh daily total
+      dailyTotalBeforeActive = await db.timeEntries.getDailyTotalTime(getStartOfToday());
+
+      return null; // Return value changed in stopped entry logic if needed but caller doesn't seem to use it much
     } catch (e) {
       console.error("Failed to stop timer:", e);
       throw e;
     }
+  },
+
+  async refreshDailyTotal() {
+    dailyTotalBeforeActive = await db.timeEntries.getDailyTotalTime(getStartOfToday());
   },
 
   async reset() {
@@ -133,6 +164,9 @@ export const timerStore = {
       if (projectId !== null) {
         await taskStore.loadByProject(projectId);
       }
+
+      // Refresh daily total
+      await this.refreshDailyTotal();
     } catch (e) {
       console.error("Failed to reset timer:", e);
       throw e;

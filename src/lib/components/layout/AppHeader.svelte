@@ -115,12 +115,10 @@
       {/if}
     </div>
 
-    {#if timerStore.active}
-      <div class="timer-badge" class:running={timerStore.isRunning}>
-        <span class="timer-icon">⏱</span>
-        <TimeDisplay seconds={elapsed} format="hms" />
-      </div>
-    {/if}
+    <div class="timer-badge" class:running={timerStore.isRunning} title="Total time today">
+      <span class="timer-icon">📅</span>
+      <TimeDisplay seconds={Math.floor(timerStore.dailyTotal)} format="hms" />
+    </div>
 
     <button class="icon-btn" onclick={() => uiStore.toggleTheme()} title="Toggle theme">
       {uiStore.theme === "dark" ? "☀" : "🌙"}

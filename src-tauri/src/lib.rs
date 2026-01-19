@@ -23,10 +23,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_autostart::init(
-            LaunchAgent,
-            Some(vec![]),
-        ))
+        .plugin(tauri_plugin_autostart::init(LaunchAgent, Some(vec![])))
         .manage(db_conn)
         .invoke_handler(tauri::generate_handler![
             initialize_database,
@@ -61,6 +58,7 @@ pub fn run() {
             commands::get_time_entries_by_task,
             commands::update_time_entry,
             commands::delete_time_entry,
+            commands::get_daily_total_time,
             commands::save_window_state,
             commands::get_window_state,
             commands::minimize_window,

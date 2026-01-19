@@ -118,6 +118,8 @@ export const db = {
     update: (id: number, durationSeconds: number, note?: string) =>
       invoke<void>("update_time_entry", { id, durationSeconds, note }),
     delete: (id: number) => invoke<void>("delete_time_entry", { id }),
+    getDailyTotalTime: (startTimestamp: number) =>
+      invoke<number>("get_daily_total_time", { startTimestamp }),
   },
 
   window: {
