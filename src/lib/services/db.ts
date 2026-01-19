@@ -66,6 +66,31 @@ export interface ProjectStats {
   total_time_seconds: number;
 }
 
+export interface TaskTimeEntry {
+  task_id: number;
+  task_title: string;
+  project_name: string | null;
+  project_color: string | null;
+  total_seconds: number;
+}
+
+export interface DailyAggregate {
+  date: string;
+  total_seconds: number;
+}
+
+export interface ProjectTime {
+  name: string;
+  color: string;
+  total_seconds: number;
+}
+
+export interface TimeStats {
+  today_tasks: TaskTimeEntry[];
+  week_daily: DailyAggregate[];
+  projects: ProjectTime[];
+}
+
 export const db = {
   projects: {
     getAll: () => invoke<Project[]>("get_all_projects"),
@@ -120,6 +145,7 @@ export const db = {
     delete: (id: number) => invoke<void>("delete_time_entry", { id }),
     getDailyTotalTime: (startTimestamp: number) =>
       invoke<number>("get_daily_total_time", { startTimestamp }),
+    getTimeStats: () => invoke<TimeStats>("get_time_stats"),
   },
 
   window: {

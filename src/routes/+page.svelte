@@ -5,6 +5,7 @@
   import "$lib/styles/global.css";
   import AppHeader from "$lib/components/layout/AppHeader.svelte";
   import CollapseHandle from "$lib/components/layout/CollapseHandle.svelte";
+  import StatsView from "$lib/components/stats/StatsView.svelte";
   import Modal from "$lib/components/common/Modal.svelte";
   import TimeDisplay from "$lib/components/common/TimeDisplay.svelte";
   import ContextMenu from "$lib/components/common/ContextMenu.svelte";
@@ -389,380 +390,391 @@
   {#if !uiStore.isCollapsed}
     <AppHeader />
 
-    <div class="main-content">
-      <div class="projects-section">
-        <div class="section-header">
-          <h2>Projects</h2>
-          <button
-            class="btn btn-ghost btn-sm"
-            onclick={() => uiStore.openProjectModal()}
-          >
-            + New
-          </button>
-        </div>
-
-        <div class="projects-list" role="list">
-          <div transition:slide={{ duration: 200 }}>
-            <div
-              class="project-item inbox-item"
-              class:active={projectStore.selectedId === null}
-              class:has-timer={timerStore.active &&
-                timerStore.currentProjectId === null}
-              class:timer-running={timerStore.active &&
-                timerStore.currentProjectId === null &&
-                timerStore.isRunning}
-              class:timer-paused={timerStore.active &&
-                timerStore.currentProjectId === null &&
-                !timerStore.isRunning}
-              role="button"
-              tabindex="0"
-              onclick={() => projectStore.setSelected(null)}
-              onkeydown={(e) => handleKeySelect(e, null)}
-            >
-              <div
-                class="project-color"
-                style="background-color: var(--text-tertiary)"
-              ></div>
-              <div class="project-info">
-                <div class="project-header">
-                  <div class="project-name">Tasks</div>
-                  {#if timerStore.active && timerStore.currentProjectId === null}
-                    <div
-                      class="active-timer-dot"
-                      title="Active timer in this project"
-                    ></div>
-                  {/if}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {#each projectStore.projects as project, index (project.id)}
-            <div
-              animate:flip={{ duration: 300 }}
-              transition:slide={{ duration: 200 }}
-              class="draggable-wrapper"
-              data-index={index}
-              class:dragging={isDragging && draggedId === project.id}
-            >
-              <div
-                class="project-item"
-                class:active={projectStore.selectedId === project.id}
-                class:has-timer={timerStore.active &&
-                  timerStore.currentProjectId === project.id}
-                class:timer-running={timerStore.active &&
-                  timerStore.currentProjectId === project.id &&
-                  timerStore.isRunning}
-                class:timer-paused={timerStore.active &&
-                  timerStore.currentProjectId === project.id &&
-                  !timerStore.isRunning}
-                role="button"
-                tabindex="0"
-                onclick={() =>
-                  !isDragging && projectStore.setSelected(project.id)}
-                onkeydown={(e) => handleKeySelect(e, project.id)}
-                oncontextmenu={(e) =>
-                  handleContextMenu(e, "project", project.id)}
-              >
-                <div
-                  class="project-color"
-                  style="background-color: {project.color}"
-                ></div>
-                <div class="project-info">
-                  <div class="project-header">
-                    <div class="project-name">{project.name}</div>
-                    <div class="project-meta-right">
-                      {#if timerStore.active && timerStore.currentProjectId === project.id}
-                        <div
-                          class="active-timer-dot"
-                          title="Active timer in this project"
-                        ></div>
-                      {/if}
-                      {#if project.total_time_seconds > 0}
-                        <div class="project-time-badge">
-                          <TimeDisplay seconds={project.total_time_seconds} />
-                        </div>
-                      {/if}
-                    </div>
-                  </div>
-                </div>
-                <div
-                  class="drag-handle"
-                  aria-label="Drag to reorder"
-                  onpointerdown={(e) =>
-                    handlePointerDown(e, "project", project.id, index)}
-                >
-                  ⋮⋮
-                </div>
-              </div>
-            </div>
-          {/each}
-
-          {#if projectStore.projects.length === 0}
-            <div class="empty-state">
-              <p class="text-secondary text-sm">No projects yet</p>
-              <p class="text-tertiary text-xs">
-                Click "+ New" to create your first project
-              </p>
-              <button
-                class="btn btn-primary btn-sm"
-                onclick={() => uiStore.openProjectModal()}
-              >
-                Create Project
-              </button>
-            </div>
-          {/if}
-        </div>
-      </div>
-
-      {#if projectStore.selectedId !== undefined}
-        <div class="tasks-section">
+    {#if uiStore.showStatsView}
+      <StatsView />
+    {:else}
+      <div class="main-content">
+        <div class="projects-section">
           <div class="section-header">
-            <h2>{projectStore.selected?.name || "Tasks"}</h2>
+            <h2>Projects</h2>
             <button
               class="btn btn-ghost btn-sm"
-              onclick={() => uiStore.openTaskModal()}
+              onclick={() => uiStore.openProjectModal()}
             >
-              + Task
+              + New
             </button>
           </div>
 
-          <div class="tasks-list" role="list">
-            {#each taskStore.activeTasks as task, index (task.id)}
+          <div class="projects-list" role="list">
+            <div transition:slide={{ duration: 200 }}>
+              <div
+                class="project-item inbox-item"
+                class:active={projectStore.selectedId === null}
+                class:has-timer={timerStore.active &&
+                  timerStore.currentProjectId === null}
+                class:timer-running={timerStore.active &&
+                  timerStore.currentProjectId === null &&
+                  timerStore.isRunning}
+                class:timer-paused={timerStore.active &&
+                  timerStore.currentProjectId === null &&
+                  !timerStore.isRunning}
+                role="button"
+                tabindex="0"
+                onclick={() => projectStore.setSelected(null)}
+                onkeydown={(e) => handleKeySelect(e, null)}
+              >
+                <div
+                  class="project-color"
+                  style="background-color: var(--text-tertiary)"
+                ></div>
+                <div class="project-info">
+                  <div class="project-header">
+                    <div class="project-name">Tasks</div>
+                    {#if timerStore.active && timerStore.currentProjectId === null}
+                      <div
+                        class="active-timer-dot"
+                        title="Active timer in this project"
+                      ></div>
+                    {/if}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {#each projectStore.projects as project, index (project.id)}
               <div
                 animate:flip={{ duration: 300 }}
                 transition:slide={{ duration: 200 }}
-                class="task-item-wrapper"
+                class="draggable-wrapper"
                 data-index={index}
-                class:dragging={isDragging && draggedId === task.id}
+                class:dragging={isDragging && draggedId === project.id}
               >
                 <div
-                  class="task-item"
-                  class:task-timer-active={timerStore.active?.task_id ===
-                    task.id && timerStore.isRunning}
-                  class:task-timer-paused={timerStore.active?.task_id ===
-                    task.id && !timerStore.isRunning}
-                  oncontextmenu={(e) => handleContextMenu(e, "task", task.id)}
-                  onpointerdown={(e) => {
-                    // If it's the checkbox or controls, don't trigger long press on the whole item
-                    const target = e.target as HTMLElement;
-                    if (
-                      target.closest(".checkbox-container") ||
-                      target.closest(".task-controls")
-                    )
-                      return;
-                    handlePointerDown(e, "task", task.id, index);
-                  }}
+                  class="project-item"
+                  class:active={projectStore.selectedId === project.id}
+                  class:has-timer={timerStore.active &&
+                    timerStore.currentProjectId === project.id}
+                  class:timer-running={timerStore.active &&
+                    timerStore.currentProjectId === project.id &&
+                    timerStore.isRunning}
+                  class:timer-paused={timerStore.active &&
+                    timerStore.currentProjectId === project.id &&
+                    !timerStore.isRunning}
+                  role="button"
+                  tabindex="0"
+                  onclick={() =>
+                    !isDragging && projectStore.setSelected(project.id)}
+                  onkeydown={(e) => handleKeySelect(e, project.id)}
+                  oncontextmenu={(e) =>
+                    handleContextMenu(e, "project", project.id)}
                 >
                   <div
-                    class="drag-handle-task"
-                    onpointerdown={(e) => {
-                      e.stopPropagation();
-                      handlePointerDown(e, "task", task.id, index);
-                    }}
+                    class="project-color"
+                    style="background-color: {project.color}"
+                  ></div>
+                  <div class="project-info">
+                    <div class="project-header">
+                      <div class="project-name">{project.name}</div>
+                      <div class="project-meta-right">
+                        {#if timerStore.active && timerStore.currentProjectId === project.id}
+                          <div
+                            class="active-timer-dot"
+                            title="Active timer in this project"
+                          ></div>
+                        {/if}
+                        {#if project.total_time_seconds > 0}
+                          <div class="project-time-badge">
+                            <TimeDisplay seconds={project.total_time_seconds} />
+                          </div>
+                        {/if}
+                      </div>
+                    </div>
+                  </div>
+                  <div
+                    class="drag-handle"
+                    aria-label="Drag to reorder"
+                    onpointerdown={(e) =>
+                      handlePointerDown(e, "project", project.id, index)}
                   >
                     ⋮⋮
-                  </div>
-                  <label class="checkbox-container">
-                    <input
-                      type="checkbox"
-                      checked={task.completed}
-                      onchange={() => taskStore.toggleCompletion(task.id)}
-                      class="task-checkbox-hidden"
-                    />
-                    <span class="checkbox-custom"></span>
-                  </label>
-                  <div class="task-content">
-                    <div class="task-title" class:completed={task.completed}>
-                      {task.title}
-                    </div>
-                    <div class="task-meta">
-                      {#if task.total_time_seconds > 0 && task.project_id}
-                        <div class="task-time text-xs">
-                          <span class="time-icon">⏱</span>
-                          <TimeDisplay seconds={task.total_time_seconds} />
-                        </div>
-                      {/if}
-                      {#if timerStore.active && timerStore.active.task_id === task.id}
-                        <div
-                          class="inline-timer"
-                          class:running={timerStore.isRunning}
-                          class:paused={!timerStore.isRunning}
-                        >
-                          <span class="timer-indicator"></span>
-                          <TimeDisplay
-                            seconds={Math.floor(timerStore.elapsed)}
-                            format="short"
-                          />
-                        </div>
-                      {/if}
-                    </div>
-                  </div>
-                  <div class="task-controls">
-                    {#if timerStore.active && timerStore.active.task_id === task.id}
-                      <button
-                        class="btn-icon-compact"
-                        onclick={() =>
-                          timerStore.isRunning
-                            ? timerStore.pause()
-                            : timerStore.resume()}
-                        title={timerStore.isRunning
-                          ? "Pause timer"
-                          : "Resume timer"}
-                      >
-                        {#if timerStore.isRunning}⏸{:else}▶{/if}
-                      </button>
-                      <button
-                        class="btn-icon-compact btn-stop"
-                        onclick={handleStopTimer}
-                        title="Stop timer and save">⏹</button
-                      >
-                      {#if !timerStore.isRunning}
-                        <button
-                          class="btn-icon-compact btn-reset"
-                          onclick={() => openResetModal(task.id)}
-                          title="Reset timer (discard time)">⟲</button
-                        >
-                      {/if}
-                    {:else if task.project_id}
-                      <button
-                        class="btn-icon-compact"
-                        onclick={() => handleToggleTimer(task.id)}
-                        title="Start timer">⏱</button
-                      >
-                      {#if task.total_time_seconds > 0}
-                        <button
-                          class="btn-icon-compact btn-reset"
-                          onclick={() => openResetModal(task.id)}
-                          title="Reset all time for this task">⟲</button
-                        >
-                      {/if}
-                    {/if}
                   </div>
                 </div>
               </div>
             {/each}
 
-            {#if taskStore.completedTasks.length > 0}
-              <button
-                class="completed-separator"
-                transition:slide={{ duration: 200 }}
-                onclick={() => uiStore.toggleCompletedTasks()}
-                aria-expanded={!uiStore.completedTasksCollapsed}
-              >
-                <span
-                  class="completed-caret"
-                  class:expanded={!uiStore.completedTasksCollapsed}
-                >
-                  <svg
-                    width="10"
-                    height="10"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="3"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg
-                  >
-                </span>
-                <span class="completed-label">Completed</span>
-                <div class="completed-line"></div>
-                <span class="completed-count"
-                  >{taskStore.completedTasks.length}</span
-                >
-              </button>
-
-              {#if !uiStore.completedTasksCollapsed}
-                <div
-                  class="completed-tasks-container"
-                  transition:slide={{ duration: 250 }}
-                >
-                  {#each taskStore.completedTasks as task, index (task.id)}
-                    {@const globalIndex = index + taskStore.activeTasks.length}
-                    <div
-                      animate:flip={{ duration: 300 }}
-                      class="task-item-wrapper"
-                      data-index={globalIndex}
-                      class:dragging={isDragging && draggedId === task.id}
-                    >
-                      <div
-                        class="task-item completed-task-item"
-                        oncontextmenu={(e) =>
-                          handleContextMenu(e, "task", task.id)}
-                        onpointerdown={(e) => {
-                          const target = e.target as HTMLElement;
-                          if (
-                            target.closest(".checkbox-container") ||
-                            target.closest(".task-controls")
-                          )
-                            return;
-                          handlePointerDown(e, "task", task.id, globalIndex);
-                        }}
-                      >
-                        <div
-                          class="drag-handle-task"
-                          onpointerdown={(e) => {
-                            e.stopPropagation();
-                            handlePointerDown(e, "task", task.id, globalIndex);
-                          }}
-                        >
-                          ⋮⋮
-                        </div>
-                        <label class="checkbox-container">
-                          <input
-                            type="checkbox"
-                            checked={task.completed}
-                            onchange={() => taskStore.toggleCompletion(task.id)}
-                            class="task-checkbox-hidden"
-                          />
-                          <span class="checkbox-custom"></span>
-                        </label>
-                        <div class="task-content">
-                          <div
-                            class="task-title"
-                            class:completed={task.completed}
-                          >
-                            {task.title}
-                          </div>
-                          <div class="task-meta">
-                            {#if task.total_time_seconds > 0 && task.project_id}
-                              <div class="task-time text-xs">
-                                <span class="time-icon">⏱</span>
-                                <TimeDisplay
-                                  seconds={task.total_time_seconds}
-                                />
-                              </div>
-                            {/if}
-                          </div>
-                        </div>
-                        <div class="task-controls">
-                          {#if task.project_id && task.total_time_seconds > 0}
-                            <button
-                              class="btn-icon-compact btn-reset"
-                              onclick={() => openResetModal(task.id)}
-                              title="Reset all time for this task">⟲</button
-                            >
-                          {/if}
-                        </div>
-                      </div>
-                    </div>
-                  {/each}
-                </div>
-              {/if}
-            {/if}
-
-            {#if taskStore.tasks.length === 0}
+            {#if projectStore.projects.length === 0}
               <div class="empty-state">
-                <p class="text-secondary text-sm">No tasks yet</p>
+                <p class="text-secondary text-sm">No projects yet</p>
                 <p class="text-tertiary text-xs">
-                  Click "+ Task" to create your first task
+                  Click "+ New" to create your first project
                 </p>
+                <button
+                  class="btn btn-primary btn-sm"
+                  onclick={() => uiStore.openProjectModal()}
+                >
+                  Create Project
+                </button>
               </div>
             {/if}
           </div>
         </div>
-      {/if}
-    </div>
+
+        {#if projectStore.selectedId !== undefined}
+          <div class="tasks-section">
+            <div class="section-header">
+              <h2>{projectStore.selected?.name || "Tasks"}</h2>
+              <button
+                class="btn btn-ghost btn-sm"
+                onclick={() => uiStore.openTaskModal()}
+              >
+                + Task
+              </button>
+            </div>
+
+            <div class="tasks-list" role="list">
+              {#each taskStore.activeTasks as task, index (task.id)}
+                <div
+                  animate:flip={{ duration: 300 }}
+                  transition:slide={{ duration: 200 }}
+                  class="task-item-wrapper"
+                  data-index={index}
+                  class:dragging={isDragging && draggedId === task.id}
+                >
+                  <div
+                    class="task-item"
+                    class:task-timer-active={timerStore.active?.task_id ===
+                      task.id && timerStore.isRunning}
+                    class:task-timer-paused={timerStore.active?.task_id ===
+                      task.id && !timerStore.isRunning}
+                    oncontextmenu={(e) => handleContextMenu(e, "task", task.id)}
+                    onpointerdown={(e) => {
+                      // If it's the checkbox or controls, don't trigger long press on the whole item
+                      const target = e.target as HTMLElement;
+                      if (
+                        target.closest(".checkbox-container") ||
+                        target.closest(".task-controls")
+                      )
+                        return;
+                      handlePointerDown(e, "task", task.id, index);
+                    }}
+                  >
+                    <div
+                      class="drag-handle-task"
+                      onpointerdown={(e) => {
+                        e.stopPropagation();
+                        handlePointerDown(e, "task", task.id, index);
+                      }}
+                    >
+                      ⋮⋮
+                    </div>
+                    <label class="checkbox-container">
+                      <input
+                        type="checkbox"
+                        checked={task.completed}
+                        onchange={() => taskStore.toggleCompletion(task.id)}
+                        class="task-checkbox-hidden"
+                      />
+                      <span class="checkbox-custom"></span>
+                    </label>
+                    <div class="task-content">
+                      <div class="task-title" class:completed={task.completed}>
+                        {task.title}
+                      </div>
+                      <div class="task-meta">
+                        {#if task.total_time_seconds > 0 && task.project_id}
+                          <div class="task-time text-xs">
+                            <span class="time-icon">⏱</span>
+                            <TimeDisplay seconds={task.total_time_seconds} />
+                          </div>
+                        {/if}
+                        {#if timerStore.active && timerStore.active.task_id === task.id}
+                          <div
+                            class="inline-timer"
+                            class:running={timerStore.isRunning}
+                            class:paused={!timerStore.isRunning}
+                          >
+                            <span class="timer-indicator"></span>
+                            <TimeDisplay
+                              seconds={Math.floor(timerStore.elapsed)}
+                              format="short"
+                            />
+                          </div>
+                        {/if}
+                      </div>
+                    </div>
+                    <div class="task-controls">
+                      {#if timerStore.active && timerStore.active.task_id === task.id}
+                        <button
+                          class="btn-icon-compact"
+                          onclick={() =>
+                            timerStore.isRunning
+                              ? timerStore.pause()
+                              : timerStore.resume()}
+                          title={timerStore.isRunning
+                            ? "Pause timer"
+                            : "Resume timer"}
+                        >
+                          {#if timerStore.isRunning}⏸{:else}▶{/if}
+                        </button>
+                        <button
+                          class="btn-icon-compact btn-stop"
+                          onclick={handleStopTimer}
+                          title="Stop timer and save">⏹</button
+                        >
+                        {#if !timerStore.isRunning}
+                          <button
+                            class="btn-icon-compact btn-reset"
+                            onclick={() => openResetModal(task.id)}
+                            title="Reset timer (discard time)">⟲</button
+                          >
+                        {/if}
+                      {:else if task.project_id}
+                        <button
+                          class="btn-icon-compact"
+                          onclick={() => handleToggleTimer(task.id)}
+                          title="Start timer">⏱</button
+                        >
+                        {#if task.total_time_seconds > 0}
+                          <button
+                            class="btn-icon-compact btn-reset"
+                            onclick={() => openResetModal(task.id)}
+                            title="Reset all time for this task">⟲</button
+                          >
+                        {/if}
+                      {/if}
+                    </div>
+                  </div>
+                </div>
+              {/each}
+
+              {#if taskStore.completedTasks.length > 0}
+                <button
+                  class="completed-separator"
+                  transition:slide={{ duration: 200 }}
+                  onclick={() => uiStore.toggleCompletedTasks()}
+                  aria-expanded={!uiStore.completedTasksCollapsed}
+                >
+                  <span
+                    class="completed-caret"
+                    class:expanded={!uiStore.completedTasksCollapsed}
+                  >
+                    <svg
+                      width="10"
+                      height="10"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="3"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"><path d="m9 18 6-6-6-6" /></svg
+                    >
+                  </span>
+                  <span class="completed-label">Completed</span>
+                  <div class="completed-line"></div>
+                  <span class="completed-count"
+                    >{taskStore.completedTasks.length}</span
+                  >
+                </button>
+
+                {#if !uiStore.completedTasksCollapsed}
+                  <div
+                    class="completed-tasks-container"
+                    transition:slide={{ duration: 250 }}
+                  >
+                    {#each taskStore.completedTasks as task, index (task.id)}
+                      {@const globalIndex =
+                        index + taskStore.activeTasks.length}
+                      <div
+                        animate:flip={{ duration: 300 }}
+                        class="task-item-wrapper"
+                        data-index={globalIndex}
+                        class:dragging={isDragging && draggedId === task.id}
+                      >
+                        <div
+                          class="task-item completed-task-item"
+                          oncontextmenu={(e) =>
+                            handleContextMenu(e, "task", task.id)}
+                          onpointerdown={(e) => {
+                            const target = e.target as HTMLElement;
+                            if (
+                              target.closest(".checkbox-container") ||
+                              target.closest(".task-controls")
+                            )
+                              return;
+                            handlePointerDown(e, "task", task.id, globalIndex);
+                          }}
+                        >
+                          <div
+                            class="drag-handle-task"
+                            onpointerdown={(e) => {
+                              e.stopPropagation();
+                              handlePointerDown(
+                                e,
+                                "task",
+                                task.id,
+                                globalIndex,
+                              );
+                            }}
+                          >
+                            ⋮⋮
+                          </div>
+                          <label class="checkbox-container">
+                            <input
+                              type="checkbox"
+                              checked={task.completed}
+                              onchange={() =>
+                                taskStore.toggleCompletion(task.id)}
+                              class="task-checkbox-hidden"
+                            />
+                            <span class="checkbox-custom"></span>
+                          </label>
+                          <div class="task-content">
+                            <div
+                              class="task-title"
+                              class:completed={task.completed}
+                            >
+                              {task.title}
+                            </div>
+                            <div class="task-meta">
+                              {#if task.total_time_seconds > 0 && task.project_id}
+                                <div class="task-time text-xs">
+                                  <span class="time-icon">⏱</span>
+                                  <TimeDisplay
+                                    seconds={task.total_time_seconds}
+                                  />
+                                </div>
+                              {/if}
+                            </div>
+                          </div>
+                          <div class="task-controls">
+                            {#if task.project_id && task.total_time_seconds > 0}
+                              <button
+                                class="btn-icon-compact btn-reset"
+                                onclick={() => openResetModal(task.id)}
+                                title="Reset all time for this task">⟲</button
+                              >
+                            {/if}
+                          </div>
+                        </div>
+                      </div>
+                    {/each}
+                  </div>
+                {/if}
+              {/if}
+
+              {#if taskStore.tasks.length === 0}
+                <div class="empty-state">
+                  <p class="text-secondary text-sm">No tasks yet</p>
+                  <p class="text-tertiary text-xs">
+                    Click "+ Task" to create your first task
+                  </p>
+                </div>
+              {/if}
+            </div>
+          </div>
+        {/if}
+      </div>
+    {/if}
 
     {#if timerStore.active}
       <div class="timer-widget" transition:fly={{ y: 50, duration: 300 }}>

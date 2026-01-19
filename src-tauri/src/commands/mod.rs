@@ -2,6 +2,7 @@ pub mod projects;
 pub mod sections;
 pub mod tasks;
 pub mod time_entries;
+pub mod time_stats;
 pub mod timer;
 pub mod window;
 
@@ -9,5 +10,6 @@ pub use projects::*;
 pub use sections::*;
 pub use tasks::*;
 pub use time_entries::*;
+pub use time_stats::*;
 pub use timer::*;
 pub use window::*;

@@ -21,7 +21,7 @@
       }
     } catch (e) {
       // If we're not in a tauri context (e.g. browser), we can assume not mobile for window buttons
-      isMobile = false; 
+      isMobile = false;
       console.warn("Failed to detect platform, assuming non-mobile:", e);
     }
   });
@@ -45,7 +45,7 @@
   async function handleDrag(e: MouseEvent) {
     if (isMobile) return;
     // Only drag on left click and not on buttons
-    if (e.button === 0 && !(e.target as HTMLElement).closest('button')) {
+    if (e.button === 0 && !(e.target as HTMLElement).closest("button")) {
       await db.window.startDragging();
     }
   }
@@ -55,19 +55,54 @@
   <div class="title-bar" onmousedown={handleDrag} data-tauri-drag-region>
     <div class="window-controls">
       <button class="win-btn minimize" onclick={minimize} title="Minimize">
-        <svg width="12" height="12" viewBox="0 0 12 12"><rect fill="currentColor" x="1" y="5" width="10" height="1"/></svg>
+        <svg width="12" height="12" viewBox="0 0 12 12"
+          ><rect fill="currentColor" x="1" y="5" width="10" height="1" /></svg
+        >
       </button>
-      <button class="win-btn dock-left" onclick={() => dock('left')} title="Dock Left">
-        <svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M1 1h4v10H1V1zm1 1v8h2V2H2z"/></svg>
+      <button
+        class="win-btn dock-left"
+        onclick={() => dock("left")}
+        title="Dock Left"
+      >
+        <svg width="12" height="12" viewBox="0 0 12 12"
+          ><path fill="currentColor" d="M1 1h4v10H1V1zm1 1v8h2V2H2z" /></svg
+        >
       </button>
-      <button class="win-btn maximize" onclick={toggleMaximize} title="Maximize">
-        <svg width="12" height="12" viewBox="0 0 12 12"><rect fill="none" stroke="currentColor" stroke-width="1" x="1.5" y="1.5" width="9" height="9"/></svg>
+      <button
+        class="win-btn maximize"
+        onclick={toggleMaximize}
+        title="Maximize"
+      >
+        <svg width="12" height="12" viewBox="0 0 12 12"
+          ><rect
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1"
+            x="1.5"
+            y="1.5"
+            width="9"
+            height="9"
+          /></svg
+        >
       </button>
-      <button class="win-btn dock-right" onclick={() => dock('right')} title="Dock Right">
-        <svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M7 1h4v10H7V1zm1 1v8h2V2H8z"/></svg>
+      <button
+        class="win-btn dock-right"
+        onclick={() => dock("right")}
+        title="Dock Right"
+      >
+        <svg width="12" height="12" viewBox="0 0 12 12"
+          ><path fill="currentColor" d="M7 1h4v10H7V1zm1 1v8h2V2H8z" /></svg
+        >
       </button>
       <button class="win-btn close" onclick={close} title="Close">
-        <svg width="12" height="12" viewBox="0 0 12 12"><path fill="currentColor" d="M1.5 1.5l9 9m-9 0l9-9" stroke="currentColor" stroke-width="1.2"/></svg>
+        <svg width="12" height="12" viewBox="0 0 12 12"
+          ><path
+            fill="currentColor"
+            d="M1.5 1.5l9 9m-9 0l9-9"
+            stroke="currentColor"
+            stroke-width="1.2"
+          /></svg
+        >
       </button>
     </div>
   </div>
@@ -80,10 +115,10 @@
 
   <div class="header-right">
     <div class="quick-add-container">
-      <button 
-        class="add-btn" 
+      <button
+        class="add-btn"
         class:active={uiStore.showQuickAdd}
-        onclick={() => uiStore.toggleQuickAdd()} 
+        onclick={() => uiStore.toggleQuickAdd()}
         title="Add new..."
       >
         <span class="plus-icon">＋</span>
@@ -91,8 +126,11 @@
 
       {#if uiStore.showQuickAdd}
         <div class="quick-add-menu" transition:fly={{ y: 10, duration: 200 }}>
-          <button 
-            onclick={() => { uiStore.openTaskModal(); uiStore.closeQuickAdd(); }}
+          <button
+            onclick={() => {
+              uiStore.openTaskModal();
+              uiStore.closeQuickAdd();
+            }}
             class="menu-item"
           >
             <span class="menu-icon">✓</span>
@@ -101,8 +139,11 @@
               <span class="menu-desc">Add to current list</span>
             </div>
           </button>
-          <button 
-            onclick={() => { uiStore.openProjectModal(); uiStore.closeQuickAdd(); }}
+          <button
+            onclick={() => {
+              uiStore.openProjectModal();
+              uiStore.closeQuickAdd();
+            }}
             class="menu-item"
           >
             <span class="menu-icon">📁</span>
@@ -115,12 +156,21 @@
       {/if}
     </div>
 
-    <div class="timer-badge" class:running={timerStore.isRunning} title="Total time today">
+    <button
+      class="timer-badge"
+      class:running={timerStore.isRunning}
+      onclick={() => uiStore.openStatsView()}
+      title="View time statistics"
+    >
       <span class="timer-icon">📅</span>
       <TimeDisplay seconds={Math.floor(timerStore.dailyTotal)} format="hms" />
-    </div>
+    </button>
 
-    <button class="icon-btn" onclick={() => uiStore.toggleTheme()} title="Toggle theme">
+    <button
+      class="icon-btn"
+      onclick={() => uiStore.toggleTheme()}
+      title="Toggle theme"
+    >
       {uiStore.theme === "dark" ? "☀" : "🌙"}
     </button>
   </div>
@@ -289,6 +339,12 @@
     font-family: var(--font-mono);
     border: 1px solid var(--border);
     transition: all var(--transition-normal);
+    cursor: pointer;
+  }
+
+  .timer-badge:hover {
+    background-color: var(--bg-hover);
+    border-color: var(--accent);
   }
 
   .timer-badge.running {
@@ -300,7 +356,8 @@
   }
 
   @keyframes header-pulse {
-    0%, 100% {
+    0%,
+    100% {
       transform: scale(1);
     }
     50% {
