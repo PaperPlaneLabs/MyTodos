@@ -406,6 +406,14 @@
             <div
               class="project-item inbox-item"
               class:active={projectStore.selectedId === null}
+              class:has-timer={timerStore.active &&
+                timerStore.currentProjectId === null}
+              class:timer-running={timerStore.active &&
+                timerStore.currentProjectId === null &&
+                timerStore.isRunning}
+              class:timer-paused={timerStore.active &&
+                timerStore.currentProjectId === null &&
+                !timerStore.isRunning}
               role="button"
               tabindex="0"
               onclick={() => projectStore.setSelected(null)}
@@ -418,6 +426,12 @@
               <div class="project-info">
                 <div class="project-header">
                   <div class="project-name">Tasks</div>
+                  {#if timerStore.active && timerStore.currentProjectId === null}
+                    <div
+                      class="active-timer-dot"
+                      title="Active timer in this project"
+                    ></div>
+                  {/if}
                 </div>
               </div>
             </div>
@@ -434,6 +448,14 @@
               <div
                 class="project-item"
                 class:active={projectStore.selectedId === project.id}
+                class:has-timer={timerStore.active &&
+                  timerStore.currentProjectId === project.id}
+                class:timer-running={timerStore.active &&
+                  timerStore.currentProjectId === project.id &&
+                  timerStore.isRunning}
+                class:timer-paused={timerStore.active &&
+                  timerStore.currentProjectId === project.id &&
+                  !timerStore.isRunning}
                 role="button"
                 tabindex="0"
                 onclick={() =>
@@ -449,11 +471,19 @@
                 <div class="project-info">
                   <div class="project-header">
                     <div class="project-name">{project.name}</div>
-                    {#if project.total_time_seconds > 0}
-                      <div class="project-time-badge">
-                        <TimeDisplay seconds={project.total_time_seconds} />
-                      </div>
-                    {/if}
+                    <div class="project-meta-right">
+                      {#if timerStore.active && timerStore.currentProjectId === project.id}
+                        <div
+                          class="active-timer-dot"
+                          title="Active timer in this project"
+                        ></div>
+                      {/if}
+                      {#if project.total_time_seconds > 0}
+                        <div class="project-time-badge">
+                          <TimeDisplay seconds={project.total_time_seconds} />
+                        </div>
+                      {/if}
+                    </div>
                   </div>
                 </div>
                 <div
@@ -1122,6 +1152,13 @@
     width: 100%;
   }
 
+  .project-meta-right {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    flex-shrink: 0;
+  }
+
   .project-name {
     font-weight: 500;
     white-space: nowrap;
@@ -1147,6 +1184,48 @@
   .project-item.active .project-time-badge {
     background-color: var(--accent);
     color: white;
+  }
+
+  .active-timer-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--success);
+    box-shadow: 0 0 10px var(--success-glow);
+  }
+
+  .timer-running .active-timer-dot {
+    background-color: var(--success);
+    box-shadow: 0 0 12px var(--success-glow);
+    animation: dot-pulse 1.5s ease-in-out infinite;
+  }
+
+  .timer-paused .active-timer-dot {
+    background-color: var(--warning);
+    box-shadow: 0 0 8px var(--warning-glow);
+    animation: none;
+  }
+
+  .project-item.timer-running {
+    border-color: var(--success-light);
+    background-color: var(--success-glow);
+  }
+
+  .project-item.timer-paused {
+    border-color: var(--warning-light);
+    background-color: var(--warning-glow);
+  }
+
+  @keyframes dot-pulse {
+    0%,
+    100% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(1.3);
+      opacity: 0.7;
+    }
   }
 
   .task-item {

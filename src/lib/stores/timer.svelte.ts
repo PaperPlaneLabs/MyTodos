@@ -8,7 +8,7 @@ let currentElapsed = $state(0);
 let intervalId: number | null = null;
 let initialTaskTime = 0;
 let initialProjectTime = 0;
-let currentProjectId: number | null = null;
+let currentProjectId = $state<number | null>(null);
 
 function getStartOfToday(): number {
   const now = new Date();
@@ -31,6 +31,10 @@ export const timerStore = {
 
   get isRunning() {
     return activeTimer?.is_running ?? false;
+  },
+
+  get currentProjectId() {
+    return currentProjectId;
   },
 
   async loadActive() {
