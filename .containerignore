@@ -1,0 +1,58 @@
+# Build artifacts
+target/
+src-tauri/target/
+dist/
+
+# Node modules and build outputs
+node_modules/
+*.log
+build.log
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Cache directories
+.cache/
+
+# Test outputs
+*.profraw
+*.profdata
+
+# Temporary files
+tmp/
+temp/
+
+# Documentation that's not needed in build
+*.md
+!README.md
+
+# CI/CD
+.github/
+
+# Local environment files
+.env
+.env.local
+
+# Containerfile itself (already in context)
+Containerfile
+.dockerignore
+
+# Scripts (if not needed in container)
+scripts/
+
+# Android build artifacts
+*.apk
+*.aab
+*.keystore
