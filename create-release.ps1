@@ -76,12 +76,18 @@ if ($LASTEXITCODE -ne 0) { Write-Fail "Failed to push tag"; exit 1 }
 Write-Success "Pushed tag v$v"
 
 # ============================================================
-# STEP 3: Clean dist folder
+# STEP 3: Clean build artifacts
 # ============================================================
-Write-Step "Cleaning dist folder..."
+Write-Step "Cleaning dist and bundle folders..."
 if (Test-Path "dist") { Remove-Item -Recurse -Force "dist" }
 New-Item -ItemType Directory -Force -Path "dist" | Out-Null
-Write-Success "dist/ folder cleaned"
+
+# Clean Windows bundle directory to remove old version files
+if (Test-Path "src-tauri/target/release/bundle") { 
+    Remove-Item -Recurse -Force "src-tauri/target/release/bundle" 
+}
+Write-Success "Cleaned dist/ and bundle/ folders"
+
 
 # ============================================================
 # STEP 4: Build for all platforms
@@ -119,9 +125,25 @@ $containerId = & $PodmanExe create mytodos-builder-linux
 Write-Success "Linux artifacts copied to dist/"
 
 # ============================================================
-# STEP 5: Wait for macOS release & Upload local artifacts
+# STEP 5: Commit Cargo.lock if changed
+# ============================================================
+$cargoLockChanged = git diff --quiet src-tauri/Cargo.lock; $cargoLockChanged = ($LASTEXITCODE -ne 0)
+if ($cargoLockChanged) {
+    Write-Step "Committing updated Cargo.lock..."
+    git add src-tauri/Cargo.lock
+    git commit -m "chore: update Cargo.lock for v$v"
+    git push origin (git rev-parse --abbrev-ref HEAD)
+    Write-Success "Cargo.lock committed and pushed"
+}
+else {
+    Write-Success "Cargo.lock unchanged, no commit needed"
+}
+
+# ============================================================
+# STEP 6: Wait for macOS release & Upload local artifacts
 # ============================================================
 Write-Step "Waiting for macOS GitHub Action to create release v$v..."
+
 Write-Host "   (The tag push triggers GitHub Actions to build macOS and create the release)"
 
 $tag = "v$v"
