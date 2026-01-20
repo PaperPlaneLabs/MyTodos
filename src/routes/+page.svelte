@@ -6,6 +6,7 @@
   import AppHeader from "$lib/components/layout/AppHeader.svelte";
   import CollapseHandle from "$lib/components/layout/CollapseHandle.svelte";
   import StatsView from "$lib/components/stats/StatsView.svelte";
+  import SettingsView from "$lib/components/settings/SettingsView.svelte";
   import Modal from "$lib/components/common/Modal.svelte";
   import TimeDisplay from "$lib/components/common/TimeDisplay.svelte";
   import ContextMenu from "$lib/components/common/ContextMenu.svelte";
@@ -392,6 +393,8 @@
 
     {#if uiStore.showStatsView}
       <StatsView />
+    {:else if uiStore.showSettingsView}
+      <SettingsView />
     {:else}
       <div class="main-content">
         <div class="projects-section">

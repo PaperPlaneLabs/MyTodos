@@ -4,6 +4,7 @@ let showSectionModal = $state(false);
 let showManualTimeModal = $state(false);
 let showQuickAdd = $state(false);
 let showStatsView = $state(false);
+let showSettingsView = $state(false);
 let isCollapsed = $state(false);
 let completedTasksCollapsed = $state(true);
 let handleTop = $state(120);
@@ -60,6 +61,10 @@ export const uiStore = {
     return showStatsView;
   },
 
+  get showSettingsView() {
+    return showSettingsView;
+  },
+
   get theme() {
     return theme;
   },
@@ -108,6 +113,14 @@ export const uiStore = {
 
   closeStatsView() {
     showStatsView = false;
+  },
+
+  openSettingsView() {
+    showSettingsView = true;
+  },
+
+  closeSettingsView() {
+    showSettingsView = false;
   },
 
   openProjectModal(projectId: number | null = null) {

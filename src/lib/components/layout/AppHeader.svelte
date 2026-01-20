@@ -168,6 +168,14 @@
 
     <button
       class="icon-btn"
+      onclick={() => uiStore.openSettingsView()}
+      title="Settings"
+    >
+      ⚙️
+    </button>
+
+    <button
+      class="icon-btn"
       onclick={() => uiStore.toggleTheme()}
       title="Toggle theme"
     >
