@@ -1,7 +1,21 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import { fade, fly } from "svelte/transition";
-    import { uiStore } from "$lib/stores/ui.svelte";
+    import { uiStore, type Theme } from "$lib/stores/ui.svelte";
+
+    const themes: { id: Theme; name: string; bg: string; accent: string }[] = [
+        { id: "light", name: "Light", bg: "#ffffff", accent: "#6366f1" },
+        { id: "dark", name: "Dark", bg: "#1a1a1a", accent: "#818cf8" },
+        {
+            id: "minecraft",
+            name: "Minecraft",
+            bg: "#3d2b1f",
+            accent: "#3c8527",
+        },
+        { id: "retro", name: "Retro", bg: "#0c0c0c", accent: "#ffb000" },
+        { id: "ocean", name: "Ocean", bg: "#001219", accent: "#0a9396" },
+        { id: "nord", name: "Nord", bg: "#2e3440", accent: "#88c0d0" },
+    ];
 
     let isAutoStartEnabled = $state(false);
     let loading = $state(true);
@@ -99,19 +113,22 @@
                 Appearance
             </h3>
 
-            <div class="setting-item">
-                <div class="setting-info">
-                    <span class="setting-label">Theme</span>
-                    <span class="setting-desc"
-                        >Switch between light and dark mode</span
+            <div class="themes-grid">
+                {#each themes as t}
+                    <button
+                        class="theme-card"
+                        class:active={uiStore.theme === t.id}
+                        onclick={() => uiStore.setTheme(t.id)}
                     >
-                </div>
-                <button
-                    class="theme-toggle"
-                    onclick={() => uiStore.toggleTheme()}
-                >
-                    {uiStore.theme === "dark" ? "🌙 Dark" : "☀️ Light"}
-                </button>
+                        <div
+                            class="theme-preview"
+                            style="--preview-bg: {t.bg}; --preview-accent: {t.accent}"
+                        >
+                            <div class="preview-dot"></div>
+                        </div>
+                        <span class="theme-name">{t.name}</span>
+                    </button>
+                {/each}
             </div>
         </section>
 
@@ -270,22 +287,60 @@
         transform: translateX(20px);
     }
 
-    /* Theme Toggle Button */
-    .theme-toggle {
-        padding: 6px 12px;
-        background-color: var(--bg-primary);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-md);
-        font-size: 12px;
-        font-weight: 500;
-        color: var(--text-primary);
-        transition: all var(--transition-fast);
-        white-space: nowrap;
+    .themes-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--spacing-md);
+        margin-top: var(--spacing-sm);
     }
 
-    .theme-toggle:hover {
-        background-color: var(--bg-hover);
+    .theme-card {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: var(--spacing-sm);
+        padding: var(--spacing-sm);
+        background: var(--bg-primary);
+        border: 2px solid transparent;
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        transition: all var(--transition-fast);
+    }
+
+    .theme-card:hover {
+        background: var(--bg-hover);
+        border-color: var(--border);
+    }
+
+    .theme-card.active {
         border-color: var(--accent);
+        background: var(--accent-light);
+    }
+
+    .theme-preview {
+        width: 100%;
+        aspect-ratio: 16/9;
+        background-color: var(--preview-bg);
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+    }
+
+    .preview-dot {
+        width: 12px;
+        height: 12px;
+        background-color: var(--preview-accent);
+        border-radius: 50%;
+        box-shadow: 0 0 8px var(--preview-accent);
+    }
+
+    .theme-name {
+        font-size: 11px;
+        font-weight: 500;
+        color: var(--text-primary);
     }
 
     /* About Section */

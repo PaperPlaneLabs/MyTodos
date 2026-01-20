@@ -115,3 +115,121 @@
   --success-glow: rgba(52, 211, 153, 0.15);
   --warning-glow: rgba(251, 191, 36, 0.15);
 }
+
+[data-theme="minecraft"] {
+  --bg-primary: #3d2b1f;
+  --bg-secondary: #4a3528;
+  --bg-tertiary: #5c4333;
+  --bg-hover: #543d2f;
+
+  --text-primary: #f5f5f5;
+  --text-secondary: #d4d4d4;
+  --text-tertiary: #a1a1a1;
+
+  --accent: #3c8527;
+  --accent-hover: #4da633;
+  --accent-light: #255118;
+
+  --success: #3c8527;
+  --success-light: #1e3a12;
+
+  --danger: #af1616;
+  --danger-light: #5a0b0b;
+
+  --warning: #e19517;
+  --warning-light: #704b0b;
+
+  --border: #2e1f15;
+  --border-light: #3d2b1f;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.6);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.7);
+
+  --font-sans: "Courier New", Courier, monospace;
+}
+
+[data-theme="retro"] {
+  --bg-primary: #0c0c0c;
+  --bg-secondary: #1a1a1a;
+  --bg-tertiary: #2a2a2a;
+  --bg-hover: #333333;
+
+  --text-primary: #ffb000;
+  --text-secondary: #cc8e00;
+  --text-tertiary: #996b00;
+
+  --accent: #ffb000;
+  --accent-hover: #ffc233;
+  --accent-light: #332300;
+
+  --success: #00ff41;
+  --success-light: #00330d;
+
+  --danger: #ff0000;
+  --danger-light: #330000;
+
+  --warning: #ffb000;
+  --warning-light: #332300;
+
+  --border: #332200;
+  --border-light: #1a1100;
+
+  --font-sans: "Consolas", "Monaco", monospace;
+  --shadow-md: 0 0 10px rgba(255, 176, 0, 0.2);
+}
+
+[data-theme="ocean"] {
+  --bg-primary: #001219;
+  --bg-secondary: #001f2e;
+  --bg-tertiary: #005f73;
+  --bg-hover: #0a9396;
+
+  --text-primary: #e9d8a6;
+  --text-secondary: #94d2bd;
+  --text-tertiary: #ee9b00;
+
+  --accent: #0a9396;
+  --accent-hover: #94d2bd;
+  --accent-light: #001f2e;
+
+  --success: #94d2bd;
+  --success-light: #005f73;
+
+  --danger: #ae2012;
+  --danger-light: #9b2226;
+
+  --warning: #ee9b00;
+  --warning-light: #ca6702;
+
+  --border: #005f73;
+  --border-light: #001f2e;
+}
+
+[data-theme="nord"] {
+  --bg-primary: #2e3440;
+  --bg-secondary: #3b4252;
+  --bg-tertiary: #434c5e;
+  --bg-hover: #4c566a;
+
+  --text-primary: #eceff4;
+  --text-secondary: #e5e9f0;
+  --text-tertiary: #d8dee9;
+
+  --accent: #88c0d0;
+  --accent-hover: #81a1c1;
+  --accent-light: #5e81ac;
+
+  --success: #a3be8c;
+  --success-light: #8fbcbb;
+
+  --danger: #bf616a;
+  --danger-light: #d08770;
+
+  --warning: #ebcb8b;
+  --warning-light: #b48ead;
+
+  --border: #4c566a;
+  --border-light: #3b4252;
+}
+

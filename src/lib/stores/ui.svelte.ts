@@ -12,7 +12,8 @@ let editingProjectId = $state<number | null>(null);
 let editingTaskId = $state<number | null>(null);
 let editingSectionId = $state<number | null>(null);
 let manualTimeTaskId = $state<number | null>(null);
-let theme = $state<"light" | "dark">("light");
+export type Theme = "light" | "dark" | "minecraft" | "retro" | "ocean" | "nord";
+let theme = $state<Theme>("light");
 
 // Context Menu State
 let contextMenuOpen = $state(false);
@@ -175,8 +176,8 @@ export const uiStore = {
     contextMenuOpen = false;
   },
 
-  toggleTheme() {
-    theme = theme === "light" ? "dark" : "light";
+  setTheme(newTheme: Theme) {
+    theme = newTheme;
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("theme", theme);
   },
@@ -185,7 +186,7 @@ export const uiStore = {
     const savedTheme = localStorage.getItem("theme") as "light" | "dark" | null;
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
 
-    theme = savedTheme ?? (prefersDark ? "dark" : "light");
+    theme = (savedTheme as Theme) ?? (prefersDark ? "dark" : "light");
     document.documentElement.setAttribute("data-theme", theme);
   },
 };

@@ -173,14 +173,6 @@
     >
       ⚙️
     </button>
-
-    <button
-      class="icon-btn"
-      onclick={() => uiStore.toggleTheme()}
-      title="Toggle theme"
-    >
-      {uiStore.theme === "dark" ? "☀" : "🌙"}
-    </button>
   </div>
 </header>
 
