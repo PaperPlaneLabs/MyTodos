@@ -10,6 +10,7 @@
   import Modal from "$lib/components/common/Modal.svelte";
   import TimeDisplay from "$lib/components/common/TimeDisplay.svelte";
   import ContextMenu from "$lib/components/common/ContextMenu.svelte";
+  import UpdateNotification from "$lib/components/common/UpdateNotification.svelte";
   import { projectStore } from "$lib/stores/projects.svelte";
   import { taskStore } from "$lib/stores/tasks.svelte";
   import { timerStore } from "$lib/stores/timer.svelte";
@@ -976,6 +977,8 @@
     </div>
   {/snippet}
 </Modal>
+
+<UpdateNotification />
 
 <style>
   .app-container {

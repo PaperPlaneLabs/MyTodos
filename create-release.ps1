@@ -10,6 +10,18 @@ function Write-Step($msg) { Write-Host "`n>> $msg" -ForegroundColor Cyan }
 function Write-Success($msg) { Write-Host "   [OK] $msg" -ForegroundColor Green }
 function Write-Fail($msg) { Write-Host "   [ER] $msg" -ForegroundColor Red }
 
+# Load signing keys from .env for auto-update signing
+if (Test-Path ".env") {
+    Get-Content ".env" | ForEach-Object {
+        if ($_ -match '^\s*([^#=]+)\s*=\s*(.*)$') {
+            $key = $matches[1].Trim()
+            $value = $matches[2].Trim().Trim("'")
+            [Environment]::SetEnvironmentVariable($key, $value, "Process")
+        }
+    }
+    Write-Success "Loaded signing keys from .env"
+}
+
 # Validate version format (semantic versioning: X.Y.Z)
 if ($v -notmatch '^\d+\.\d+\.\d+$') {
     Write-Fail "Invalid version format. Expected: X.Y.Z (e.g., 0.1.24)"
@@ -97,7 +109,7 @@ if (-not (Test-Path "node_modules")) { npm install }
 npm run tauri build
 if ($LASTEXITCODE -ne 0) { Write-Fail "Windows build failed"; exit 1 }
 
-$winArtifacts = Get-ChildItem -Path "src-tauri/target/release/bundle/msi/*.msi", "src-tauri/target/release/bundle/nsis/*-setup.exe" -ErrorAction SilentlyContinue
+$winArtifacts = Get-ChildItem -Path "src-tauri/target/release/bundle/msi/*.msi", "src-tauri/target/release/bundle/msi/*.msi.sig", "src-tauri/target/release/bundle/nsis/*-setup.exe", "src-tauri/target/release/bundle/nsis/*-setup.exe.sig" -ErrorAction SilentlyContinue
 if ($winArtifacts.Count -gt 0) {
     Copy-Item -Path $winArtifacts.FullName -Destination "dist/" -Force
     Write-Success "Windows artifacts: $($winArtifacts.Name -join ', ')"
@@ -169,7 +181,7 @@ if ($tryCount -eq $maxTries) {
 }
 
 # Collect artifacts
-$files = Get-ChildItem -Path "dist" -Include *.msi, *-setup.exe, *.deb, *.rpm, *.AppImage -Recurse | ForEach-Object { $_.FullName }
+$files = Get-ChildItem -Path "dist" -Include *.msi, *.msi.sig, *-setup.exe, *-setup.exe.sig, *.deb, *.deb.sig, *.rpm, *.rpm.sig, *.AppImage, *.AppImage.sig, latest.json -Recurse | ForEach-Object { $_.FullName }
 
 if ($files.Count -eq 0) {
     Write-Fail "No artifacts found in dist/ to upload."

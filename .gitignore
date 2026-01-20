@@ -11,3 +11,5 @@ vite.config.ts.timestamp-*
 /tmp
 target
 dist/
+~/.tauri/myapp.key
+.env
