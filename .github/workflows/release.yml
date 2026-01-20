@@ -18,10 +18,10 @@ jobs:
             args: '--target aarch64-apple-darwin'
           - platform: 'macos-latest'
             args: '--target x86_64-apple-darwin'
-          - platform: 'ubuntu-22.04'
-            args: ''
-          - platform: 'windows-latest'
-            args: ''
+          # - platform: 'ubuntu-22.04'
+          #   args: ''
+          # - platform: 'windows-latest'
+          #   args: ''
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -40,14 +40,19 @@ jobs:
           node-version: 20
           cache: 'npm'
 
+      # dtolnay/rust-toolchain is a standard way to install Rust in GH Actions
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
+      # swatinem/rust-cache is the optimal choice for non-Docker Rust builds on GitHub Actions.
+      # It automatically caches the ~/.cargo/registry, ~/.cargo/git, and the build target directory.
+      # Note: cargo-chef is not used here as it is specifically designed for Docker layer caching.
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
+          # Pointing to the Tauri backend directory where Cargo.toml resides
           workspaces: './src-tauri -> target'
           key: ${{ matrix.platform }}-${{ matrix.args }}
 
@@ -64,5 +69,6 @@ jobs:
           releaseBody: 'See the assets to download this version and install.'
           releaseDraft: false
           prerelease: false
-          releaseRepo: SujithChristopher/MyTodos-releases
+          owner: SujithChristopher 
+          repo: MyTodos-releases
           args: ${{ matrix.args }}
