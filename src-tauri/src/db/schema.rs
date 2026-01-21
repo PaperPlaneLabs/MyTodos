@@ -58,7 +58,9 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
             started_at INTEGER NOT NULL,
             elapsed_seconds INTEGER DEFAULT 0,
             is_running BOOLEAN DEFAULT 1,
-            FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE
+            project_id INTEGER,
+            FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+            FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
         );
 
         CREATE TABLE IF NOT EXISTS window_state (
@@ -81,6 +83,17 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
         -- and existing users might need to reset or we'd need a complex migration.
         "#
     )?;
+
+    // Migration: Add project_id to active_timer if it doesn't exist
+    let _ = conn.execute("ALTER TABLE active_timer ADD COLUMN project_id INTEGER", []);
+
+    // Populate project_id for any existing active timer by looking up the task's project
+    let _ = conn.execute(
+        "UPDATE active_timer 
+         SET project_id = (SELECT project_id FROM tasks WHERE tasks.id = active_timer.task_id)
+         WHERE project_id IS NULL",
+        [],
+    );
 
     // Try to check if we need to migrate (this is a simple way to handle it for now)
     let _ = conn.execute("PRAGMA foreign_keys = OFF", []);

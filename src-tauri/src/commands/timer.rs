@@ -11,7 +11,7 @@ pub fn get_active_timer(db: State<DbConnection>) -> Result<Option<ActiveTimer>> 
     let conn = db.lock();
 
     let result = conn.query_row(
-        "SELECT t.task_id, t.started_at, t.elapsed_seconds, t.is_running, tasks.title
+        "SELECT t.task_id, t.started_at, t.elapsed_seconds, t.is_running, tasks.title, t.project_id
          FROM active_timer t
          LEFT JOIN tasks ON t.task_id = tasks.id
          WHERE t.id = 1",
@@ -23,6 +23,7 @@ pub fn get_active_timer(db: State<DbConnection>) -> Result<Option<ActiveTimer>> 
                 elapsed_seconds: row.get(2)?,
                 is_running: row.get(3)?,
                 task_title: row.get(4)?,
+                project_id: row.get(5)?,
             })
         },
     );
@@ -45,37 +46,30 @@ pub fn start_timer(db: State<DbConnection>, task_id: i64) -> Result<ActiveTimer>
 
     let conn = db.lock();
 
-    let task_exists: bool = conn
-        .query_row("SELECT 1 FROM tasks WHERE id = ?", [task_id], |_| Ok(true))
-        .unwrap_or(false);
-
-    if !task_exists {
-        return Err(AppError::NotFound(format!(
-            "Task with id {} not found",
-            task_id
-        )));
-    }
+    // Get task info including project_id
+    let task_info: (Option<String>, Option<i64>) = conn
+        .query_row(
+            "SELECT title, project_id FROM tasks WHERE id = ?",
+            [task_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(|_| AppError::NotFound(format!("Task with id {} not found", task_id)))?;
 
     let now = get_timestamp();
 
     conn.execute(
-        "INSERT INTO active_timer (id, task_id, started_at, elapsed_seconds, is_running)
-         VALUES (1, ?, ?, 0, 1)",
-        (task_id, now),
+        "INSERT INTO active_timer (id, task_id, started_at, elapsed_seconds, is_running, project_id)
+         VALUES (1, ?, ?, 0, 1, ?)",
+        (task_id, now, task_info.1),
     )?;
-
-    let task_title: Option<String> = conn
-        .query_row("SELECT title FROM tasks WHERE id = ?", [task_id], |row| {
-            row.get(0)
-        })
-        .ok();
 
     Ok(ActiveTimer {
         task_id,
         started_at: now,
         elapsed_seconds: 0,
         is_running: true,
-        task_title,
+        task_title: task_info.0,
+        project_id: task_info.1,
     })
 }
 

@@ -44,20 +44,25 @@ export const timerStore = {
 
       const timer = await db.timer.getActive();
       activeTimer = timer;
-      if (timer && timer.is_running) {
-        // Capture initial times and project ID
-        const task = taskStore.tasks.find(t => t.id === timer.task_id);
-        if (task) {
-          initialTaskTime = task.total_time_seconds;
-          currentProjectId = task.project_id ?? null;
-          if (currentProjectId) {
-            const project = projectStore.projects.find(p => p.id === currentProjectId);
-            initialProjectTime = project?.total_time_seconds ?? 0;
+
+      if (timer) {
+        // Use project_id directly from the timer - it's now persisted in the database
+        currentProjectId = timer.project_id ?? null;
+
+        if (timer.is_running) {
+          // Capture initial times for the UI updates
+          const task = taskStore.tasks.find(t => t.id === timer.task_id);
+          if (task) {
+            initialTaskTime = task.total_time_seconds;
+            if (currentProjectId) {
+              const project = projectStore.projects.find(p => p.id === currentProjectId);
+              initialProjectTime = project?.total_time_seconds ?? 0;
+            }
           }
+          this.startInterval();
+        } else {
+          currentElapsed = timer.elapsed_seconds;
         }
-        this.startInterval();
-      } else if (timer) {
-        currentElapsed = timer.elapsed_seconds;
       }
     } catch (e) {
       console.error("Failed to load active timer:", e);
@@ -73,11 +78,13 @@ export const timerStore = {
       // Refresh daily total before starting
       dailyTotalBeforeActive = await db.timeEntries.getDailyTotalTime(getStartOfToday());
 
-      // Capture initial times and project ID
+      // Use project_id directly from the timer response
+      currentProjectId = timer.project_id ?? null;
+
+      // Capture initial times for the UI updates
       const task = taskStore.tasks.find(t => t.id === taskId);
       if (task) {
         initialTaskTime = task.total_time_seconds;
-        currentProjectId = task.project_id ?? null;
         if (currentProjectId) {
           const project = projectStore.projects.find(p => p.id === currentProjectId);
           initialProjectTime = project?.total_time_seconds ?? 0;

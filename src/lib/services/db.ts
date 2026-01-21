@@ -50,6 +50,7 @@ export interface ActiveTimer {
   elapsed_seconds: number;
   is_running: boolean;
   task_title?: string;
+  project_id?: number;
 }
 
 export interface WindowState {

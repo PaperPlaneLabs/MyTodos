@@ -19,14 +19,33 @@ MyTodos/
 ├── src/                          # Frontend (SvelteKit + Svelte 5)
 │   ├── lib/
 │   │   ├── components/          # UI Components
+│   │   │   ├── common/          # Reusable UI components (Modal, etc.)
+│   │   │   ├── layout/          # Layout components (AppHeader, etc.)
+│   │   │   ├── settings/        # Settings views
+│   │   │   └── stats/           # Statistics views
 │   │   ├── services/            # API/Database service wrappers (db.ts)
 │   │   ├── stores/              # Svelte 5 Runes-based stores
+│   │   │   ├── projects.svelte.ts
+│   │   │   ├── tasks.svelte.ts
+│   │   │   ├── timer.svelte.ts
+│   │   │   └── ui.svelte.ts
 │   │   └── styles/              # Global and theme CSS
 │   └── routes/                  # App routes (+page.svelte is the main entry)
 ├── src-tauri/                    # Backend (Rust + Tauri)
 │   ├── src/
 │   │   ├── commands/            # Tauri IPC command implementations
-│   │   ├── db/                  # SQLite database layer (schema, models, connection)
+│   │   │   ├── mod.rs           # Command module exports
+│   │   │   ├── projects.rs      # Project management
+│   │   │   ├── sections.rs      # Section management
+│   │   │   ├── tasks.rs         # Task management
+│   │   │   ├── time_entries.rs  # Time entry management
+│   │   │   ├── time_stats.rs    # Statistics calculation
+│   │   │   ├── timer.rs         # Active timer logic
+│   │   │   └── window.rs        # Window state persistence
+│   │   ├── db/                  # SQLite database layer
+│   │   │   ├── connection.rs
+│   │   │   ├── models.rs
+│   │   │   └── schema.rs        # Database schema definitions
 │   │   ├── error.rs             # Custom Error handling
 │   │   ├── lib.rs               # App initialization and command registration
 │   │   └── main.rs              # Entry point
@@ -72,6 +91,7 @@ npm run tauri build
 ### Database Schema
 - **Flexible Hierarchy:** Tasks can belong to a project directly or to a section within a project.
 - **Time Tracking:** Time is tracked via `time_entries` and a singleton `active_timer` table for the currently running timer.
+- **Window State:** `window_state` table (singleton) persists window position and dimensions.
 - **Denormalization:** `total_time_seconds` is cached on projects, sections, and tasks for performance.
 
 ## Key Files to Reference
