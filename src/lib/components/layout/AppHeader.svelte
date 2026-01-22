@@ -156,14 +156,21 @@
       {/if}
     </div>
 
-    <button
+    <div
       class="timer-badge"
       class:running={timerStore.isRunning}
-      onclick={() => uiStore.openStatsView()}
-      title="View time statistics"
+      title="Daily total time"
     >
       <span class="timer-icon">📅</span>
       <TimeDisplay seconds={Math.floor(timerStore.dailyTotal)} format="hms" />
+    </div>
+
+    <button
+      class="icon-btn"
+      onclick={() => uiStore.openStatsView()}
+      title="View statistics"
+    >
+      📊
     </button>
 
     <button
@@ -339,7 +346,7 @@
     font-family: var(--font-mono);
     border: 1px solid var(--border);
     transition: all var(--transition-normal);
-    cursor: pointer;
+    cursor: default;
   }
 
   .timer-badge:hover {
