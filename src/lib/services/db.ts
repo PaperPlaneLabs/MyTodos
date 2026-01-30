@@ -29,6 +29,7 @@ export interface Task {
   completed: boolean;
   position: number;
   total_time_seconds: number;
+  deadline?: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -92,6 +93,15 @@ export interface TimeStats {
   projects: ProjectTime[];
 }
 
+export interface CalendarEvent {
+  id: number;
+  title: string;
+  description: string | null;
+  date: string;
+  is_all_day: boolean;
+  color: string;
+}
+
 export const db = {
   projects: {
     getAll: () => invoke<Project[]>("get_all_projects"),
@@ -118,14 +128,25 @@ export const db = {
     getByProject: (projectId: number) => invoke<Task[]>("get_tasks_by_project", { projectId }),
     getUnassigned: () => invoke<Task[]>("get_unassigned_tasks"),
     getBySection: (sectionId: number) => invoke<Task[]>("get_tasks_by_section", { sectionId }),
+    getByDeadlineRange: (startDate: string, endDate: string) =>
+      invoke<Task[]>("get_tasks_by_deadline_range", { startDate, endDate }),
     create: (projectId: number | null, sectionId: number | null, title: string, description?: string) =>
       invoke<Task>("create_task", { projectId, sectionId, title, description }),
     update: (id: number, title?: string, description?: string, completed?: boolean) =>
       invoke<void>("update_task", { id, title, description, completed }),
+    updateDeadline: (id: number, deadline: string | null) =>
+      invoke<void>("update_task_deadline", { taskId: id, deadline }),
     delete: (id: number) => invoke<void>("delete_task", { id }),
     toggleCompletion: (id: number) => invoke<boolean>("toggle_task_completion", { id }),
     reorder: (taskIds: number[]) => invoke<void>("reorder_tasks", { taskIds }),
     resetTime: (id: number) => invoke<void>("reset_task_time", { id }),
+  },
+
+  calendarEvents: {
+    getInRange: (startDate: string, endDate: string) =>
+      invoke<CalendarEvent[]>("get_calendar_events_in_range", { startDate, endDate }),
+    create: (title: string, description: string | null, date: string, isAllDay: boolean, color: string | null) =>
+      invoke<CalendarEvent>("create_calendar_event", { title, description, date, isAllDay, color }),
   },
 
   timer: {

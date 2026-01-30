@@ -10,7 +10,7 @@ fn get_timestamp() -> i64 {
 pub fn get_tasks_by_project(db: State<DbConnection>, project_id: i64) -> Result<Vec<Task>> {
     let conn = db.lock();
     let mut stmt = conn.prepare(
-        "SELECT id, project_id, section_id, title, description, completed, position, total_time_seconds, created_at, updated_at
+        "SELECT id, project_id, section_id, title, description, completed, position, total_time_seconds, deadline, created_at, updated_at
          FROM tasks WHERE project_id = ? ORDER BY position ASC"
     )?;
 
@@ -25,8 +25,9 @@ pub fn get_tasks_by_project(db: State<DbConnection>, project_id: i64) -> Result<
                 completed: row.get(5)?,
                 position: row.get(6)?,
                 total_time_seconds: row.get(7)?,
-                created_at: row.get(8)?,
-                updated_at: row.get(9)?,
+                deadline: row.get(8)?,
+                created_at: row.get(9)?,
+                updated_at: row.get(10)?,
             })
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -38,7 +39,7 @@ pub fn get_tasks_by_project(db: State<DbConnection>, project_id: i64) -> Result<
 pub fn get_unassigned_tasks(db: State<DbConnection>) -> Result<Vec<Task>> {
     let conn = db.lock();
     let mut stmt = conn.prepare(
-        "SELECT id, project_id, section_id, title, description, completed, position, total_time_seconds, created_at, updated_at
+        "SELECT id, project_id, section_id, title, description, completed, position, total_time_seconds, deadline, created_at, updated_at
          FROM tasks WHERE project_id IS NULL ORDER BY position ASC"
     )?;
 
@@ -53,8 +54,9 @@ pub fn get_unassigned_tasks(db: State<DbConnection>) -> Result<Vec<Task>> {
                 completed: row.get(5)?,
                 position: row.get(6)?,
                 total_time_seconds: row.get(7)?,
-                created_at: row.get(8)?,
-                updated_at: row.get(9)?,
+                deadline: row.get(8)?,
+                created_at: row.get(9)?,
+                updated_at: row.get(10)?,
             })
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -66,7 +68,7 @@ pub fn get_unassigned_tasks(db: State<DbConnection>) -> Result<Vec<Task>> {
 pub fn get_tasks_by_section(db: State<DbConnection>, section_id: i64) -> Result<Vec<Task>> {
     let conn = db.lock();
     let mut stmt = conn.prepare(
-        "SELECT id, project_id, section_id, title, description, completed, position, total_time_seconds, created_at, updated_at
+        "SELECT id, project_id, section_id, title, description, completed, position, total_time_seconds, deadline, created_at, updated_at
          FROM tasks WHERE section_id = ? ORDER BY position ASC"
     )?;
 
@@ -81,8 +83,9 @@ pub fn get_tasks_by_section(db: State<DbConnection>, section_id: i64) -> Result<
                 completed: row.get(5)?,
                 position: row.get(6)?,
                 total_time_seconds: row.get(7)?,
-                created_at: row.get(8)?,
-                updated_at: row.get(9)?,
+                deadline: row.get(8)?,
+                created_at: row.get(9)?,
+                updated_at: row.get(10)?,
             })
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -123,14 +126,15 @@ pub fn create_task(
     .unwrap_or(0);
 
     conn.execute(
-        "INSERT INTO tasks (project_id, section_id, title, description, position, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO tasks (project_id, section_id, title, description, position, deadline, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
         (
             project_id,
             section_id,
             &title,
             &description,
             max_position + 1,
+            Option::<String>::None,
             now,
             now,
         ),
@@ -147,6 +151,7 @@ pub fn create_task(
         completed: false,
         position: max_position + 1,
         total_time_seconds: 0,
+        deadline: None,
         created_at: now,
         updated_at: now,
     })

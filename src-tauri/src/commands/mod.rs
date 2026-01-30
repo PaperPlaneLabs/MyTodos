@@ -1,3 +1,4 @@
+pub mod calendar;
 pub mod projects;
 pub mod sections;
 pub mod tasks;
@@ -6,6 +7,7 @@ pub mod time_stats;
 pub mod timer;
 pub mod window;
 
+pub use calendar::*;
 pub use projects::*;
 pub use sections::*;
 pub use tasks::*;

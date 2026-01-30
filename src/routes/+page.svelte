@@ -15,10 +15,12 @@
   import { taskStore } from "$lib/stores/tasks.svelte";
   import { timerStore } from "$lib/stores/timer.svelte";
   import { uiStore } from "$lib/stores/ui.svelte";
+  import { db } from "$lib/services/db";
   import type { Task } from "$lib/services/db";
 
   let projectName = $state("");
   let taskTitle = $state("");
+  let taskDeadline = $state<string | null>(null);
   let showResetModal = $state(false);
   let taskToReset = $state<number | null>(null);
 
@@ -44,6 +46,24 @@
 
   let lastEditingProjectId = $state<number | null>(null);
 
+  function formatDeadline(deadline: string | null | undefined): string {
+    if (!deadline) return '';
+    const date = new Date(deadline);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    if (date.toDateString() === today.toDateString()) return 'Due Today';
+    if (date.toDateString() === tomorrow.toDateString()) return 'Due Tomorrow';
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  function isOverdue(deadline: string | null | undefined, completed: boolean): boolean {
+    if (!deadline || completed) return false;
+    return new Date(deadline) < new Date();
+  }
+
   $effect(() => {
     // Sync projectName ONLY when the modal opens or a different project is selected
     if (
@@ -67,7 +87,7 @@
   let lastEditingTaskId = $state<number | null>(null);
 
   $effect(() => {
-    // Sync taskTitle ONLY when the modal opens or a different task is selected
+    // Sync taskTitle and deadline ONLY when the modal opens or a different task is selected
     // Don't reset if the tasks array updates while editing
     if (uiStore.showTaskModal && uiStore.editingTaskId !== lastEditingTaskId) {
       lastEditingTaskId = uiStore.editingTaskId;
@@ -75,12 +95,18 @@
         const task = taskStore.tasks.find(
           (t) => t.id === uiStore.editingTaskId,
         );
-        if (task) taskTitle = task.title;
+        if (task) {
+          taskTitle = task.title;
+          taskDeadline = task.deadline ?? null;
+        }
       } else {
         taskTitle = "";
+        taskDeadline = uiStore.newTaskDeadline;
       }
     } else if (!uiStore.showTaskModal) {
       lastEditingTaskId = null;
+      taskTitle = "";
+      taskDeadline = null;
     }
   });
 
@@ -110,8 +136,12 @@
   async function handleCreateTask() {
     if (!taskTitle.trim()) return;
     try {
-      await taskStore.createTask(projectStore.selectedId, null, taskTitle);
+      const task = await taskStore.createTask(projectStore.selectedId, null, taskTitle);
+      if (taskDeadline) {
+        await db.tasks.updateDeadline(task.id, taskDeadline);
+      }
       taskTitle = "";
+      taskDeadline = null;
       uiStore.closeTaskModal();
     } catch (e) {
       console.error("Error creating task in UI:", e);
@@ -124,6 +154,7 @@
 
     try {
       await taskStore.updateTask(uiStore.editingTaskId, taskTitle);
+      await db.tasks.updateDeadline(uiStore.editingTaskId, taskDeadline);
       uiStore.closeTaskModal();
     } catch (e) {
       console.error("Error updating task:", e);
@@ -585,26 +616,32 @@
                         {task.title}
                       </div>
                       <div class="task-meta">
-                        {#if task.total_time_seconds > 0 && task.project_id}
-                          <div class="task-time text-xs">
-                            <span class="time-icon">⏱</span>
-                            <TimeDisplay seconds={task.total_time_seconds} />
-                          </div>
-                        {/if}
-                        {#if timerStore.active && timerStore.active.task_id === task.id}
-                          <div
-                            class="inline-timer"
-                            class:running={timerStore.isRunning}
-                            class:paused={!timerStore.isRunning}
-                          >
-                            <span class="timer-indicator"></span>
-                            <TimeDisplay
-                              seconds={Math.floor(timerStore.elapsed)}
-                              format="short"
-                            />
-                          </div>
-                        {/if}
-                      </div>
+                          {#if task.deadline}
+                            <div class="task-deadline text-xs" class:overdue={isOverdue(task.deadline, task.completed)}>
+                              <span class="deadline-icon">📅</span>
+                              {formatDeadline(task.deadline)}
+                            </div>
+                          {/if}
+                          {#if task.total_time_seconds > 0 && task.project_id}
+                            <div class="task-time text-xs">
+                              <span class="time-icon">⏱</span>
+                              <TimeDisplay seconds={task.total_time_seconds} />
+                            </div>
+                          {/if}
+                          {#if timerStore.active && timerStore.active.task_id === task.id}
+                            <div
+                              class="inline-timer"
+                              class:running={timerStore.isRunning}
+                              class:paused={!timerStore.isRunning}
+                            >
+                              <span class="timer-indicator"></span>
+                              <TimeDisplay
+                                seconds={Math.floor(timerStore.elapsed)}
+                                format="short"
+                              />
+                            </div>
+                          {/if}
+                        </div>
                     </div>
                     <div class="task-controls">
                       {#if timerStore.active && timerStore.active.task_id === task.id}
@@ -898,6 +935,31 @@
             autofocus
           />
         </div>
+        
+        <div>
+          <label for="task-deadline" class="text-sm text-secondary"
+            >Deadline (optional)</label
+          >
+          <div class="deadline-input">
+            <input
+              id="task-deadline"
+              class="input"
+              type="date"
+              bind:value={taskDeadline}
+              placeholder="No deadline"
+            />
+            {#if taskDeadline}
+              <button
+                type="button"
+                class="btn btn-ghost"
+                onclick={() => taskDeadline = null}
+              >
+                ✕
+              </button>
+            {/if}
+          </div>
+        </div>
+        
         <div
           style="display: flex; gap: var(--spacing-sm); justify-content: flex-end;"
         >
@@ -1374,7 +1436,27 @@
     color: var(--text-secondary);
   }
 
+  .task-deadline {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--text-secondary);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    background: var(--bg-secondary);
+  }
+
+  .task-deadline.overdue {
+    background: var(--danger-light);
+    color: var(--danger);
+  }
+
   .time-icon {
+    opacity: 0.5;
+    font-size: 10px;
+  }
+
+  .deadline-icon {
     opacity: 0.5;
     font-size: 10px;
   }

@@ -12,6 +12,7 @@ let editingProjectId = $state<number | null>(null);
 let editingTaskId = $state<number | null>(null);
 let editingSectionId = $state<number | null>(null);
 let manualTimeTaskId = $state<number | null>(null);
+let newTaskDeadline = $state<string | null>(null);
 export type Theme = "light" | "dark" | "minecraft" | "retro" | "ocean" | "nord";
 let theme = $state<Theme>("light");
 
@@ -52,6 +53,10 @@ export const uiStore = {
 
   get manualTimeTaskId() {
     return manualTimeTaskId;
+  },
+
+  get newTaskDeadline() {
+    return newTaskDeadline;
   },
 
   get showQuickAdd() {
@@ -134,14 +139,16 @@ export const uiStore = {
     editingProjectId = null;
   },
 
-  openTaskModal(taskId: number | null = null) {
-    editingTaskId = taskId;
+  openTaskModal(data: { taskId?: number; task?: any; deadline?: string } = {}) {
+    editingTaskId = data.taskId ?? data.task?.id ?? null;
+    newTaskDeadline = data.deadline ?? null;
     showTaskModal = true;
   },
 
   closeTaskModal() {
     showTaskModal = false;
     editingTaskId = null;
+    newTaskDeadline = null;
   },
 
   openSectionModal(sectionId: number | null = null) {

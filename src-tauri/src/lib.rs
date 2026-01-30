@@ -71,6 +71,10 @@ pub fn run() {
             commands::set_collapsed,
             commands::move_window,
             commands::start_window_drag,
+            commands::get_tasks_by_deadline_range,
+            commands::update_task_deadline,
+            commands::create_calendar_event,
+            commands::get_calendar_events_in_range,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
