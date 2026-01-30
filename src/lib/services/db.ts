@@ -146,7 +146,8 @@ export const db = {
     delete: (id: number) => invoke<void>("delete_time_entry", { id }),
     getDailyTotalTime: (startTimestamp: number) =>
       invoke<number>("get_daily_total_time", { startTimestamp }),
-    getTimeStats: () => invoke<TimeStats>("get_time_stats"),
+    getTimeStats: (includeActiveTimer: boolean = true) =>
+      invoke<TimeStats>("get_time_stats", { includeActiveTimer }),
   },
 
   window: {

@@ -2,22 +2,60 @@
     import { onMount } from "svelte";
     import { fade, fly } from "svelte/transition";
     import { uiStore } from "$lib/stores/ui.svelte";
+    import { timerStore } from "$lib/stores/timer.svelte";
     import { db, type TimeStats } from "$lib/services/db";
     import TimeDisplay from "$lib/components/common/TimeDisplay.svelte";
 
     let stats = $state<TimeStats | null>(null);
     let loading = $state(true);
     let error = $state<string | null>(null);
+    let refreshIntervalId: number | null = null;
 
-    onMount(async () => {
+    async function loadStats() {
         try {
-            stats = await db.timeEntries.getTimeStats();
+            stats = await db.timeEntries.getTimeStats(true); // include_active_timer
         } catch (e) {
             console.error("Failed to load stats:", e);
             error = "Failed to load statistics";
         } finally {
             loading = false;
         }
+    }
+
+    // Load initially
+    onMount(() => {
+        loadStats();
+    });
+
+    // Refresh when timer state changes
+    $effect(() => {
+        // Watch timer change signal
+        timerStore.changeSignal;
+
+        // Reload stats (but not on initial mount)
+        if (!loading) {
+            loadStats();
+        }
+    });
+
+    // Periodic refresh while timer is running
+    $effect(() => {
+        if (timerStore.isRunning) {
+            refreshIntervalId = window.setInterval(() => {
+                loadStats();
+            }, 5000); // Refresh every 5 seconds
+        } else {
+            if (refreshIntervalId !== null) {
+                clearInterval(refreshIntervalId);
+                refreshIntervalId = null;
+            }
+        }
+
+        return () => {
+            if (refreshIntervalId !== null) {
+                clearInterval(refreshIntervalId);
+            }
+        };
     });
 
     // Derived values for charts
