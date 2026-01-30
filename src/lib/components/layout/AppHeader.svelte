@@ -171,7 +171,7 @@
       class:running={timerStore.isRunning}
       title="Daily total time"
     >
-      <span class="timer-icon">⏱️</span>
+      <span class="timer-icon"></span>
       <TimeDisplay seconds={Math.floor(timerStore.dailyTotal)} format="hms" />
     </div>
 
