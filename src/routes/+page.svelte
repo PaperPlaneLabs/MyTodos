@@ -7,6 +7,7 @@
   import CollapseHandle from "$lib/components/layout/CollapseHandle.svelte";
   import StatsView from "$lib/components/stats/StatsView.svelte";
   import SettingsView from "$lib/components/settings/SettingsView.svelte";
+  import CalendarTabView from "$lib/components/calendar/CalendarTabView.svelte";
   import Modal from "$lib/components/common/Modal.svelte";
   import TimeDisplay from "$lib/components/common/TimeDisplay.svelte";
   import ContextMenu from "$lib/components/common/ContextMenu.svelte";
@@ -423,7 +424,9 @@
   {#if !uiStore.isCollapsed}
     <AppHeader />
 
-    {#if uiStore.showStatsView}
+    {#if uiStore.showCalendarView}
+      <CalendarTabView />
+    {:else if uiStore.showStatsView}
       <StatsView />
     {:else if uiStore.showSettingsView}
       <SettingsView />

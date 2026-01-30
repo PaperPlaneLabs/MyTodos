@@ -68,6 +68,16 @@
   --transition-fast: 150ms ease;
   --transition-normal: 200ms ease;
   --transition-slow: 300ms ease;
+
+  /* Calendar */
+  --calendar-time-bar: #10b981;
+  --calendar-time-block: #6366f1;
+  --calendar-today-bg: color-mix(in srgb, #6366f1 10%, transparent);
+  --calendar-hover-bg: #f1f3f5;
+  --calendar-selected-border: #6366f1;
+  --calendar-grid-border: #e5e7eb;
+  --calendar-timeline-grid: #e5e7eb;
+  --calendar-timeline-current: #ef4444;
 }
 
 [data-theme="dark"] {
@@ -114,6 +124,12 @@
   /* Glow effects - stronger for dark mode */
   --success-glow: rgba(52, 211, 153, 0.15);
   --warning-glow: rgba(251, 191, 36, 0.15);
+
+  /* Calendar - darker for dark mode */
+  --calendar-today-bg: color-mix(in srgb, #818cf8 15%, transparent);
+  --calendar-hover-bg: #333333;
+  --calendar-grid-border: #374151;
+  --calendar-timeline-grid: #374151;
 }
 
 [data-theme="minecraft"] {
@@ -147,6 +163,11 @@
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.7);
 
   --font-sans: "Courier New", Courier, monospace;
+
+  /* Calendar - Minecraft theme */
+  --calendar-time-bar: #3c8527;
+  --calendar-time-block: #5c4333;
+  --calendar-today-bg: color-mix(in srgb, #3c8527 15%, transparent);
 }
 
 [data-theme="retro"] {
@@ -177,6 +198,11 @@
 
   --font-sans: "Consolas", "Monaco", monospace;
   --shadow-md: 0 0 10px rgba(255, 176, 0, 0.2);
+
+  /* Calendar - Retro theme */
+  --calendar-time-bar: #00ff41;
+  --calendar-time-block: #ffb000;
+  --calendar-today-bg: color-mix(in srgb, #ffb000 15%, transparent);
 }
 
 [data-theme="ocean"] {
@@ -204,6 +230,11 @@
 
   --border: #005f73;
   --border-light: #001f2e;
+
+  /* Calendar - Ocean theme */
+  --calendar-time-bar: #94d2bd;
+  --calendar-time-block: #0a9396;
+  --calendar-today-bg: color-mix(in srgb, #0a9396 15%, transparent);
 }
 
 [data-theme="nord"] {
@@ -231,5 +262,10 @@
 
   --border: #4c566a;
   --border-light: #3b4252;
+
+  /* Calendar - Nord theme */
+  --calendar-time-bar: #a3be8c;
+  --calendar-time-block: #88c0d0;
+  --calendar-today-bg: color-mix(in srgb, #88c0d0 15%, transparent);
 }
 

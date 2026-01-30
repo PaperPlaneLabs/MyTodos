@@ -102,6 +102,26 @@ export interface CalendarEvent {
   color: string;
 }
 
+export interface TimeEntryWithTask {
+  id: number;
+  task_id: number;
+  task_title: string;
+  project_id: number | null;
+  project_name: string | null;
+  project_color: string | null;
+  duration_seconds: number;
+  started_at: number;
+  ended_at: number;
+  note: string | null;
+}
+
+export interface WindowOrientation {
+  side: string;
+  is_portrait: boolean;
+  width: number;
+  height: number;
+}
+
 export const db = {
   projects: {
     getAll: () => invoke<Project[]>("get_all_projects"),
@@ -160,6 +180,8 @@ export const db = {
 
   timeEntries: {
     getByTask: (taskId: number) => invoke<TimeEntry[]>("get_time_entries_by_task", { taskId }),
+    getWithTasks: (startDate: string, endDate: string) =>
+      invoke<TimeEntryWithTask[]>("get_time_entries_with_tasks", { startDate, endDate }),
     createManual: (taskId: number, durationSeconds: number, note?: string) =>
       invoke<TimeEntry>("create_manual_entry", { taskId, durationSeconds, note }),
     update: (id: number, durationSeconds: number, note?: string) =>
@@ -175,6 +197,7 @@ export const db = {
     saveState: (x?: number, y?: number, width?: number, height?: number) =>
       invoke<void>("save_window_state", { x, y, width, height }),
     getState: () => invoke<WindowState | null>("get_window_state"),
+    getOrientation: () => invoke<WindowOrientation>("get_window_orientation"),
     minimize: () => invoke<void>("minimize_window"),
     toggleMaximize: () => invoke<void>("toggle_maximize"),
     close: () => invoke<void>("close_window"),

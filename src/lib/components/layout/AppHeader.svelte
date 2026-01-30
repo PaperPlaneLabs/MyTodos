@@ -5,8 +5,6 @@
   import { db } from "$lib/services/db";
   import TimeDisplay from "$lib/components/common/TimeDisplay.svelte";
   import { fly } from "svelte/transition";
-  import CalendarToggle from "$lib/components/calendar/CalendarToggle.svelte";
-  import CalendarView from "$lib/components/calendar/CalendarView.svelte";
 
   let elapsed = $derived(Math.floor(timerStore.elapsed));
   let isMobile = $state(true); // Default to true (safe for mobile/web) until confirmed
@@ -177,7 +175,14 @@
       <TimeDisplay seconds={Math.floor(timerStore.dailyTotal)} format="hms" />
     </div>
 
-    <CalendarToggle />
+    <button
+      class="icon-btn"
+      class:active={uiStore.showCalendarView}
+      onclick={() => uiStore.openCalendarView()}
+      title="Calendar"
+    >
+      📅
+    </button>
 
     <button
       class="icon-btn"
@@ -196,8 +201,6 @@
     </button>
   </div>
 </header>
-
-<CalendarView />
 
 <style>
   .title-bar {

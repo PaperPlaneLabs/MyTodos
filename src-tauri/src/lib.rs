@@ -75,6 +75,8 @@ pub fn run() {
             commands::update_task_deadline,
             commands::create_calendar_event,
             commands::get_calendar_events_in_range,
+            commands::get_window_orientation,
+            commands::get_time_entries_with_tasks,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

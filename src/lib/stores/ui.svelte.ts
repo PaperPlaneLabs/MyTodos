@@ -5,6 +5,7 @@ let showManualTimeModal = $state(false);
 let showQuickAdd = $state(false);
 let showStatsView = $state(false);
 let showSettingsView = $state(false);
+let showCalendarView = $state(false);
 let isCollapsed = $state(false);
 let completedTasksCollapsed = $state(true);
 let handleTop = $state(120);
@@ -15,6 +16,22 @@ let manualTimeTaskId = $state<number | null>(null);
 let newTaskDeadline = $state<string | null>(null);
 export type Theme = "light" | "dark" | "minecraft" | "retro" | "ocean" | "nord";
 let theme = $state<Theme>("light");
+export type WindowOrientation = "left" | "right" | "center";
+let windowOrientation = $state<WindowOrientation>("center");
+let calendarSelectedEntry = $state<TimeEntryWithTask | null>(null);
+
+export interface TimeEntryWithTask {
+    id: number;
+    task_id: number;
+    task_title: string;
+    project_id: number | null;
+    project_name: string | null;
+    project_color: string | null;
+    duration_seconds: number;
+    started_at: number;
+    ended_at: number;
+    note: string | null;
+}
 
 // Context Menu State
 let contextMenuOpen = $state(false);
@@ -69,6 +86,18 @@ export const uiStore = {
 
   get showSettingsView() {
     return showSettingsView;
+  },
+
+  get showCalendarView() {
+    return showCalendarView;
+  },
+
+  get windowOrientation() {
+    return windowOrientation;
+  },
+
+  get calendarSelectedEntry() {
+    return calendarSelectedEntry;
   },
 
   get theme() {
@@ -127,6 +156,23 @@ export const uiStore = {
 
   closeSettingsView() {
     showSettingsView = false;
+  },
+
+  openCalendarView() {
+    showCalendarView = true;
+  },
+
+  closeCalendarView() {
+    showCalendarView = false;
+    calendarSelectedEntry = null;
+  },
+
+  setWindowOrientation(orientation: WindowOrientation) {
+    windowOrientation = orientation;
+  },
+
+  selectCalendarEntry(entry: TimeEntryWithTask | null) {
+    calendarSelectedEntry = entry;
   },
 
   openProjectModal(projectId: number | null = null) {
