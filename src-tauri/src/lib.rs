@@ -1,6 +1,6 @@
-mod commands;
-mod db;
-mod error;
+pub mod commands;
+pub mod db;
+pub mod error;
 
 use db::{initialize_connection, initialize_schema, DbConnection};
 use tauri_plugin_autostart::MacosLauncher::LaunchAgent;

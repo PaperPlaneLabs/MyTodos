@@ -51,7 +51,9 @@
       "mcp__plugin_serena_serena__create_text_file",
       "mcp__plugin_serena_serena__execute_shell_command",
       "Bash(gh repo create:*)",
-      "Bash(gh api:*)"
+      "Bash(gh api:*)",
+      "Bash(npm test)",
+      "Bash(cargo test:*)"
     ]
   }
 }
