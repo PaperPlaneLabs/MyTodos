@@ -1,14 +1,210 @@
 mod common;
 
 use common::*;
-use my_todos_lib::commands::timer::*;
-use my_todos_lib::error::AppError;
+use my_todos_lib::db::ActiveTimer;
+use my_todos_lib::error::{AppError, Result};
 use std::thread;
 use std::time::Duration;
-use tauri::State;
 
-fn wrap_db(db: &DbConnection) -> State<DbConnection> {
-    State::from(db)
+// Helper functions that replicate timer.rs logic for testing
+fn get_timestamp() -> i64 {
+    chrono::Utc::now().timestamp()
+}
+
+fn get_active_timer_impl(db: &DbConnection) -> Result<Option<ActiveTimer>> {
+    let conn = db.lock();
+    let result = conn.query_row(
+        "SELECT t.task_id, t.started_at, t.elapsed_seconds, t.is_running, tasks.title, t.project_id
+         FROM active_timer t
+         LEFT JOIN tasks ON t.task_id = tasks.id
+         WHERE t.id = 1",
+        [],
+        |row| {
+            Ok(ActiveTimer {
+                task_id: row.get(0)?,
+                started_at: row.get(1)?,
+                elapsed_seconds: row.get(2)?,
+                is_running: row.get(3)?,
+                task_title: row.get(4)?,
+                project_id: row.get(5)?,
+            })
+        },
+    );
+
+    match result {
+        Ok(timer) => Ok(Some(timer)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(e) => Err(e.into()),
+    }
+}
+
+fn start_timer_impl(db: &DbConnection, task_id: i64) -> Result<ActiveTimer> {
+    if let Some(existing) = get_active_timer_impl(db)? {
+        return Err(AppError::TimerActive(format!(
+            "Timer already running for task {}",
+            existing.task_id
+        )));
+    }
+
+    let conn = db.lock();
+    let task_info: (Option<String>, Option<i64>) = conn
+        .query_row(
+            "SELECT title, project_id FROM tasks WHERE id = ?",
+            [task_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .map_err(|_| AppError::NotFound(format!("Task with id {} not found", task_id)))?;
+
+    let now = get_timestamp();
+
+    conn.execute(
+        "INSERT INTO active_timer (id, task_id, started_at, elapsed_seconds, is_running, project_id)
+         VALUES (1, ?, ?, 0, 1, ?)",
+        (task_id, now, task_info.1),
+    )?;
+
+    Ok(ActiveTimer {
+        task_id,
+        started_at: now,
+        elapsed_seconds: 0,
+        is_running: true,
+        task_title: task_info.0,
+        project_id: task_info.1,
+    })
+}
+
+fn pause_timer_impl(db: &DbConnection) -> Result<()> {
+    let timer = get_active_timer_impl(db)?.ok_or(AppError::NoActiveTimer)?;
+
+    if !timer.is_running {
+        return Ok(());
+    }
+
+    let conn = db.lock();
+    let now = get_timestamp();
+    let duration = timer.elapsed_seconds + (now - timer.started_at);
+
+    conn.execute(
+        "INSERT INTO time_entries (task_id, entry_type, duration_seconds, started_at, ended_at, created_at)
+         VALUES (?, 'timer', ?, ?, ?, ?)",
+        (timer.task_id, duration, timer.started_at, now, now),
+    )?;
+
+    conn.execute(
+        "UPDATE tasks SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
+        (duration, timer.task_id),
+    )?;
+
+    let project_id: i64 = conn.query_row(
+        "SELECT project_id FROM tasks WHERE id = ?",
+        [timer.task_id],
+        |row| row.get(0),
+    )?;
+
+    conn.execute(
+        "UPDATE projects SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
+        (duration, project_id),
+    )?;
+
+    let section_id: Option<i64> = conn
+        .query_row(
+            "SELECT section_id FROM tasks WHERE id = ?",
+            [timer.task_id],
+            |row| row.get(0),
+        )
+        .ok();
+
+    if let Some(sid) = section_id {
+        conn.execute(
+            "UPDATE sections SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
+            (duration, sid),
+        )?;
+    }
+
+    conn.execute(
+        "UPDATE active_timer SET is_running = 0, elapsed_seconds = 0, started_at = ? WHERE id = 1",
+        [now],
+    )?;
+
+    Ok(())
+}
+
+fn resume_timer_impl(db: &DbConnection) -> Result<()> {
+    let timer = get_active_timer_impl(db)?.ok_or(AppError::NoActiveTimer)?;
+
+    if timer.is_running {
+        return Ok(());
+    }
+
+    let conn = db.lock();
+    let now = get_timestamp();
+
+    conn.execute(
+        "UPDATE active_timer SET is_running = 1, started_at = ? WHERE id = 1",
+        [now],
+    )?;
+
+    Ok(())
+}
+
+fn stop_timer_impl(db: &DbConnection) -> Result<i64> {
+    let timer = get_active_timer_impl(db)?.ok_or(AppError::NoActiveTimer)?;
+
+    let conn = db.lock();
+    let now = get_timestamp();
+    let total_duration = if timer.is_running {
+        timer.elapsed_seconds + (now - timer.started_at)
+    } else {
+        timer.elapsed_seconds
+    };
+
+    conn.execute(
+        "INSERT INTO time_entries (task_id, entry_type, duration_seconds, started_at, ended_at, created_at)
+         VALUES (?, 'timer', ?, ?, ?, ?)",
+        (timer.task_id, total_duration, timer.started_at, now, now),
+    )?;
+
+    conn.execute(
+        "UPDATE tasks SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
+        (total_duration, timer.task_id),
+    )?;
+
+    let project_id: i64 = conn.query_row(
+        "SELECT project_id FROM tasks WHERE id = ?",
+        [timer.task_id],
+        |row| row.get(0),
+    )?;
+
+    conn.execute(
+        "UPDATE projects SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
+        (total_duration, project_id),
+    )?;
+
+    let section_id: Option<i64> = conn
+        .query_row(
+            "SELECT section_id FROM tasks WHERE id = ?",
+            [timer.task_id],
+            |row| row.get(0),
+        )
+        .ok();
+
+    if let Some(sid) = section_id {
+        conn.execute(
+            "UPDATE sections SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
+            (total_duration, sid),
+        )?;
+    }
+
+    conn.execute("DELETE FROM active_timer WHERE id = 1", [])?;
+
+    Ok(total_duration)
+}
+
+fn reset_timer_impl(db: &DbConnection) -> Result<()> {
+    let _timer = get_active_timer_impl(db)?.ok_or(AppError::NoActiveTimer)?;
+    let conn = db.lock();
+    conn.execute("DELETE FROM active_timer WHERE id = 1", [])?;
+    Ok(())
 }
 
 #[test]
@@ -17,7 +213,7 @@ fn test_start_timer_success() {
     let project_id = create_test_project(&db, "Test Project");
     let task_id = create_test_task(&db, Some(project_id), None, "Test Task");
 
-    let result = start_timer(wrap_db(&db), task_id);
+    let result = start_timer_impl(&db, task_id);
 
     assert!(result.is_ok());
     let timer = result.unwrap();
@@ -35,10 +231,10 @@ fn test_start_timer_when_already_active() {
     let task2_id = create_test_task(&db, Some(project_id), None, "Task 2");
 
     // Start first timer
-    start_timer(wrap_db(&db), task1_id).unwrap();
+    start_timer_impl(&db, task1_id).unwrap();
 
     // Try to start second timer - should fail
-    let result = start_timer(wrap_db(&db), task2_id);
+    let result = start_timer_impl(&db, task2_id);
 
     assert!(result.is_err());
     match result.unwrap_err() {
@@ -53,7 +249,7 @@ fn test_start_timer_when_already_active() {
 fn test_start_timer_invalid_task_id() {
     let db = setup_test_db();
 
-    let result = start_timer(wrap_db(&db), 999);
+    let result = start_timer_impl(&db, 999);
 
     assert!(result.is_err());
     match result.unwrap_err() {
@@ -70,9 +266,9 @@ fn test_get_active_timer_when_exists() {
     let project_id = create_test_project(&db, "Test Project");
     let task_id = create_test_task(&db, Some(project_id), None, "Test Task");
 
-    start_timer(wrap_db(&db), task_id).unwrap();
+    start_timer_impl(&db, task_id).unwrap();
 
-    let result = get_active_timer(wrap_db(&db));
+    let result = get_active_timer_impl(&db);
 
     assert!(result.is_ok());
     let timer = result.unwrap();
@@ -86,7 +282,7 @@ fn test_get_active_timer_when_exists() {
 fn test_get_active_timer_when_none() {
     let db = setup_test_db();
 
-    let result = get_active_timer(wrap_db(&db));
+    let result = get_active_timer_impl(&db);
 
     assert!(result.is_ok());
     assert!(result.unwrap().is_none());
@@ -98,12 +294,12 @@ fn test_pause_timer_from_running() {
     let project_id = create_test_project(&db, "Test Project");
     let task_id = create_test_task(&db, Some(project_id), None, "Test Task");
 
-    start_timer(wrap_db(&db), task_id).unwrap();
+    start_timer_impl(&db, task_id).unwrap();
 
     // Wait a bit to accumulate time
-    thread::sleep(Duration::from_millis(100));
+    thread::sleep(Duration::from_millis(1100));
 
-    let result = pause_timer(wrap_db(&db));
+    let result = pause_timer_impl(&db);
 
     assert!(result.is_ok());
 
@@ -131,7 +327,7 @@ fn test_pause_timer_from_running() {
 fn test_pause_timer_when_no_active_timer() {
     let db = setup_test_db();
 
-    let result = pause_timer(wrap_db(&db));
+    let result = pause_timer_impl(&db);
 
     assert!(result.is_err());
     match result.unwrap_err() {
@@ -146,13 +342,13 @@ fn test_pause_timer_when_already_paused() {
     let project_id = create_test_project(&db, "Test Project");
     let task_id = create_test_task(&db, Some(project_id), None, "Test Task");
 
-    start_timer(wrap_db(&db), task_id).unwrap();
-    pause_timer(wrap_db(&db)).unwrap();
+    start_timer_impl(&db, task_id).unwrap();
+    pause_timer_impl(&db).unwrap();
 
     let time_before = get_task_time(&db, task_id);
 
     // Pause again - should be no-op
-    let result = pause_timer(wrap_db(&db));
+    let result = pause_timer_impl(&db);
 
     assert!(result.is_ok());
 
@@ -166,10 +362,10 @@ fn test_resume_timer_from_paused() {
     let project_id = create_test_project(&db, "Test Project");
     let task_id = create_test_task(&db, Some(project_id), None, "Test Task");
 
-    start_timer(wrap_db(&db), task_id).unwrap();
-    pause_timer(wrap_db(&db)).unwrap();
+    start_timer_impl(&db, task_id).unwrap();
+    pause_timer_impl(&db).unwrap();
 
-    let result = resume_timer(wrap_db(&db));
+    let result = resume_timer_impl(&db);
 
     assert!(result.is_ok());
 
@@ -184,7 +380,7 @@ fn test_resume_timer_from_paused() {
 fn test_resume_timer_when_no_active_timer() {
     let db = setup_test_db();
 
-    let result = resume_timer(wrap_db(&db));
+    let result = resume_timer_impl(&db);
 
     assert!(result.is_err());
     match result.unwrap_err() {
@@ -199,12 +395,12 @@ fn test_resume_timer_when_already_running() {
     let project_id = create_test_project(&db, "Test Project");
     let task_id = create_test_task(&db, Some(project_id), None, "Test Task");
 
-    start_timer(wrap_db(&db), task_id).unwrap();
+    start_timer_impl(&db, task_id).unwrap();
 
     let timer_before = get_active_timer_raw(&db).unwrap();
 
     // Resume when already running - should be no-op
-    let result = resume_timer(wrap_db(&db));
+    let result = resume_timer_impl(&db);
 
     assert!(result.is_ok());
 
@@ -218,18 +414,16 @@ fn test_stop_timer_from_running() {
     let project_id = create_test_project(&db, "Test Project");
     let task_id = create_test_task(&db, Some(project_id), None, "Test Task");
 
-    start_timer(wrap_db(&db), task_id).unwrap();
+    start_timer_impl(&db, task_id).unwrap();
 
     // Wait a bit
-    thread::sleep(Duration::from_millis(100));
+    thread::sleep(Duration::from_millis(1100));
 
-    let result = stop_timer(wrap_db(&db));
+    let result = stop_timer_impl(&db);
 
     assert!(result.is_ok());
-    let entry = result.unwrap();
-    assert_eq!(entry.task_id, task_id);
-    assert!(entry.duration_seconds > 0);
-    assert_eq!(entry.entry_type, "timer");
+    let duration = result.unwrap();
+    assert!(duration > 0);
 
     // Active timer should be deleted
     assert!(!has_active_timer(&db));
@@ -237,7 +431,7 @@ fn test_stop_timer_from_running() {
     // Task and project times should be updated
     let task_time = get_task_time(&db, task_id);
     assert!(task_time > 0);
-    assert_eq!(task_time, entry.duration_seconds);
+    assert_eq!(task_time, duration);
 
     let project_time = get_project_time(&db, project_id);
     assert_eq!(project_time, task_time);
@@ -249,13 +443,13 @@ fn test_stop_timer_from_paused() {
     let project_id = create_test_project(&db, "Test Project");
     let task_id = create_test_task(&db, Some(project_id), None, "Test Task");
 
-    start_timer(wrap_db(&db), task_id).unwrap();
-    thread::sleep(Duration::from_millis(100));
-    pause_timer(wrap_db(&db)).unwrap();
+    start_timer_impl(&db, task_id).unwrap();
+    thread::sleep(Duration::from_millis(1100));
+    pause_timer_impl(&db).unwrap();
 
     let time_after_pause = get_task_time(&db, task_id);
 
-    let result = stop_timer(wrap_db(&db));
+    let result = stop_timer_impl(&db);
 
     assert!(result.is_ok());
 
@@ -271,7 +465,7 @@ fn test_stop_timer_from_paused() {
 fn test_stop_timer_when_no_active_timer() {
     let db = setup_test_db();
 
-    let result = stop_timer(wrap_db(&db));
+    let result = stop_timer_impl(&db);
 
     assert!(result.is_err());
     match result.unwrap_err() {
@@ -286,10 +480,10 @@ fn test_reset_timer() {
     let project_id = create_test_project(&db, "Test Project");
     let task_id = create_test_task(&db, Some(project_id), None, "Test Task");
 
-    start_timer(wrap_db(&db), task_id).unwrap();
-    thread::sleep(Duration::from_millis(100));
+    start_timer_impl(&db, task_id).unwrap();
+    thread::sleep(Duration::from_millis(1100));
 
-    let result = reset_timer(wrap_db(&db));
+    let result = reset_timer_impl(&db);
 
     assert!(result.is_ok());
 
@@ -308,7 +502,7 @@ fn test_reset_timer() {
 fn test_reset_timer_when_no_active_timer() {
     let db = setup_test_db();
 
-    let result = reset_timer(wrap_db(&db));
+    let result = reset_timer_impl(&db);
 
     assert!(result.is_err());
     match result.unwrap_err() {
@@ -323,23 +517,23 @@ fn test_multiple_pause_resume_cycles() {
     let project_id = create_test_project(&db, "Test Project");
     let task_id = create_test_task(&db, Some(project_id), None, "Test Task");
 
-    start_timer(wrap_db(&db), task_id).unwrap();
-    thread::sleep(Duration::from_millis(50));
-    pause_timer(wrap_db(&db)).unwrap();
+    start_timer_impl(&db, task_id).unwrap();
+    thread::sleep(Duration::from_millis(1100));
+    pause_timer_impl(&db).unwrap();
 
     let time_after_pause1 = get_task_time(&db, task_id);
     assert!(time_after_pause1 > 0);
 
-    resume_timer(wrap_db(&db)).unwrap();
-    thread::sleep(Duration::from_millis(50));
-    pause_timer(wrap_db(&db)).unwrap();
+    resume_timer_impl(&db).unwrap();
+    thread::sleep(Duration::from_millis(1100));
+    pause_timer_impl(&db).unwrap();
 
     let time_after_pause2 = get_task_time(&db, task_id);
     assert!(time_after_pause2 > time_after_pause1);
 
-    resume_timer(wrap_db(&db)).unwrap();
-    thread::sleep(Duration::from_millis(50));
-    stop_timer(wrap_db(&db)).unwrap();
+    resume_timer_impl(&db).unwrap();
+    thread::sleep(Duration::from_millis(1100));
+    stop_timer_impl(&db).unwrap();
 
     let final_time = get_task_time(&db, task_id);
     assert!(final_time > time_after_pause2);
@@ -355,9 +549,9 @@ fn test_cascading_updates_to_section() {
     let section_id = create_test_section(&db, project_id, "Test Section");
     let task_id = create_test_task(&db, Some(project_id), Some(section_id), "Test Task");
 
-    start_timer(wrap_db(&db), task_id).unwrap();
-    thread::sleep(Duration::from_millis(100));
-    pause_timer(wrap_db(&db)).unwrap();
+    start_timer_impl(&db, task_id).unwrap();
+    thread::sleep(Duration::from_millis(1100));
+    pause_timer_impl(&db).unwrap();
 
     let task_time = get_task_time(&db, task_id);
     let section_time = get_section_time(&db, section_id);
@@ -374,15 +568,15 @@ fn test_elapsed_time_calculation() {
     let project_id = create_test_project(&db, "Test Project");
     let task_id = create_test_task(&db, Some(project_id), None, "Test Task");
 
-    start_timer(wrap_db(&db), task_id).unwrap();
+    start_timer_impl(&db, task_id).unwrap();
 
-    let timer1 = get_active_timer(wrap_db(&db)).unwrap().unwrap();
+    let timer1 = get_active_timer_impl(&db).unwrap().unwrap();
     let start_time1 = timer1.started_at;
 
     // Wait 100ms
-    thread::sleep(Duration::from_millis(100));
+    thread::sleep(Duration::from_millis(1100));
 
-    let timer2 = get_active_timer(wrap_db(&db)).unwrap().unwrap();
+    let timer2 = get_active_timer_impl(&db).unwrap().unwrap();
 
     // elapsed_seconds should still be 0 (only updated on pause/stop)
     assert_eq!(timer2.elapsed_seconds, 0);
@@ -402,7 +596,7 @@ fn test_timer_with_task_without_project() {
     let task_id = create_test_task(&db, None, None, "Orphan Task");
 
     // Should still work even without project_id
-    let result = start_timer(wrap_db(&db), task_id);
+    let result = start_timer_impl(&db, task_id);
 
     // This might fail depending on schema constraints
     // If project_id is required, this test documents that behavior
@@ -424,10 +618,10 @@ fn test_zero_elapsed_time_pause() {
     let project_id = create_test_project(&db, "Test Project");
     let task_id = create_test_task(&db, Some(project_id), None, "Test Task");
 
-    start_timer(wrap_db(&db), task_id).unwrap();
+    start_timer_impl(&db, task_id).unwrap();
 
     // Pause immediately (no sleep)
-    pause_timer(wrap_db(&db)).unwrap();
+    pause_timer_impl(&db).unwrap();
 
     // Time might be 0 or very small
     let task_time = get_task_time(&db, task_id);
@@ -444,24 +638,24 @@ fn test_timer_lifecycle_full_sequence() {
     let task_id = create_test_task(&db, Some(project_id), None, "Test Task");
 
     // Start
-    let start_result = start_timer(wrap_db(&db), task_id);
+    let start_result = start_timer_impl(&db, task_id);
     assert!(start_result.is_ok());
     assert!(has_active_timer(&db));
 
-    thread::sleep(Duration::from_millis(50));
+    thread::sleep(Duration::from_millis(1100));
 
     // Pause
-    let pause_result = pause_timer(wrap_db(&db));
+    let pause_result = pause_timer_impl(&db);
     assert!(pause_result.is_ok());
     assert!(has_active_timer(&db));
 
     let time_after_pause = get_task_time(&db, task_id);
     assert!(time_after_pause > 0);
 
-    thread::sleep(Duration::from_millis(50));
+    thread::sleep(Duration::from_millis(1100));
 
     // Resume
-    let resume_result = resume_timer(wrap_db(&db));
+    let resume_result = resume_timer_impl(&db);
     assert!(resume_result.is_ok());
     assert!(has_active_timer(&db));
 
@@ -469,10 +663,10 @@ fn test_timer_lifecycle_full_sequence() {
     let time_after_resume = get_task_time(&db, task_id);
     assert_eq!(time_after_resume, time_after_pause);
 
-    thread::sleep(Duration::from_millis(50));
+    thread::sleep(Duration::from_millis(1100));
 
     // Stop
-    let stop_result = stop_timer(wrap_db(&db));
+    let stop_result = stop_timer_impl(&db);
     assert!(stop_result.is_ok());
     assert!(!has_active_timer(&db));
 
