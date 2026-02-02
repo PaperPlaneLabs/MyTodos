@@ -29,10 +29,18 @@ pub fn create_test_project(db: &DbConnection, name: &str) -> i64 {
     let conn = db.lock();
     let now = get_timestamp();
 
+    let max_position: i32 = conn
+        .query_row(
+            "SELECT COALESCE(MAX(position), -1) FROM projects",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(-1);
+
     conn.execute(
         "INSERT INTO projects (name, color, position, created_at, updated_at, total_time_seconds)
-         VALUES (?, '#6366f1', 0, ?, ?, 0)",
-        (name, now, now),
+         VALUES (?, '#6366f1', ?, ?, ?, 0)",
+        (name, max_position + 1, now, now),
     )
     .expect("Failed to create test project");
 
@@ -44,10 +52,18 @@ pub fn create_test_section(db: &DbConnection, project_id: i64, name: &str) -> i6
     let conn = db.lock();
     let now = get_timestamp();
 
+    let max_position: i32 = conn
+        .query_row(
+            "SELECT COALESCE(MAX(position), -1) FROM sections WHERE project_id = ?",
+            [project_id],
+            |row| row.get(0),
+        )
+        .unwrap_or(-1);
+
     conn.execute(
         "INSERT INTO sections (project_id, name, position, created_at, total_time_seconds)
-         VALUES (?, ?, 0, ?, 0)",
-        (project_id, name, now),
+         VALUES (?, ?, ?, ?, 0)",
+        (project_id, name, max_position + 1, now),
     )
     .expect("Failed to create test section");
 
