@@ -92,6 +92,20 @@ export const taskStore = {
     }
   },
 
+  async updateDeadline(id: number, deadline: string | null) {
+    try {
+      error = null;
+      await db.tasks.updateDeadline(id, deadline);
+      tasks = tasks.map((t) =>
+        t.id === id ? { ...t, deadline } : t
+      );
+    } catch (e) {
+      error = e instanceof Error ? e.message : "Failed to update task deadline";
+      console.error("Failed to update task deadline:", e);
+      throw e;
+    }
+  },
+
   async deleteTask(id: number) {
     try {
       error = null;

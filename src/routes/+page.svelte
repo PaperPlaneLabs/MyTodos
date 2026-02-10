@@ -139,7 +139,7 @@
     try {
       const task = await taskStore.createTask(projectStore.selectedId, null, taskTitle);
       if (taskDeadline) {
-        await db.tasks.updateDeadline(task.id, taskDeadline);
+        await taskStore.updateDeadline(task.id, taskDeadline);
       }
       taskTitle = "";
       taskDeadline = null;
@@ -155,7 +155,7 @@
 
     try {
       await taskStore.updateTask(uiStore.editingTaskId, taskTitle);
-      await db.tasks.updateDeadline(uiStore.editingTaskId, taskDeadline);
+      await taskStore.updateDeadline(uiStore.editingTaskId, taskDeadline);
       uiStore.closeTaskModal();
     } catch (e) {
       console.error("Error updating task:", e);
@@ -780,6 +780,12 @@
                               {task.title}
                             </div>
                             <div class="task-meta">
+                              {#if task.deadline}
+                                <div class="task-deadline text-xs" class:overdue={isOverdue(task.deadline, task.completed)}>
+                                  <span class="deadline-icon">📅</span>
+                                  {formatDeadline(task.deadline)}
+                                </div>
+                              {/if}
                               {#if task.total_time_seconds > 0 && task.project_id}
                                 <div class="task-time text-xs">
                                   <span class="time-icon">⏱</span>

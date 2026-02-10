@@ -15,6 +15,7 @@
   
   function handleDayClick() {
     calendarStore.setSelectedDate(day.date);
+    uiStore.openTaskModal({ deadline: formatDate(day.date) });
   }
   
   function handleTaskClick(e: Event, task: CalendarTask) {
