@@ -13,3 +13,4 @@ target
 dist/
 ~/.tauri/myapp.key
 .env
+google_env.json
