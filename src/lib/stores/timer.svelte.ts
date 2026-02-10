@@ -9,6 +9,8 @@ let intervalId: number | null = null;
 let initialTaskTime = 0;
 let initialProjectTime = 0;
 let currentProjectId = $state<number | null>(null);
+let timerChangeCounter = $state(0);
+let lastKnownDay = new Date().getDate();
 
 function getStartOfToday(): number {
   const now = new Date();
@@ -26,7 +28,23 @@ export const timerStore = {
   },
 
   get dailyTotal() {
-    return dailyTotalBeforeActive + currentElapsed;
+    let runningToday = 0;
+    if (activeTimer?.is_running) {
+      const now = Date.now() / 1000;
+      const startOfToday = getStartOfToday();
+
+      // CRITICAL: Only count time from today onward
+      // If timer started yesterday, only count from midnight today
+      const effectiveStart = Math.max(activeTimer.started_at, startOfToday);
+      runningToday = Math.max(0, now - effectiveStart);
+
+      // Don't add elapsed_seconds if timer started before today
+      // (with new pause behavior, elapsed_seconds should be 0 anyway)
+      if (activeTimer.started_at >= startOfToday) {
+        runningToday += activeTimer.elapsed_seconds;
+      }
+    }
+    return dailyTotalBeforeActive + runningToday;
   },
 
   get isRunning() {
@@ -37,13 +55,24 @@ export const timerStore = {
     return currentProjectId;
   },
 
+  get changeSignal() {
+    return timerChangeCounter;
+  },
+
   async loadActive() {
     try {
-      // Load daily total first
-      dailyTotalBeforeActive = await db.timeEntries.getDailyTotalTime(getStartOfToday());
-
       const timer = await db.timer.getActive();
       activeTimer = timer;
+
+      // If timer exists and started before today, refresh daily total to ensure it's for today only
+      const startOfToday = getStartOfToday();
+      if (timer && timer.started_at < startOfToday) {
+        // Timer started yesterday or earlier - refresh daily total
+        dailyTotalBeforeActive = await db.timeEntries.getDailyTotalTime(startOfToday);
+      } else {
+        // Timer started today or no timer - load daily total normally
+        dailyTotalBeforeActive = await db.timeEntries.getDailyTotalTime(startOfToday);
+      }
 
       if (timer) {
         // Use project_id directly from the timer - it's now persisted in the database
@@ -92,6 +121,7 @@ export const timerStore = {
       }
 
       this.startInterval();
+      timerChangeCounter++;
       return timer;
     } catch (e) {
       console.error("Failed to start timer:", e);
@@ -111,6 +141,7 @@ export const timerStore = {
       // Refresh daily total after pause (entry might have been created)
       dailyTotalBeforeActive = await db.timeEntries.getDailyTotalTime(getStartOfToday());
       currentElapsed = 0; // Reset active elapsed as it's now in the database total
+      timerChangeCounter++;
     } catch (e) {
       console.error("Failed to pause timer:", e);
       throw e;
@@ -128,6 +159,7 @@ export const timerStore = {
       dailyTotalBeforeActive = await db.timeEntries.getDailyTotalTime(getStartOfToday());
       currentElapsed = 0;
       this.startInterval();
+      timerChangeCounter++;
     } catch (e) {
       console.error("Failed to resume timer:", e);
       throw e;
@@ -150,6 +182,7 @@ export const timerStore = {
 
       // Refresh daily total
       dailyTotalBeforeActive = await db.timeEntries.getDailyTotalTime(getStartOfToday());
+      timerChangeCounter++;
 
       return null; // Return value changed in stopped entry logic if needed but caller doesn't seem to use it much
     } catch (e) {
@@ -187,8 +220,18 @@ export const timerStore = {
   startInterval() {
     if (intervalId !== null) return;
 
+    // Initialize lastKnownDay to current day
+    lastKnownDay = new Date().getDate();
+
     intervalId = window.setInterval(() => {
       if (activeTimer?.is_running) {
+        // Check if day changed (midnight crossed)
+        const currentDay = new Date().getDate();
+        if (currentDay !== lastKnownDay) {
+          lastKnownDay = currentDay;
+          this.refreshDailyTotal(); // Reset to new day's total
+        }
+
         currentElapsed = activeTimer.elapsed_seconds + (Date.now() / 1000 - activeTimer.started_at);
 
         // Update task and project stores with current elapsed time

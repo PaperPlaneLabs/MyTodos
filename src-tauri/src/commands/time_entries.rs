@@ -1,4 +1,4 @@
-use crate::db::{DbConnection, TimeEntry};
+use crate::db::{DbConnection, TimeEntry, TimeEntryWithTask};
 use crate::error::{AppError, Result};
 use tauri::State;
 
@@ -238,4 +238,51 @@ pub fn get_daily_total_time(db: State<DbConnection>, start_timestamp: i64) -> Re
     )?;
 
     Ok(total)
+}
+
+#[tauri::command]
+pub fn get_time_entries_with_tasks(
+    db: State<DbConnection>,
+    start_date: String,
+    end_date: String,
+) -> Result<Vec<TimeEntryWithTask>> {
+    let conn = db.lock();
+
+    let mut stmt = conn.prepare(
+        "SELECT
+            te.id,
+            te.task_id,
+            t.title as task_title,
+            t.project_id,
+            p.name as project_name,
+            p.color as project_color,
+            te.duration_seconds,
+            COALESCE(te.started_at, te.created_at) as started_at,
+            COALESCE(te.ended_at, te.created_at + te.duration_seconds) as ended_at,
+            te.note
+         FROM time_entries te
+         JOIN tasks t ON te.task_id = t.id
+         LEFT JOIN projects p ON t.project_id = p.id
+         WHERE date(te.created_at, 'unixepoch') BETWEEN ? AND ?
+         ORDER BY started_at ASC",
+    )?;
+
+    let entries = stmt
+        .query_map([start_date.clone(), end_date.clone()], |row| {
+            Ok(TimeEntryWithTask {
+                id: row.get(0)?,
+                task_id: row.get(1)?,
+                task_title: row.get(2)?,
+                project_id: row.get(3)?,
+                project_name: row.get(4)?,
+                project_color: row.get(5)?,
+                duration_seconds: row.get(6)?,
+                started_at: row.get(7)?,
+                ended_at: row.get(8)?,
+                note: row.get(9)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    Ok(entries)
 }

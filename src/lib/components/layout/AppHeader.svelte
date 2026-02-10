@@ -52,7 +52,12 @@
 </script>
 
 {#if !isMobile}
-  <div class="title-bar" onmousedown={handleDrag} data-tauri-drag-region>
+  <div
+    class="title-bar"
+    onmousedown={handleDrag}
+    data-tauri-drag-region
+    role="presentation"
+  >
     <div class="window-controls">
       <button class="win-btn minimize" onclick={minimize} title="Minimize">
         <svg width="12" height="12" viewBox="0 0 12 12"
@@ -108,7 +113,12 @@
   </div>
 {/if}
 
-<header class="app-header" onmousedown={handleDrag} data-tauri-drag-region>
+<header
+  class="app-header"
+  onmousedown={handleDrag}
+  data-tauri-drag-region
+  role="banner"
+>
   <div class="header-left">
     <h1>MyTodos</h1>
   </div>
@@ -161,9 +171,18 @@
       class:running={timerStore.isRunning}
       title="Daily total time"
     >
-      <span class="timer-icon">📅</span>
+      <span class="timer-icon"></span>
       <TimeDisplay seconds={Math.floor(timerStore.dailyTotal)} format="hms" />
     </div>
+
+    <button
+      class="icon-btn"
+      class:active={uiStore.showCalendarView}
+      onclick={() => uiStore.openCalendarView()}
+      title="Calendar"
+    >
+      📅
+    </button>
 
     <button
       class="icon-btn"

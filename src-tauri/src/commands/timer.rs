@@ -84,11 +84,53 @@ pub fn pause_timer(db: State<DbConnection>) -> Result<()> {
     let conn = db.lock();
 
     let now = get_timestamp();
-    let additional_time = now - timer.started_at;
+    let duration = timer.elapsed_seconds + (now - timer.started_at);
+
+    // Create a time entry for the paused duration
+    conn.execute(
+        "INSERT INTO time_entries (task_id, entry_type, duration_seconds, started_at, ended_at, created_at)
+         VALUES (?, 'timer', ?, ?, ?, ?)",
+        (timer.task_id, duration, timer.started_at, now, now),
+    )?;
+
+    // Update task total
+    conn.execute(
+        "UPDATE tasks SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
+        (duration, timer.task_id),
+    )?;
+
+    // Update project total
+    let project_id: i64 = conn.query_row(
+        "SELECT project_id FROM tasks WHERE id = ?",
+        [timer.task_id],
+        |row| row.get(0),
+    )?;
 
     conn.execute(
-        "UPDATE active_timer SET is_running = 0, elapsed_seconds = ? WHERE id = 1",
-        [timer.elapsed_seconds + additional_time],
+        "UPDATE projects SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
+        (duration, project_id),
+    )?;
+
+    // Update section total if applicable
+    let section_id: Option<i64> = conn
+        .query_row(
+            "SELECT section_id FROM tasks WHERE id = ?",
+            [timer.task_id],
+            |row| row.get(0),
+        )
+        .ok();
+
+    if let Some(sid) = section_id {
+        conn.execute(
+            "UPDATE sections SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
+            (duration, sid),
+        )?;
+    }
+
+    // Reset elapsed_seconds to 0 and update active_timer
+    conn.execute(
+        "UPDATE active_timer SET is_running = 0, elapsed_seconds = 0, started_at = ? WHERE id = 1",
+        [now],
     )?;
 
     Ok(())

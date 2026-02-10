@@ -29,6 +29,8 @@ export interface Task {
   completed: boolean;
   position: number;
   total_time_seconds: number;
+  deadline?: string | null;
+  google_event_id?: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -92,6 +94,35 @@ export interface TimeStats {
   projects: ProjectTime[];
 }
 
+export interface CalendarEvent {
+  id: number;
+  title: string;
+  description: string | null;
+  date: string;
+  is_all_day: boolean;
+  color: string;
+}
+
+export interface TimeEntryWithTask {
+  id: number;
+  task_id: number;
+  task_title: string;
+  project_id: number | null;
+  project_name: string | null;
+  project_color: string | null;
+  duration_seconds: number;
+  started_at: number;
+  ended_at: number;
+  note: string | null;
+}
+
+export interface WindowOrientation {
+  side: string;
+  is_portrait: boolean;
+  width: number;
+  height: number;
+}
+
 export const db = {
   projects: {
     getAll: () => invoke<Project[]>("get_all_projects"),
@@ -118,14 +149,25 @@ export const db = {
     getByProject: (projectId: number) => invoke<Task[]>("get_tasks_by_project", { projectId }),
     getUnassigned: () => invoke<Task[]>("get_unassigned_tasks"),
     getBySection: (sectionId: number) => invoke<Task[]>("get_tasks_by_section", { sectionId }),
+    getByDeadlineRange: (startDate: string, endDate: string) =>
+      invoke<Task[]>("get_tasks_by_deadline_range", { startDate, endDate }),
     create: (projectId: number | null, sectionId: number | null, title: string, description?: string) =>
       invoke<Task>("create_task", { projectId, sectionId, title, description }),
     update: (id: number, title?: string, description?: string, completed?: boolean) =>
       invoke<void>("update_task", { id, title, description, completed }),
+    updateDeadline: (id: number, deadline: string | null) =>
+      invoke<void>("update_task_deadline", { taskId: id, deadline }),
     delete: (id: number) => invoke<void>("delete_task", { id }),
     toggleCompletion: (id: number) => invoke<boolean>("toggle_task_completion", { id }),
     reorder: (taskIds: number[]) => invoke<void>("reorder_tasks", { taskIds }),
     resetTime: (id: number) => invoke<void>("reset_task_time", { id }),
+  },
+
+  calendarEvents: {
+    getInRange: (startDate: string, endDate: string) =>
+      invoke<CalendarEvent[]>("get_calendar_events_in_range", { startDate, endDate }),
+    create: (title: string, description: string | null, date: string, isAllDay: boolean, color: string | null) =>
+      invoke<CalendarEvent>("create_calendar_event", { title, description, date, isAllDay, color }),
   },
 
   timer: {
@@ -139,6 +181,8 @@ export const db = {
 
   timeEntries: {
     getByTask: (taskId: number) => invoke<TimeEntry[]>("get_time_entries_by_task", { taskId }),
+    getWithTasks: (startDate: string, endDate: string) =>
+      invoke<TimeEntryWithTask[]>("get_time_entries_with_tasks", { startDate, endDate }),
     createManual: (taskId: number, durationSeconds: number, note?: string) =>
       invoke<TimeEntry>("create_manual_entry", { taskId, durationSeconds, note }),
     update: (id: number, durationSeconds: number, note?: string) =>
@@ -146,13 +190,15 @@ export const db = {
     delete: (id: number) => invoke<void>("delete_time_entry", { id }),
     getDailyTotalTime: (startTimestamp: number) =>
       invoke<number>("get_daily_total_time", { startTimestamp }),
-    getTimeStats: () => invoke<TimeStats>("get_time_stats"),
+    getTimeStats: (includeActiveTimer: boolean = true) =>
+      invoke<TimeStats>("get_time_stats", { includeActiveTimer }),
   },
 
   window: {
     saveState: (x?: number, y?: number, width?: number, height?: number) =>
       invoke<void>("save_window_state", { x, y, width, height }),
     getState: () => invoke<WindowState | null>("get_window_state"),
+    getOrientation: () => invoke<WindowOrientation>("get_window_orientation"),
     minimize: () => invoke<void>("minimize_window"),
     toggleMaximize: () => invoke<void>("toggle_maximize"),
     close: () => invoke<void>("close_window"),
@@ -166,6 +212,16 @@ export const db = {
     enable: () => invoke<void>("plugin:autostart|enable"),
     disable: () => invoke<void>("plugin:autostart|disable"),
     isEnabled: () => invoke<boolean>("plugin:autostart|is_enabled"),
+  },
+
+  googleCalendar: {
+    authStart: () => invoke<string>("google_auth_start"),
+    authStatus: () => invoke<{ connected: boolean }>("google_auth_status"),
+    disconnect: () => invoke<void>("google_auth_disconnect"),
+    syncAll: () =>
+      invoke<{ synced: number; failed: number; errors: string[] }>(
+        "google_sync_all_tasks"
+      ),
   },
 
   initialize: () => invoke<void>("initialize_database"),

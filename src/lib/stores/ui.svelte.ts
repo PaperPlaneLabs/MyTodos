@@ -1,3 +1,6 @@
+import type { Task } from "$lib/services/db";
+import type { TimeEntryWithTask } from "$lib/types/calendar";
+
 let showProjectModal = $state(false);
 let showTaskModal = $state(false);
 let showSectionModal = $state(false);
@@ -5,6 +8,7 @@ let showManualTimeModal = $state(false);
 let showQuickAdd = $state(false);
 let showStatsView = $state(false);
 let showSettingsView = $state(false);
+let showCalendarView = $state(false);
 let isCollapsed = $state(false);
 let completedTasksCollapsed = $state(true);
 let handleTop = $state(120);
@@ -12,8 +16,13 @@ let editingProjectId = $state<number | null>(null);
 let editingTaskId = $state<number | null>(null);
 let editingSectionId = $state<number | null>(null);
 let manualTimeTaskId = $state<number | null>(null);
+let newTaskDeadline = $state<string | null>(null);
 export type Theme = "light" | "dark" | "minecraft" | "retro" | "ocean" | "nord";
 let theme = $state<Theme>("light");
+export type WindowOrientation = "left" | "right" | "center";
+let windowOrientation = $state<WindowOrientation>("center");
+let calendarSelectedEntry = $state<TimeEntryWithTask | null>(null);
+type TaskModalPayload = number | { taskId?: number; task?: Pick<Task, "id">; deadline?: string };
 
 // Context Menu State
 let contextMenuOpen = $state(false);
@@ -54,6 +63,10 @@ export const uiStore = {
     return manualTimeTaskId;
   },
 
+  get newTaskDeadline() {
+    return newTaskDeadline;
+  },
+
   get showQuickAdd() {
     return showQuickAdd;
   },
@@ -64,6 +77,18 @@ export const uiStore = {
 
   get showSettingsView() {
     return showSettingsView;
+  },
+
+  get showCalendarView() {
+    return showCalendarView;
+  },
+
+  get windowOrientation() {
+    return windowOrientation;
+  },
+
+  get calendarSelectedEntry() {
+    return calendarSelectedEntry;
   },
 
   get theme() {
@@ -124,6 +149,23 @@ export const uiStore = {
     showSettingsView = false;
   },
 
+  openCalendarView() {
+    showCalendarView = true;
+  },
+
+  closeCalendarView() {
+    showCalendarView = false;
+    calendarSelectedEntry = null;
+  },
+
+  setWindowOrientation(orientation: WindowOrientation) {
+    windowOrientation = orientation;
+  },
+
+  selectCalendarEntry(entry: TimeEntryWithTask | null) {
+    calendarSelectedEntry = entry;
+  },
+
   openProjectModal(projectId: number | null = null) {
     editingProjectId = projectId;
     showProjectModal = true;
@@ -134,14 +176,17 @@ export const uiStore = {
     editingProjectId = null;
   },
 
-  openTaskModal(taskId: number | null = null) {
-    editingTaskId = taskId;
+  openTaskModal(payload: TaskModalPayload = {}) {
+    const data = typeof payload === "number" ? { taskId: payload } : payload;
+    editingTaskId = data.taskId ?? data.task?.id ?? null;
+    newTaskDeadline = data.deadline ?? null;
     showTaskModal = true;
   },
 
   closeTaskModal() {
     showTaskModal = false;
     editingTaskId = null;
+    newTaskDeadline = null;
   },
 
   openSectionModal(sectionId: number | null = null) {

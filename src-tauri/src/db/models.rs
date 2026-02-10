@@ -36,6 +36,10 @@ pub struct Task {
     pub completed: bool,
     pub position: i32,
     pub total_time_seconds: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub deadline: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub google_event_id: Option<String>,
     pub created_at: i64,
     pub updated_at: i64,
 }
@@ -81,4 +85,30 @@ pub struct ProjectStats {
     pub task_count: i32,
     pub completed_count: i32,
     pub total_time_seconds: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CalendarEvent {
+    pub id: i64,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub date: String,
+    pub is_all_day: bool,
+    pub color: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TimeEntryWithTask {
+    pub id: i64,
+    pub task_id: i64,
+    pub task_title: String,
+    pub project_id: Option<i64>,
+    pub project_name: Option<String>,
+    pub project_color: Option<String>,
+    pub duration_seconds: i64,
+    pub started_at: i64,
+    pub ended_at: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
 }
