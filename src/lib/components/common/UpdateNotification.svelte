@@ -40,12 +40,24 @@
             const update = await check();
             if (!update) return;
 
+            let contentLength = 0;
+            let totalDownloaded = 0;
+
             await update.downloadAndInstall((event) => {
                 if (event.event === "Started") {
+                    contentLength = event.data.contentLength ?? 0;
+                    totalDownloaded = 0;
                     downloadProgress = 0;
                 } else if (event.event === "Progress") {
-                    // Increment progress gradually since we don't have total size
-                    downloadProgress = Math.min(downloadProgress + 3, 95);
+                    totalDownloaded += event.data.chunkLength;
+                    if (contentLength > 0) {
+                        downloadProgress = Math.min(
+                            Math.round((totalDownloaded / contentLength) * 100),
+                            99,
+                        );
+                    } else {
+                        downloadProgress = Math.min(downloadProgress + 3, 95);
+                    }
                 } else if (event.event === "Finished") {
                     downloadProgress = 100;
                 }
@@ -109,8 +121,8 @@
         bottom: 0;
         left: 0;
         right: 0;
-        background: var(--color-surface-elevated, #1a1a2e);
-        border-top: 1px solid var(--color-border, #333);
+        background: var(--bg-secondary);
+        border-top: 1px solid var(--border);
         padding: 8px 12px;
         z-index: 9999;
         animation: slideUp 0.3s ease-out;
@@ -140,15 +152,15 @@
 
     .update-text {
         flex: 1;
-        color: var(--color-text, #e0e0e0);
+        color: var(--text-primary);
     }
 
     .update-text.error {
-        color: var(--color-danger, #ff6b6b);
+        color: var(--danger);
     }
 
     .update-text strong {
-        color: var(--color-primary, #7c3aed);
+        color: var(--accent);
     }
 
     .update-btn {
@@ -161,33 +173,33 @@
     }
 
     .update-btn.primary {
-        background: var(--color-primary, #7c3aed);
+        background: var(--accent);
         color: white;
     }
 
     .update-btn.primary:hover {
-        background: var(--color-primary-hover, #6d28d9);
+        background: var(--accent-hover);
     }
 
     .update-btn.retry {
-        background: var(--color-surface, #2a2a40);
-        color: var(--color-text, #e0e0e0);
-        border: 1px solid var(--color-border, #333);
+        background: var(--bg-tertiary);
+        color: var(--text-primary);
+        border: 1px solid var(--border);
     }
 
     .update-btn.dismiss {
         background: transparent;
-        color: var(--color-text-secondary, #888);
+        color: var(--text-secondary);
         padding: 4px 6px;
     }
 
     .update-btn.dismiss:hover {
-        color: var(--color-text, #e0e0e0);
+        color: var(--text-primary);
     }
 
     .progress-bar {
         height: 3px;
-        background: var(--color-surface, #2a2a40);
+        background: var(--bg-tertiary);
         border-radius: 2px;
         margin-top: 6px;
         overflow: hidden;
@@ -195,7 +207,7 @@
 
     .progress-fill {
         height: 100%;
-        background: var(--color-primary, #7c3aed);
+        background: var(--accent);
         transition: width 0.2s ease-out;
     }
 </style>

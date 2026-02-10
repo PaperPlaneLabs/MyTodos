@@ -3,6 +3,9 @@
     import { fade, fly } from "svelte/transition";
     import { uiStore, type Theme } from "$lib/stores/ui.svelte";
     import { googleCalendarStore } from "$lib/stores/google-calendar.svelte";
+    import { getVersion } from "@tauri-apps/api/app";
+    import { check } from "@tauri-apps/plugin-updater";
+    import { relaunch } from "@tauri-apps/plugin-process";
 
     const themes: { id: Theme; name: string; bg: string; accent: string }[] = [
         { id: "light", name: "Light", bg: "#ffffff", accent: "#6366f1" },
@@ -22,7 +25,20 @@
     let loading = $state(true);
     let toggling = $state(false);
 
+    let appVersion = $state("");
+    let updateStatus = $state<"idle" | "checking" | "up-to-date" | "available" | "downloading" | "error">("idle");
+    let updateVersion = $state("");
+    let updateError = $state("");
+    let updateProgress = $state(0);
+
     onMount(async () => {
+        try {
+            appVersion = await getVersion();
+        } catch (e) {
+            console.error("Failed to get app version:", e);
+            appVersion = "unknown";
+        }
+
         try {
             const { isEnabled } = await import("@tauri-apps/plugin-autostart");
             isAutoStartEnabled = await isEnabled();
@@ -32,6 +48,62 @@
             loading = false;
         }
     });
+
+    async function checkForUpdates() {
+        updateStatus = "checking";
+        updateError = "";
+
+        try {
+            const update = await check();
+            if (update) {
+                updateVersion = update.version;
+                updateStatus = "available";
+            } else {
+                updateStatus = "up-to-date";
+            }
+        } catch (e) {
+            updateError = e instanceof Error ? e.message : String(e);
+            updateStatus = "error";
+        }
+    }
+
+    async function downloadAndInstallUpdate() {
+        updateStatus = "downloading";
+        updateProgress = 0;
+
+        try {
+            const update = await check();
+            if (!update) return;
+
+            let contentLength = 0;
+            let totalDownloaded = 0;
+
+            await update.downloadAndInstall((event) => {
+                if (event.event === "Started") {
+                    contentLength = event.data.contentLength ?? 0;
+                    totalDownloaded = 0;
+                    updateProgress = 0;
+                } else if (event.event === "Progress") {
+                    totalDownloaded += event.data.chunkLength;
+                    if (contentLength > 0) {
+                        updateProgress = Math.min(
+                            Math.round((totalDownloaded / contentLength) * 100),
+                            99,
+                        );
+                    } else {
+                        updateProgress = Math.min(updateProgress + 3, 95);
+                    }
+                } else if (event.event === "Finished") {
+                    updateProgress = 100;
+                }
+            });
+
+            await relaunch();
+        } catch (e) {
+            updateError = e instanceof Error ? e.message : String(e);
+            updateStatus = "error";
+        }
+    }
 
     async function toggleAutoStart() {
         if (toggling) return;
@@ -110,6 +182,65 @@
             transition:fly={{ y: 20, duration: 300, delay: 150 }}
         >
             <h3>
+                <span class="section-icon">🔄</span>
+                Updates
+            </h3>
+
+            <div class="setting-item">
+                <div class="setting-info">
+                    <span class="setting-label">App Updates</span>
+                    <span class="setting-desc" class:update-error={updateStatus === "error"} class:update-success={updateStatus === "up-to-date"}>
+                        {#if updateStatus === "checking"}
+                            Checking for updates...
+                        {:else if updateStatus === "up-to-date"}
+                            You're up to date!
+                        {:else if updateStatus === "available"}
+                            Update available: <strong>v{updateVersion}</strong>
+                        {:else if updateStatus === "downloading"}
+                            Downloading update... {updateProgress}%
+                        {:else if updateStatus === "error"}
+                            {updateError}
+                        {:else}
+                            Check if a newer version is available
+                        {/if}
+                    </span>
+                </div>
+                {#if updateStatus === "available"}
+                    <button
+                        class="btn btn-primary btn-sm"
+                        onclick={downloadAndInstallUpdate}
+                    >
+                        Update Now
+                    </button>
+                {:else if updateStatus === "downloading"}
+                    <div class="update-progress-inline">
+                        <div class="progress-bar-sm">
+                            <div class="progress-fill-sm" style="width: {updateProgress}%"></div>
+                        </div>
+                    </div>
+                {:else}
+                    <button
+                        class="btn btn-secondary btn-sm"
+                        onclick={checkForUpdates}
+                        disabled={updateStatus === "checking"}
+                    >
+                        {#if updateStatus === "checking"}
+                            Checking...
+                        {:else if updateStatus === "error"}
+                            Retry
+                        {:else}
+                            Check for Updates
+                        {/if}
+                    </button>
+                {/if}
+            </div>
+        </section>
+
+        <section
+            class="settings-section"
+            transition:fly={{ y: 20, duration: 300, delay: 200 }}
+        >
+            <h3>
                 <span class="section-icon">📅</span>
                 Google Calendar
             </h3>
@@ -171,7 +302,7 @@
 
         <section
             class="settings-section"
-            transition:fly={{ y: 20, duration: 300, delay: 200 }}
+            transition:fly={{ y: 20, duration: 300, delay: 250 }}
         >
             <h3>
                 <span class="section-icon">🎨</span>
@@ -199,13 +330,13 @@
 
         <section
             class="settings-section about"
-            transition:fly={{ y: 20, duration: 300, delay: 300 }}
+            transition:fly={{ y: 20, duration: 300, delay: 350 }}
         >
             <h3>
                 <span class="section-icon">ℹ️</span>
                 About
             </h3>
-            <p class="version">MyTodos v0.1.21</p>
+            <p class="version">MyTodos v{appVersion}</p>
         </section>
     </div>
 </div>
@@ -420,6 +551,34 @@
         color: var(--danger);
         border-radius: var(--radius-sm);
         font-size: 12px;
+    }
+
+    /* Update status */
+    .update-error {
+        color: var(--danger);
+    }
+
+    .update-success {
+        color: var(--success);
+    }
+
+    /* Update progress */
+    .update-progress-inline {
+        width: 80px;
+        flex-shrink: 0;
+    }
+
+    .progress-bar-sm {
+        height: 4px;
+        background: var(--bg-tertiary);
+        border-radius: 2px;
+        overflow: hidden;
+    }
+
+    .progress-fill-sm {
+        height: 100%;
+        background: var(--accent);
+        transition: width 0.2s ease-out;
     }
 
     /* About Section */
