@@ -23,6 +23,12 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 
 WORKDIR /workspace
 
+# Signing keys for auto-updater (passed at build time)
+ARG TAURI_SIGNING_PRIVATE_KEY=""
+ARG TAURI_SIGNING_PRIVATE_KEY_PASSWORD=""
+ENV TAURI_SIGNING_PRIVATE_KEY=${TAURI_SIGNING_PRIVATE_KEY}
+ENV TAURI_SIGNING_PRIVATE_KEY_PASSWORD=${TAURI_SIGNING_PRIVATE_KEY_PASSWORD}
+
 # Project files
 COPY . .
 
@@ -30,7 +36,9 @@ COPY . .
 RUN npm install
 RUN npm run tauri build
 
-# Output extraction
+# Output extraction (include .sig files for auto-updater)
 RUN mkdir -p /output && \
     cp src-tauri/target/release/bundle/deb/*.deb /output/ && \
-    cp src-tauri/target/release/bundle/appimage/*.AppImage /output/
+    cp src-tauri/target/release/bundle/appimage/*.AppImage /output/ && \
+    (cp src-tauri/target/release/bundle/deb/*.deb.sig /output/ 2>/dev/null || true) && \
+    (cp src-tauri/target/release/bundle/appimage/*.AppImage.sig /output/ 2>/dev/null || true)

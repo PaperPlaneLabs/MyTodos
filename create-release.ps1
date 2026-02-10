@@ -128,7 +128,21 @@ if ($machine -and -not $machine.Running) {
     & $PodmanExe machine start
 }
 
-& $PodmanExe build -f Dockerfile.linux -t mytodos-builder-linux .
+$signingKey = [Environment]::GetEnvironmentVariable("TAURI_SIGNING_PRIVATE_KEY", "Process")
+$signingKeyPassword = [Environment]::GetEnvironmentVariable("TAURI_SIGNING_PRIVATE_KEY_PASSWORD", "Process")
+
+$buildArgs = @()
+if ($signingKey) {
+    $buildArgs += "--build-arg", "TAURI_SIGNING_PRIVATE_KEY=$signingKey"
+    if ($signingKeyPassword) {
+        $buildArgs += "--build-arg", "TAURI_SIGNING_PRIVATE_KEY_PASSWORD=$signingKeyPassword"
+    }
+    Write-Success "Passing signing keys to Linux build"
+} else {
+    Write-Host "   [!!] TAURI_SIGNING_PRIVATE_KEY not set - Linux .sig files will not be generated" -ForegroundColor Yellow
+}
+
+& $PodmanExe build -f Dockerfile.linux -t mytodos-builder-linux @buildArgs .
 if ($LASTEXITCODE -ne 0) { Write-Fail "Linux Podman build failed"; exit 1 }
 
 $containerId = & $PodmanExe create mytodos-builder-linux
@@ -181,7 +195,7 @@ if ($tryCount -eq $maxTries) {
 }
 
 # Collect artifacts
-$files = Get-ChildItem -Path "dist" -Include *.msi, *.msi.sig, *-setup.exe, *-setup.exe.sig, *.deb, *.deb.sig, *.rpm, *.rpm.sig, *.AppImage, *.AppImage.sig, latest.json -Recurse | ForEach-Object { $_.FullName }
+$files = Get-ChildItem -Path "dist" -Include *.msi, *.msi.sig, *-setup.exe, *-setup.exe.sig, *.deb, *.deb.sig, *.rpm, *.rpm.sig, *.AppImage, *.AppImage.sig -Recurse | ForEach-Object { $_.FullName }
 
 if ($files.Count -eq 0) {
     Write-Fail "No artifacts found in dist/ to upload."
@@ -194,6 +208,102 @@ $files | ForEach-Object { Write-Host "   - $(Split-Path $_ -Leaf)" }
 gh release upload $tag $files --repo SujithChristopher/MyTodos-releases --clobber
 
 if ($LASTEXITCODE -ne 0) { Write-Fail "Failed to upload artifacts"; exit 1 }
+
+# ============================================================
+# STEP 7: Generate and upload latest.json for auto-updater
+# ============================================================
+Write-Step "Generating latest.json for auto-updater..."
+
+$releaseUrl = "https://github.com/SujithChristopher/MyTodos-releases/releases/download/$tag"
+$platforms = @{}
+
+# Try to download existing latest.json from CI (may have macOS entries)
+try {
+    $existingJson = gh release download $tag --pattern "latest.json" --repo SujithChristopher/MyTodos-releases --dir dist --clobber 2>&1
+    $existingLatest = Get-Content "dist/latest.json" -Raw | ConvertFrom-Json
+    if ($existingLatest.platforms) {
+        foreach ($prop in $existingLatest.platforms.PSObject.Properties) {
+            $platforms[$prop.Name] = $prop.Value
+            Write-Success "Kept existing platform: $($prop.Name)"
+        }
+    }
+} catch {
+    Write-Host "   [..] No existing latest.json from CI - creating from scratch" -ForegroundColor Yellow
+}
+
+# Windows x86_64 (NSIS exe)
+$nsisExeSig = Get-ChildItem -Path "dist" -Filter "*-setup.exe.sig" -ErrorAction SilentlyContinue | Select-Object -First 1
+$nsisExe = Get-ChildItem -Path "dist" -Filter "*-setup.exe" -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike "*.sig" } | Select-Object -First 1
+if ($nsisExeSig -and $nsisExe) {
+    $platforms["windows-x86_64"] = @{
+        signature = (Get-Content $nsisExeSig.FullName -Raw).Trim()
+        url = "$releaseUrl/$($nsisExe.Name)"
+    }
+    Write-Success "Added windows-x86_64 (NSIS)"
+} else {
+    Write-Host "   [!!] No Windows NSIS .sig found - skipping windows-x86_64" -ForegroundColor Yellow
+}
+
+# Linux x86_64 (AppImage)
+$appImageSig = Get-ChildItem -Path "dist" -Filter "*.AppImage.sig" -ErrorAction SilentlyContinue | Select-Object -First 1
+$appImage = Get-ChildItem -Path "dist" -Filter "*.AppImage" -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike "*.sig" } | Select-Object -First 1
+if ($appImageSig -and $appImage) {
+    $platforms["linux-x86_64"] = @{
+        signature = (Get-Content $appImageSig.FullName -Raw).Trim()
+        url = "$releaseUrl/$($appImage.Name)"
+    }
+    Write-Success "Added linux-x86_64 (AppImage)"
+} else {
+    Write-Host "   [!!] No Linux AppImage .sig found - skipping linux-x86_64" -ForegroundColor Yellow
+}
+
+# macOS - download sigs from release if not already in platforms
+$macTargets = @(
+    @{ platform = "darwin-aarch64"; artifact = "my-todos_aarch64.app.tar.gz" },
+    @{ platform = "darwin-x86_64"; artifact = "my-todos_x64.app.tar.gz" }
+)
+
+foreach ($target in $macTargets) {
+    if (-not $platforms.ContainsKey($target.platform)) {
+        $sigFile = "$($target.artifact).sig"
+        try {
+            gh release download $tag --pattern $sigFile --repo SujithChristopher/MyTodos-releases --dir dist --clobber 2>$null
+            if (Test-Path "dist/$sigFile") {
+                $platforms[$target.platform] = @{
+                    signature = (Get-Content "dist/$sigFile" -Raw).Trim()
+                    url = "$releaseUrl/$($target.artifact)"
+                }
+                Write-Success "Added $($target.platform) (from release)"
+            }
+        } catch {
+            Write-Host "   [!!] No sig for $($target.platform) - skipping" -ForegroundColor Yellow
+        }
+    }
+}
+
+if ($platforms.Count -eq 0) {
+    Write-Fail "No platform signatures found! Cannot generate latest.json."
+    Write-Host "   Make sure TAURI_SIGNING_PRIVATE_KEY is set in .env"
+    Write-Host "   The auto-updater will NOT work without latest.json"
+} else {
+    $latestJson = @{
+        version = $v
+        notes = "MyTodos v$v"
+        pub_date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+        platforms = $platforms
+    } | ConvertTo-Json -Depth 3
+
+    $latestJsonPath = "dist/latest.json"
+    Set-Content -Path $latestJsonPath -Value $latestJson
+    Write-Success "Generated latest.json with $($platforms.Count) platform(s)"
+
+    gh release upload $tag $latestJsonPath --repo SujithChristopher/MyTodos-releases --clobber
+    if ($LASTEXITCODE -ne 0) {
+        Write-Fail "Failed to upload latest.json"
+    } else {
+        Write-Success "Uploaded latest.json to release $tag"
+    }
+}
 
 Write-Host "`n=== Release v$v Complete! ===" -ForegroundColor Green
 Write-Host "View at: https://github.com/SujithChristopher/MyTodos-releases/releases/tag/$tag" -ForegroundColor Yellow

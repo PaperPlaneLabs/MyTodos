@@ -7,23 +7,13 @@ on:
   workflow_dispatch:
 
 jobs:
-  release:
+  release-macos-aarch64:
     permissions:
       contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: 'macos-latest'
-            args: '--target aarch64-apple-darwin'
-          - platform: 'macos-latest'
-            args: '--target x86_64-apple-darwin'
-
-    runs-on: ${{ matrix.platform }}
+    runs-on: macos-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -31,21 +21,16 @@ jobs:
           node-version: 20
           cache: 'npm'
 
-      # dtolnay/rust-toolchain is a standard way to install Rust in GH Actions
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
 
-      # swatinem/rust-cache is the optimal choice for non-Docker Rust builds on GitHub Actions.
-      # It automatically caches the ~/.cargo/registry, ~/.cargo/git, and the build target directory.
-      # Note: cargo-chef is not used here as it is specifically designed for Docker layer caching.
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          # Pointing to the Tauri backend directory where Cargo.toml resides
           workspaces: './src-tauri -> target'
-          key: ${{ matrix.platform }}-${{ matrix.args }}
+          key: macos-aarch64
 
       - name: Install frontend dependencies
         run: npm install
@@ -67,6 +52,54 @@ jobs:
           owner: SujithChristopher
           repo: MyTodos-releases
           releaseCommitish: main
-          args: ${{ matrix.args }}
+          args: '--target aarch64-apple-darwin'
           updaterJsonKeepUniversal: true
 
+  release-macos-x86_64:
+    needs: release-macos-aarch64
+    permissions:
+      contents: write
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+          key: macos-x86_64
+
+      - name: Install frontend dependencies
+        run: npm install
+
+      - name: Build the app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASES_REPO_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'MyTodos ${{ github.ref_name }}'
+          releaseBody: 'See the assets to download this version and install.'
+          releaseDraft: false
+          prerelease: false
+          owner: SujithChristopher
+          repo: MyTodos-releases
+          releaseCommitish: main
+          args: '--target x86_64-apple-darwin'
+          updaterJsonKeepUniversal: true
