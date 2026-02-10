@@ -1,4 +1,5 @@
 pub mod calendar;
+pub mod google_calendar;
 pub mod projects;
 pub mod sections;
 pub mod tasks;
@@ -8,6 +9,7 @@ pub mod timer;
 pub mod window;
 
 pub use calendar::*;
+pub use google_calendar::*;
 pub use projects::*;
 pub use sections::*;
 pub use tasks::*;

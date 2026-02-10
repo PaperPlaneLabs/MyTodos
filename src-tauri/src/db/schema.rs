@@ -104,6 +104,9 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
         [],
     );
 
+    // Migration: Add google_event_id column to tasks if it doesn't exist
+    let _ = conn.execute("ALTER TABLE tasks ADD COLUMN google_event_id TEXT", []);
+
     // Create indexes after migrations are complete
     let _ = conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_tasks_deadline ON tasks(deadline)",

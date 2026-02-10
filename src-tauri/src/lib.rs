@@ -1,6 +1,7 @@
 pub mod commands;
 pub mod db;
 pub mod error;
+pub mod google;
 
 use db::{initialize_connection, initialize_schema, DbConnection};
 use tauri_plugin_autostart::MacosLauncher::LaunchAgent;
@@ -21,12 +22,15 @@ pub fn run() {
         initialize_schema(&conn).expect("Failed to initialize database schema");
     }
 
+    let google_state = google::create_google_state();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_autostart::init(LaunchAgent, Some(vec![])))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .manage(db_conn)
+        .manage(google_state)
         .invoke_handler(tauri::generate_handler![
             initialize_database,
             commands::get_all_projects,
@@ -77,6 +81,10 @@ pub fn run() {
             commands::get_calendar_events_in_range,
             commands::get_window_orientation,
             commands::get_time_entries_with_tasks,
+            commands::google_auth_start,
+            commands::google_auth_status,
+            commands::google_auth_disconnect,
+            commands::google_sync_all_tasks,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

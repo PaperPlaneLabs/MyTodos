@@ -16,6 +16,7 @@
   import { taskStore } from "$lib/stores/tasks.svelte";
   import { timerStore } from "$lib/stores/timer.svelte";
   import { uiStore } from "$lib/stores/ui.svelte";
+  import { googleCalendarStore } from "$lib/stores/google-calendar.svelte";
   import { db } from "$lib/services/db";
   import type { Task } from "$lib/services/db";
 
@@ -135,6 +136,7 @@
     uiStore.initTheme();
     await projectStore.loadAll();
     await timerStore.loadActive();
+    googleCalendarStore.init();
 
     // Default to Inbox (null) if no projects or just load tasks for whatever is selected
     await taskStore.loadByProject(projectStore.selectedId);

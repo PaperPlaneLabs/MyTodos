@@ -30,6 +30,7 @@ export interface Task {
   position: number;
   total_time_seconds: number;
   deadline?: string | null;
+  google_event_id?: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -211,6 +212,16 @@ export const db = {
     enable: () => invoke<void>("plugin:autostart|enable"),
     disable: () => invoke<void>("plugin:autostart|disable"),
     isEnabled: () => invoke<boolean>("plugin:autostart|is_enabled"),
+  },
+
+  googleCalendar: {
+    authStart: () => invoke<string>("google_auth_start"),
+    authStatus: () => invoke<{ connected: boolean }>("google_auth_status"),
+    disconnect: () => invoke<void>("google_auth_disconnect"),
+    syncAll: () =>
+      invoke<{ synced: number; failed: number; errors: string[] }>(
+        "google_sync_all_tasks"
+      ),
   },
 
   initialize: () => invoke<void>("initialize_database"),

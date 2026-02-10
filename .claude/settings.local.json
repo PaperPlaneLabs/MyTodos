@@ -53,7 +53,9 @@
       "Bash(gh repo create:*)",
       "Bash(gh api:*)",
       "Bash(npm test)",
-      "Bash(cargo test:*)"
+      "Bash(cargo test:*)",
+      "Bash(set:*)",
+      "Bash(npx tauri build:*)"
     ]
   }
 }

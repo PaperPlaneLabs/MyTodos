@@ -3,11 +3,13 @@ use crate::db::{
     DbConnection,
 };
 use crate::error::Result;
+use crate::google::GoogleCalendarState;
 use rusqlite::params;
+use tauri::State;
 
 #[tauri::command]
 pub fn get_tasks_by_deadline_range(
-    db: tauri::State<DbConnection>,
+    db: State<DbConnection>,
     start_date: String,
     end_date: String,
 ) -> Result<Vec<Task>> {
@@ -30,6 +32,7 @@ pub fn get_tasks_by_deadline_range(
             position: row.get("position")?,
             total_time_seconds: row.get("total_time_seconds")?,
             deadline: row.get("deadline")?,
+            google_event_id: row.get("google_event_id")?,
             created_at: row.get("created_at")?,
             updated_at: row.get("updated_at")?,
         })
@@ -41,7 +44,8 @@ pub fn get_tasks_by_deadline_range(
 
 #[tauri::command]
 pub fn update_task_deadline(
-    db: tauri::State<DbConnection>,
+    db: State<DbConnection>,
+    google_state: State<GoogleCalendarState>,
     task_id: i64,
     deadline: Option<String>,
 ) -> Result<()> {
@@ -51,12 +55,23 @@ pub fn update_task_deadline(
         "UPDATE tasks SET deadline = ?1, updated_at = ?2 WHERE id = ?3",
         params![deadline, now, task_id],
     )?;
+    drop(conn);
+
+    // Fire-and-forget: sync to Google Calendar
+    let db = db.inner().clone();
+    let google_state = google_state.inner().clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(e) = crate::google::sync::sync_task_to_calendar(db, &google_state, task_id).await {
+            eprintln!("Failed to sync deadline update to Google Calendar: {}", e);
+        }
+    });
+
     Ok(())
 }
 
 #[tauri::command]
 pub fn create_calendar_event(
-    db: tauri::State<DbConnection>,
+    db: State<DbConnection>,
     title: String,
     description: Option<String>,
     date: String,
@@ -84,7 +99,7 @@ pub fn create_calendar_event(
 
 #[tauri::command]
 pub fn get_calendar_events_in_range(
-    db: tauri::State<DbConnection>,
+    db: State<DbConnection>,
     start_date: String,
     end_date: String,
 ) -> Result<Vec<CalendarEvent>> {

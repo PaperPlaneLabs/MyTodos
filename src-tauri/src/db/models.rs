@@ -38,6 +38,8 @@ pub struct Task {
     pub total_time_seconds: i64,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deadline: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub google_event_id: Option<String>,
     pub created_at: i64,
     pub updated_at: i64,
 }

@@ -2,6 +2,7 @@
     import { onMount } from "svelte";
     import { fade, fly } from "svelte/transition";
     import { uiStore, type Theme } from "$lib/stores/ui.svelte";
+    import { googleCalendarStore } from "$lib/stores/google-calendar.svelte";
 
     const themes: { id: Theme; name: string; bg: string; accent: string }[] = [
         { id: "light", name: "Light", bg: "#ffffff", accent: "#6366f1" },
@@ -102,6 +103,70 @@
                     <span class="toggle-knob"></span>
                 </button>
             </div>
+        </section>
+
+        <section
+            class="settings-section"
+            transition:fly={{ y: 20, duration: 300, delay: 150 }}
+        >
+            <h3>
+                <span class="section-icon">📅</span>
+                Google Calendar
+            </h3>
+
+            {#if !googleCalendarStore.connected}
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <span class="setting-label">Connect Google Calendar</span>
+                        <span class="setting-desc">Sync task deadlines as all-day events</span>
+                    </div>
+                    <button
+                        class="btn btn-primary btn-sm"
+                        onclick={() => googleCalendarStore.connect()}
+                        disabled={googleCalendarStore.connecting}
+                    >
+                        {googleCalendarStore.connecting ? "Connecting..." : "Connect"}
+                    </button>
+                </div>
+            {:else}
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <span class="setting-label gcal-connected">Connected</span>
+                        <span class="setting-desc">Tasks with deadlines sync to your Google Calendar</span>
+                    </div>
+                    <button
+                        class="btn btn-secondary btn-sm"
+                        onclick={() => googleCalendarStore.disconnect()}
+                    >
+                        Disconnect
+                    </button>
+                </div>
+                <div class="setting-item">
+                    <div class="setting-info">
+                        <span class="setting-label">Manual Sync</span>
+                        <span class="setting-desc">
+                            {#if googleCalendarStore.lastSyncResult}
+                                Last sync: {googleCalendarStore.lastSyncResult.synced} synced{#if googleCalendarStore.lastSyncResult.failed > 0}, {googleCalendarStore.lastSyncResult.failed} failed{/if}
+                            {:else}
+                                Sync all tasks with deadlines
+                            {/if}
+                        </span>
+                    </div>
+                    <button
+                        class="btn btn-secondary btn-sm"
+                        onclick={() => googleCalendarStore.syncAll()}
+                        disabled={googleCalendarStore.syncing}
+                    >
+                        {googleCalendarStore.syncing ? "Syncing..." : "Sync Now"}
+                    </button>
+                </div>
+            {/if}
+
+            {#if googleCalendarStore.error}
+                <div class="gcal-error">
+                    {googleCalendarStore.error}
+                </div>
+            {/if}
         </section>
 
         <section
@@ -341,6 +406,20 @@
         font-size: 11px;
         font-weight: 500;
         color: var(--text-primary);
+    }
+
+    /* Google Calendar */
+    .gcal-connected {
+        color: var(--success);
+    }
+
+    .gcal-error {
+        margin-top: var(--spacing-sm);
+        padding: var(--spacing-sm) var(--spacing-md);
+        background: var(--danger-light);
+        color: var(--danger);
+        border-radius: var(--radius-sm);
+        font-size: 12px;
     }
 
     /* About Section */
