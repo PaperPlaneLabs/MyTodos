@@ -22,6 +22,11 @@
   let projectName = $state("");
   let taskTitle = $state("");
   let taskDeadline = $state<string | null>(null);
+  let isCalendarPresetDeadline = $derived(
+    uiStore.showTaskModal &&
+      !uiStore.editingTaskId &&
+      !!uiStore.newTaskDeadline,
+  );
   let showResetModal = $state(false);
   let taskToReset = $state<number | null>(null);
 
@@ -60,6 +65,17 @@
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 
+  function formatPresetDeadline(deadline: string | null): string {
+    if (!deadline) return "";
+    const date = new Date(`${deadline}T00:00:00`);
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  }
+
   function isOverdue(deadline: string | null | undefined, completed: boolean): boolean {
     if (!deadline || completed) return false;
     return new Date(deadline) < new Date();
@@ -85,13 +101,17 @@
     }
   });
 
-  let lastEditingTaskId = $state<number | null>(null);
+  let lastTaskModalKey = $state<string | null>(null);
 
   $effect(() => {
-    // Sync taskTitle and deadline ONLY when the modal opens or a different task is selected
-    // Don't reset if the tasks array updates while editing
-    if (uiStore.showTaskModal && uiStore.editingTaskId !== lastEditingTaskId) {
-      lastEditingTaskId = uiStore.editingTaskId;
+    // Sync task fields only when the modal context changes.
+    if (uiStore.showTaskModal) {
+      const modalKey = `${uiStore.editingTaskId ?? "new"}:${uiStore.newTaskDeadline ?? ""}`;
+      if (modalKey === lastTaskModalKey) {
+        return;
+      }
+      lastTaskModalKey = modalKey;
+
       if (uiStore.editingTaskId) {
         const task = taskStore.tasks.find(
           (t) => t.id === uiStore.editingTaskId,
@@ -104,8 +124,8 @@
         taskTitle = "";
         taskDeadline = uiStore.newTaskDeadline;
       }
-    } else if (!uiStore.showTaskModal) {
-      lastEditingTaskId = null;
+    } else {
+      lastTaskModalKey = null;
       taskTitle = "";
       taskDeadline = null;
     }
@@ -946,27 +966,34 @@
         </div>
         
         <div>
-          <label for="task-deadline" class="text-sm text-secondary"
-            >Deadline (optional)</label
-          >
-          <div class="deadline-input">
-            <input
-              id="task-deadline"
-              class="input"
-              type="date"
-              bind:value={taskDeadline}
-              placeholder="No deadline"
-            />
-            {#if taskDeadline}
-              <button
-                type="button"
-                class="btn btn-ghost"
-                onclick={() => taskDeadline = null}
-              >
-                ✕
-              </button>
-            {/if}
-          </div>
+          {#if isCalendarPresetDeadline}
+            <div class="text-sm text-secondary">Deadline</div>
+            <div class="deadline-fixed">
+              <span>{formatPresetDeadline(taskDeadline)}</span>
+            </div>
+          {:else}
+            <label for="task-deadline" class="text-sm text-secondary"
+              >Deadline (optional)</label
+            >
+            <div class="deadline-input">
+              <input
+                id="task-deadline"
+                class="input"
+                type="date"
+                bind:value={taskDeadline}
+                placeholder="No deadline"
+              />
+              {#if taskDeadline}
+                <button
+                  type="button"
+                  class="btn btn-ghost"
+                  onclick={() => taskDeadline = null}
+                >
+                  ✕
+                </button>
+              {/if}
+            </div>
+          {/if}
         </div>
         
         <div
@@ -1429,6 +1456,24 @@
     text-decoration: line-through;
     color: var(--text-secondary);
     opacity: 0.6;
+  }
+
+  .deadline-input {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+
+  .deadline-fixed {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    font-size: var(--text-sm);
   }
 
   .task-meta {
