@@ -1,3 +1,6 @@
+import type { Task } from "$lib/services/db";
+import type { TimeEntryWithTask } from "$lib/types/calendar";
+
 let showProjectModal = $state(false);
 let showTaskModal = $state(false);
 let showSectionModal = $state(false);
@@ -19,19 +22,7 @@ let theme = $state<Theme>("light");
 export type WindowOrientation = "left" | "right" | "center";
 let windowOrientation = $state<WindowOrientation>("center");
 let calendarSelectedEntry = $state<TimeEntryWithTask | null>(null);
-
-export interface TimeEntryWithTask {
-    id: number;
-    task_id: number;
-    task_title: string;
-    project_id: number | null;
-    project_name: string | null;
-    project_color: string | null;
-    duration_seconds: number;
-    started_at: number;
-    ended_at: number;
-    note: string | null;
-}
+type TaskModalPayload = number | { taskId?: number; task?: Pick<Task, "id">; deadline?: string };
 
 // Context Menu State
 let contextMenuOpen = $state(false);
@@ -185,7 +176,8 @@ export const uiStore = {
     editingProjectId = null;
   },
 
-  openTaskModal(data: { taskId?: number; task?: any; deadline?: string } = {}) {
+  openTaskModal(payload: TaskModalPayload = {}) {
+    const data = typeof payload === "number" ? { taskId: payload } : payload;
     editingTaskId = data.taskId ?? data.task?.id ?? null;
     newTaskDeadline = data.deadline ?? null;
     showTaskModal = true;

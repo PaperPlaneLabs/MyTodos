@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { fade, fly } from "svelte/transition";
+  import { fade } from "svelte/transition";
   import { calendarStore } from "$lib/stores/calendar.svelte";
   import { uiStore } from "$lib/stores/ui.svelte";
   import { db } from "$lib/services/db";
@@ -10,23 +10,17 @@
   import CalendarDay from "./CalendarDay.svelte";
   import TimeEntryPanel from "./TimeEntryPanel.svelte";
 
-  let isLoading = $state(true);
+  let isInitializing = $state(true);
 
   onMount(async () => {
     try {
-      await calendarStore.loadMonthData();
+      await calendarStore.ensureCurrentRangeLoaded();
       const orientation = await db.window.getOrientation();
       uiStore.setWindowOrientation(orientation.side as 'left' | 'right' | 'center');
     } catch (e) {
       console.error("Failed to load calendar:", e);
     } finally {
-      isLoading = false;
-    }
-  });
-
-  $effect(() => {
-    if (calendarStore.currentDate) {
-      calendarStore.loadMonthData();
+      isInitializing = false;
     }
   });
 </script>
@@ -42,7 +36,7 @@
     <h2>Calendar</h2>
   </header>
 
-  {#if isLoading}
+  {#if isInitializing && calendarStore.isLoading}
     <div class="loading-state">
       <div class="spinner"></div>
       <p>Loading calendar...</p>
@@ -64,7 +58,9 @@
       </div>
 
       {#if uiStore.calendarSelectedEntry}
-        <TimeEntryPanel entry={uiStore.calendarSelectedEntry} />
+        <div class="entry-panel-wrapper">
+          <TimeEntryPanel entry={uiStore.calendarSelectedEntry} />
+        </div>
       {/if}
     </div>
   {/if}
@@ -135,15 +131,21 @@
     padding: var(--spacing-md);
   }
 
-  .portrait .calendar-body {
+  .calendar-body.portrait {
     flex-direction: column;
   }
 
-  .portrait .time-entry-panel {
+  .entry-panel-wrapper {
+    width: 320px;
+    flex-shrink: 0;
+    border-left: 1px solid var(--border);
+  }
+
+  .calendar-body.portrait .entry-panel-wrapper {
     width: 100%;
     max-height: 40%;
-    border-left: none;
     border-top: 1px solid var(--border);
+    border-left: none;
   }
 
   .loading-state {

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { uiStore } from "$lib/stores/ui.svelte";
+  import { calendarStore } from "$lib/stores/calendar.svelte";
   import { db } from "$lib/services/db";
   import type { TimeEntryWithTask } from "$lib/types/calendar";
   import TimeDisplay from "$lib/components/common/TimeDisplay.svelte";
@@ -10,7 +11,7 @@
     if (confirm("Are you sure you want to delete this time entry?")) {
       await db.timeEntries.delete(entry.id);
       uiStore.selectCalendarEntry(null);
-      await import("$lib/stores/calendar.svelte").then(m => m.calendarStore.loadMonthData());
+      await calendarStore.refreshCurrentRange();
     }
   }
 
@@ -93,7 +94,6 @@
     background: var(--bg-secondary);
     display: flex;
     flex-direction: column;
-    border-left: 1px solid var(--border);
   }
 
   .panel-header {

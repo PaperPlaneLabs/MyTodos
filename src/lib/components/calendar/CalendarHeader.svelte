@@ -1,6 +1,5 @@
 <script lang="ts">
   import { calendarStore } from '$lib/stores/calendar.svelte';
-  import { uiStore } from '$lib/stores/ui.svelte';
 
   const months = ['January', 'February', 'March', 'April', 'May', 'June',
                  'July', 'August', 'September', 'October', 'November', 'December'];

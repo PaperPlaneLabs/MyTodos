@@ -7,8 +7,9 @@ let viewMode = $state<'month' | 'week' | 'day'>('month');
 let tasksByDate = $state<Map<string, Task[]>>(new Map());
 let eventsByDate = $state<Map<string, CalendarEvent[]>>(new Map());
 let timeEntriesByDate = $state<Map<string, TimeEntryWithTask[]>>(new Map());
-let isCalendarOpen = $state(false);
 let isLoading = $state(false);
+let lastLoadedRangeKey = $state<string | null>(null);
+let activeLoadId = 0;
 
 export const calendarStore = {
     get currentDate() { return currentDate; },
@@ -17,39 +18,42 @@ export const calendarStore = {
     get tasksByDate() { return tasksByDate; },
     get eventsByDate() { return eventsByDate; },
     get timeEntriesByDate() { return timeEntriesByDate; },
-    get isOpen() { return isCalendarOpen; },
     get isLoading() { return isLoading; },
-
-    open() {
-        isCalendarOpen = true;
-        this.loadMonthData();
-    },
-
-    close() { isCalendarOpen = false; },
-
-    toggle() {
-        if (isCalendarOpen) {
-            this.close();
-        } else {
-            this.open();
-        }
-    },
 
     setCurrentDate(date: Date) {
         currentDate = date;
-        this.loadMonthData();
+        void this.ensureCurrentRangeLoaded();
     },
 
-    setSelectedDate(date: Date | null) { selectedDate = date; },
+    setSelectedDate(date: Date | null) {
+        selectedDate = date;
+        if (date) {
+            currentDate = date;
+            void this.ensureCurrentRangeLoaded();
+        }
+    },
 
-    setViewMode(mode: 'month' | 'week' | 'day') { viewMode = mode; },
+    setViewMode(mode: 'month' | 'week' | 'day') {
+        viewMode = mode;
+        void this.ensureCurrentRangeLoaded();
+    },
 
-    async loadMonthData() {
+    async ensureCurrentRangeLoaded() {
+        const { startDate, endDate, rangeKey } = this.getVisibleRange();
+        if (rangeKey === lastLoadedRangeKey) {
+            return;
+        }
+        await this.loadRangeData(startDate, endDate, rangeKey);
+    },
+
+    async refreshCurrentRange() {
+        const { startDate, endDate, rangeKey } = this.getVisibleRange();
+        await this.loadRangeData(startDate, endDate, rangeKey);
+    },
+
+    async loadRangeData(startDate: string, endDate: string, rangeKey: string) {
+        const loadId = ++activeLoadId;
         isLoading = true;
-        const year = currentDate.getFullYear();
-        const month = currentDate.getMonth();
-        const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`;
-        const endDate = `${year}-${String(month + 1).padStart(2, '0')}-31`;
 
         try {
             const [tasks, events, timeEntries] = await Promise.all([
@@ -58,38 +62,49 @@ export const calendarStore = {
                 db.timeEntries.getWithTasks(startDate, endDate),
             ]);
 
-            tasksByDate = new Map();
+            if (loadId !== activeLoadId) {
+                return;
+            }
+
+            const nextTasksByDate = new Map<string, Task[]>();
             for (const task of tasks) {
                 const deadline = task.deadline ?? null;
                 if (deadline) {
-                    const existing = tasksByDate.get(deadline) || [];
+                    const existing = nextTasksByDate.get(deadline) || [];
                     existing.push(task);
-                    tasksByDate.set(deadline, existing);
+                    nextTasksByDate.set(deadline, existing);
                 }
             }
 
-            eventsByDate = new Map();
+            const nextEventsByDate = new Map<string, CalendarEvent[]>();
             for (const event of events) {
-                const existing = eventsByDate.get(event.date) || [];
+                const existing = nextEventsByDate.get(event.date) || [];
                 existing.push(event);
-                eventsByDate.set(event.date, existing);
+                nextEventsByDate.set(event.date, existing);
             }
 
-            timeEntriesByDate = new Map();
+            const nextTimeEntriesByDate = new Map<string, TimeEntryWithTask[]>();
             for (const entry of timeEntries) {
-                const entryDate = new Date(entry.started_at * 1000).toISOString().split('T')[0];
-                const existing = timeEntriesByDate.get(entryDate) || [];
+                const entryDate = this.dateToString(new Date(entry.started_at * 1000));
+                const existing = nextTimeEntriesByDate.get(entryDate) || [];
                 existing.push(entry);
-                timeEntriesByDate.set(entryDate, existing);
+                nextTimeEntriesByDate.set(entryDate, existing);
             }
+
+            tasksByDate = nextTasksByDate;
+            eventsByDate = nextEventsByDate;
+            timeEntriesByDate = nextTimeEntriesByDate;
+            lastLoadedRangeKey = rangeKey;
         } finally {
-            isLoading = false;
+            if (loadId === activeLoadId) {
+                isLoading = false;
+            }
         }
     },
 
     async updateTaskDeadline(taskId: number, deadline: string | null) {
         await db.tasks.updateDeadline(taskId, deadline);
-        await this.loadMonthData();
+        await this.refreshCurrentRange();
     },
 
     getTasksForDate(date: string): Task[] {
@@ -102,6 +117,42 @@ export const calendarStore = {
 
     getTimeEntriesForDate(date: string): TimeEntryWithTask[] {
         return timeEntriesByDate.get(date) || [];
+    },
+
+    getVisibleRange(): { startDate: string; endDate: string; rangeKey: string } {
+        let start: Date;
+        let end: Date;
+
+        if (viewMode === 'week') {
+            start = this.getWeekStart(currentDate);
+            end = new Date(start);
+            end.setDate(start.getDate() + 6);
+        } else if (viewMode === 'day') {
+            start = new Date(currentDate);
+            start.setHours(0, 0, 0, 0);
+            end = new Date(start);
+        } else {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+
+            start = new Date(firstDay);
+            start.setDate(firstDay.getDate() - firstDay.getDay());
+            start.setHours(0, 0, 0, 0);
+
+            end = new Date(lastDay);
+            end.setDate(lastDay.getDate() + (6 - lastDay.getDay()));
+            end.setHours(0, 0, 0, 0);
+        }
+
+        const startDate = this.dateToString(start);
+        const endDate = this.dateToString(end);
+        return {
+            startDate,
+            endDate,
+            rangeKey: `${viewMode}:${startDate}:${endDate}`,
+        };
     },
 
     generateCalendarDays(year: number, month: number): CalendarDay[] {

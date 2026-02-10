@@ -1,7 +1,8 @@
 <script lang="ts">
   import { calendarStore } from '$lib/stores/calendar.svelte';
-  import CalendarHeader from './CalendarHeader.svelte';
   import { uiStore } from '$lib/stores/ui.svelte';
+  import { projectStore } from '$lib/stores/projects.svelte';
+  import type { Task } from '$lib/services/db';
   
   let selectedDate = $derived(calendarStore.selectedDate || calendarStore.currentDate);
   let dateStr = $derived(calendarStore.dateToString(selectedDate));
@@ -17,12 +18,18 @@
     });
   }
   
-  function handleTaskClick(task: any) {
+  function handleTaskClick(task: Task) {
     uiStore.openTaskModal({ task, deadline: dateStr });
   }
-</script>
 
-<CalendarHeader />
+  function getTaskProjectLabel(task: Task): string | null {
+    if (!task.project_id) {
+      return null;
+    }
+    const project = projectStore.projects.find((p) => p.id === task.project_id);
+    return project?.name ?? null;
+  }
+</script>
 
 <div class="day-view">
   <div class="day-header">
@@ -70,6 +77,12 @@
             onclick={() => handleTaskClick(task)}
             role="button"
             tabindex="0"
+            onkeydown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleTaskClick(task);
+              }
+            }}
           >
             <div class="task-checkbox">
               <input 
@@ -80,8 +93,8 @@
             </div>
             <div class="task-info">
               <div class="task-title">{task.title}</div>
-              {#if task.project_id}
-                <div class="task-project">Project ID: {task.project_id}</div>
+              {#if getTaskProjectLabel(task)}
+                <div class="task-project">{getTaskProjectLabel(task)}</div>
               {/if}
             </div>
             <div class="task-actions">
@@ -104,7 +117,7 @@
   
   .day-header {
     padding: var(--spacing-lg);
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--border);
     display: flex;
     justify-content: space-between;
     align-items: center;
