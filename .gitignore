@@ -11,6 +11,7 @@ vite.config.ts.timestamp-*
 /tmp
 target
 dist/
+/coverage
 ~/.tauri/myapp.key
-.env
 google_env.json
+_*.ps1

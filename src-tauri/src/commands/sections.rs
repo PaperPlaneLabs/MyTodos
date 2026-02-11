@@ -1,10 +1,7 @@
+use super::common::get_timestamp;
 use crate::db::{DbConnection, Section};
 use crate::error::{AppError, Result};
 use tauri::State;
-
-fn get_timestamp() -> i64 {
-    chrono::Utc::now().timestamp()
-}
 
 #[tauri::command]
 pub fn get_sections_by_project(db: State<DbConnection>, project_id: i64) -> Result<Vec<Section>> {

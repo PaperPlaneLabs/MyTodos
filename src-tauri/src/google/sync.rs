@@ -1,6 +1,6 @@
+use super::{calendar_api, oauth, GoogleCalendarState};
 use crate::db::DbConnection;
 use crate::error::{AppError, Result};
-use super::{calendar_api, oauth, GoogleCalendarState};
 
 /// Sync a single task to Google Calendar.
 /// - If task has deadline and no google_event_id -> create event
@@ -38,13 +38,9 @@ pub async fn sync_task_to_calendar(
     match (deadline.as_deref(), google_event_id.as_deref()) {
         // Has deadline, no event yet -> create
         (Some(date), None) => {
-            let event_id = calendar_api::create_event(
-                &access_token,
-                &title,
-                description.as_deref(),
-                date,
-            )
-            .await?;
+            let event_id =
+                calendar_api::create_event(&access_token, &title, description.as_deref(), date)
+                    .await?;
 
             // Store event ID in DB
             let conn = db.lock();
@@ -115,7 +111,8 @@ pub async fn sync_all_tasks(
         let mut stmt = conn
             .prepare("SELECT id FROM tasks WHERE deadline IS NOT NULL AND completed = 0")
             .map_err(|e| AppError::Other(format!("Failed to query tasks: {}", e)))?;
-        let ids: Vec<i64> = stmt.query_map([], |row| row.get(0))
+        let ids: Vec<i64> = stmt
+            .query_map([], |row| row.get(0))
             .map_err(|e| AppError::Other(format!("Failed to map tasks: {}", e)))?
             .filter_map(|r| r.ok())
             .collect();

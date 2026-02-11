@@ -1,10 +1,10 @@
+use super::{token_store, GoogleCalendarState, GoogleTokens};
 use crate::error::{AppError, Result};
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use rand::Rng;
 use sha2::{Digest, Sha256};
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;
-use super::{token_store, GoogleCalendarState, GoogleTokens};
 use tauri::Emitter;
 
 const AUTH_URL: &str = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -152,7 +152,8 @@ fn handle_callback(
         .ok_or_else(|| AppError::GoogleAuth("Missing authorization code".to_string()))?;
 
     // Exchange code for tokens (blocking HTTP call)
-    let tokens = exchange_code_blocking(code, code_verifier, redirect_uri, client_id, client_secret)?;
+    let tokens =
+        exchange_code_blocking(code, code_verifier, redirect_uri, client_id, client_secret)?;
 
     // Send success response
     let response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<html><body style=\"font-family: system-ui; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f5f5f5;\"><div style=\"text-align: center; padding: 2rem; background: white; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);\"><h1 style=\"color: #22c55e;\">Authentication successful!</h1><p>You can close this window and return to MyTodos.</p></div></body></html>";
@@ -203,9 +204,7 @@ fn exchange_code_blocking(
         .as_str()
         .ok_or_else(|| AppError::GoogleAuth("Missing refresh_token".to_string()))?
         .to_string();
-    let expires_in = token_response["expires_in"]
-        .as_i64()
-        .unwrap_or(3600);
+    let expires_in = token_response["expires_in"].as_i64().unwrap_or(3600);
     let expires_at = chrono::Utc::now().timestamp() + expires_in;
 
     Ok(GoogleTokens {
@@ -215,9 +214,7 @@ fn exchange_code_blocking(
     })
 }
 
-pub async fn refresh_token_if_needed(
-    google_state: &GoogleCalendarState,
-) -> Result<String> {
+pub async fn refresh_token_if_needed(google_state: &GoogleCalendarState) -> Result<String> {
     let tokens_guard = google_state.tokens.lock().await;
     let tokens = tokens_guard
         .as_ref()

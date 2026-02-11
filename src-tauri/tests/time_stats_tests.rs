@@ -34,6 +34,8 @@ pub struct TimeStats {
     pub projects: Vec<ProjectTime>,
 }
 
+type ActiveTimerStatsRow = (i64, i64, String, Option<String>, Option<String>, i64);
+
 fn get_start_of_today() -> i64 {
     let now = chrono::Local::now();
     now.date_naive()
@@ -53,9 +55,7 @@ fn get_start_of_week() -> i64 {
         .unwrap_or(0)
 }
 
-fn get_active_timer_duration(
-    conn: &rusqlite::Connection,
-) -> Result<Option<(i64, i64, String, Option<String>, Option<String>, i64)>> {
+fn get_active_timer_duration(conn: &rusqlite::Connection) -> Result<Option<ActiveTimerStatsRow>> {
     let mut stmt = conn.prepare(
         r#"
         SELECT
@@ -425,7 +425,7 @@ fn test_get_time_stats_week_daily_aggregation() {
     let stats = get_time_stats_impl(&db, false).unwrap();
 
     // Should have 3 daily entries (if all within the week)
-    assert!(stats.week_daily.len() >= 1);
+    assert!(!stats.week_daily.is_empty());
     assert!(stats.week_daily.len() <= 3);
 
     // Verify total time is preserved
@@ -691,7 +691,7 @@ fn test_get_time_stats_complete_scenario() {
 
     // Week daily should have at least one entry (today)
     // May have 2 if yesterday is in the same week
-    assert!(stats.week_daily.len() >= 1);
+    assert!(!stats.week_daily.is_empty());
 
     // Project total: 3600 + 1800 + 7200 + ~300 = ~12900
     assert_eq!(stats.projects.len(), 1);

@@ -1,10 +1,7 @@
+use super::common::{apply_task_and_parent_time_delta, get_timestamp};
 use crate::db::{DbConnection, TimeEntry, TimeEntryWithTask};
 use crate::error::{AppError, Result};
 use tauri::State;
-
-fn get_timestamp() -> i64 {
-    chrono::Utc::now().timestamp()
-}
 
 #[tauri::command]
 pub fn create_manual_entry(
@@ -42,36 +39,7 @@ pub fn create_manual_entry(
 
     let id = conn.last_insert_rowid();
 
-    conn.execute(
-        "UPDATE tasks SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
-        (duration_seconds, task_id),
-    )?;
-
-    let project_id: i64 = conn.query_row(
-        "SELECT project_id FROM tasks WHERE id = ?",
-        [task_id],
-        |row| row.get(0),
-    )?;
-
-    conn.execute(
-        "UPDATE projects SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
-        (duration_seconds, project_id),
-    )?;
-
-    let section_id: Option<i64> = conn
-        .query_row(
-            "SELECT section_id FROM tasks WHERE id = ?",
-            [task_id],
-            |row| row.get(0),
-        )
-        .ok();
-
-    if let Some(sid) = section_id {
-        conn.execute(
-            "UPDATE sections SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
-            (duration_seconds, sid),
-        )?;
-    }
+    apply_task_and_parent_time_delta(&conn, task_id, duration_seconds)?;
 
     Ok(TimeEntry {
         id,
@@ -147,36 +115,7 @@ pub fn update_time_entry(
 
     let diff = duration_seconds - old_duration;
 
-    conn.execute(
-        "UPDATE tasks SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
-        (diff, task_id),
-    )?;
-
-    let project_id: i64 = conn.query_row(
-        "SELECT project_id FROM tasks WHERE id = ?",
-        [task_id],
-        |row| row.get(0),
-    )?;
-
-    conn.execute(
-        "UPDATE projects SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
-        (diff, project_id),
-    )?;
-
-    let section_id: Option<i64> = conn
-        .query_row(
-            "SELECT section_id FROM tasks WHERE id = ?",
-            [task_id],
-            |row| row.get(0),
-        )
-        .ok();
-
-    if let Some(sid) = section_id {
-        conn.execute(
-            "UPDATE sections SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
-            (diff, sid),
-        )?;
-    }
+    apply_task_and_parent_time_delta(&conn, task_id, diff)?;
 
     Ok(())
 }
@@ -195,36 +134,7 @@ pub fn delete_time_entry(db: State<DbConnection>, id: i64) -> Result<()> {
 
     conn.execute("DELETE FROM time_entries WHERE id = ?", [id])?;
 
-    conn.execute(
-        "UPDATE tasks SET total_time_seconds = total_time_seconds - ? WHERE id = ?",
-        (duration, task_id),
-    )?;
-
-    let project_id: i64 = conn.query_row(
-        "SELECT project_id FROM tasks WHERE id = ?",
-        [task_id],
-        |row| row.get(0),
-    )?;
-
-    conn.execute(
-        "UPDATE projects SET total_time_seconds = total_time_seconds - ? WHERE id = ?",
-        (duration, project_id),
-    )?;
-
-    let section_id: Option<i64> = conn
-        .query_row(
-            "SELECT section_id FROM tasks WHERE id = ?",
-            [task_id],
-            |row| row.get(0),
-        )
-        .ok();
-
-    if let Some(sid) = section_id {
-        conn.execute(
-            "UPDATE sections SET total_time_seconds = total_time_seconds - ? WHERE id = ?",
-            (duration, sid),
-        )?;
-    }
+    apply_task_and_parent_time_delta(&conn, task_id, -duration)?;
 
     Ok(())
 }

@@ -60,7 +60,10 @@
       "mcp__plugin_context7_context7__query-docs",
       "Bash(npx svelte-check:*)",
       "Bash(curl:*)",
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(powershell:*)",
+      "Bash(del \"F:\\\\personal_projects\\\\MyTodos\\\\_test_env.ps1\")",
+      "Bash(del \"F:\\\\personal_projects\\\\MyTodos\\\\_sign_and_upload.ps1\")"
     ]
   }
 }

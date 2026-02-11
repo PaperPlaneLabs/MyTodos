@@ -4,7 +4,6 @@
     import { uiStore } from "$lib/stores/ui.svelte";
     import { timerStore } from "$lib/stores/timer.svelte";
     import { db, type TimeStats } from "$lib/services/db";
-    import TimeDisplay from "$lib/components/common/TimeDisplay.svelte";
 
     let stats = $state<TimeStats | null>(null);
     let loading = $state(true);

@@ -1,9 +1,11 @@
 pub mod commands;
 pub mod db;
 pub mod error;
+pub mod events;
 pub mod google;
 
 use db::{initialize_connection, initialize_schema, DbConnection};
+use tauri::Manager;
 use tauri_plugin_autostart::MacosLauncher::LaunchAgent;
 
 #[tauri::command]
@@ -29,8 +31,33 @@ pub fn run() {
         .plugin(tauri_plugin_autostart::init(LaunchAgent, Some(vec![])))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
-        .manage(db_conn)
+        .manage(db_conn.clone())
         .manage(google_state)
+        .setup(move |app| {
+            let app_handle = app.handle().clone();
+            let db_clone = db_conn.clone();
+
+            // Initialize system event listeners for auto-pausing timer
+            events::initialize_system_listeners(app_handle.clone(), db_clone.clone());
+
+            // Handle window close (shutdown)
+            if let Some(window) = app.get_webview_window("main") {
+                let shutdown_db = db_clone.clone();
+                let shutdown_handle = app_handle.clone();
+
+                window.on_window_event(move |event| {
+                    if matches!(event, tauri::WindowEvent::CloseRequested { .. }) {
+                        events::auto_pause_if_running(
+                            &shutdown_handle,
+                            &shutdown_db,
+                            events::AutoPauseReason::Shutdown,
+                        );
+                    }
+                });
+            }
+
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             initialize_database,
             commands::get_all_projects,

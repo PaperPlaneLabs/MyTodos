@@ -1,3 +1,4 @@
+use super::common::get_timestamp;
 use crate::db::{DbConnection, WindowState};
 use crate::error::{AppError, Result};
 use serde::{Deserialize, Serialize};
@@ -9,10 +10,6 @@ pub struct WindowOrientation {
     pub is_portrait: bool,
     pub width: f64,
     pub height: f64,
-}
-
-fn get_timestamp() -> i64 {
-    chrono::Utc::now().timestamp()
 }
 
 #[tauri::command]

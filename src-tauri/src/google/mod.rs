@@ -24,9 +24,7 @@ pub struct GoogleCalendarStateInner {
 pub type GoogleCalendarState = Arc<GoogleCalendarStateInner>;
 
 pub fn create_google_state() -> GoogleCalendarState {
-    let client_id = option_env!("GOOGLE_CLIENT_ID")
-        .unwrap_or("")
-        .to_string();
+    let client_id = option_env!("GOOGLE_CLIENT_ID").unwrap_or("").to_string();
     let client_secret = option_env!("GOOGLE_CLIENT_SECRET")
         .unwrap_or("")
         .to_string();

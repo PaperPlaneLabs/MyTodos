@@ -17,8 +17,6 @@
   import { timerStore } from "$lib/stores/timer.svelte";
   import { uiStore } from "$lib/stores/ui.svelte";
   import { googleCalendarStore } from "$lib/stores/google-calendar.svelte";
-  import { db } from "$lib/services/db";
-  import type { Task } from "$lib/services/db";
 
   let projectName = $state("");
   let taskTitle = $state("");
@@ -137,16 +135,10 @@
     await projectStore.loadAll();
     await timerStore.loadActive();
     googleCalendarStore.init();
-
-    // Default to Inbox (null) if no projects or just load tasks for whatever is selected
-    await taskStore.loadByProject(projectStore.selectedId);
   });
 
   $effect(() => {
-    // Only reload if selectedId changes (including to null)
-    if (projectStore.selectedId !== undefined) {
-      taskStore.loadByProject(projectStore.selectedId);
-    }
+    taskStore.loadByProject(projectStore.selectedId);
   });
 
   async function handleCreateProject() {
@@ -202,9 +194,6 @@
 
   async function handleStopTimer() {
     await timerStore.stop();
-    if (projectStore.selectedId !== undefined) {
-      await taskStore.loadByProject(projectStore.selectedId);
-    }
   }
 
   function openResetModal(taskId: number) {
@@ -219,15 +208,11 @@
       await timerStore.reset();
     } else {
       await taskStore.resetTaskTime(taskToReset);
+      await projectStore.loadAll();
     }
 
     showResetModal = false;
     taskToReset = null;
-
-    await projectStore.loadAll();
-    if (projectStore.selectedId !== undefined) {
-      await taskStore.loadByProject(projectStore.selectedId);
-    }
   }
 
   // Deletion Handlers
@@ -850,32 +835,49 @@
 
     {#if timerStore.active}
       <div class="timer-widget" transition:fly={{ y: 50, duration: 300 }}>
-        <div class="timer-info">
-          <div class="timer-task-name">
-            {timerStore.active.task_title || "Task"}
+        {#if timerStore.isAutoPaused}
+          <div class="auto-pause-banner">
+            <span class="icon">⏸️</span>
+            <span>
+              Timer auto-paused due to
+              {#if timerStore.autoPausedReason === "SystemSleep"}
+                system sleep
+              {:else if timerStore.autoPausedReason === "ScreenLock"}
+                screen lock
+              {:else}
+                shutdown
+              {/if}
+            </span>
           </div>
-          <div class="timer-elapsed">
-            <TimeDisplay
-              seconds={Math.floor(timerStore.elapsed)}
-              format="hms"
-            />
+        {/if}
+        <div class="timer-content">
+          <div class="timer-info">
+            <div class="timer-task-name">
+              {timerStore.active.task_title || "Task"}
+            </div>
+            <div class="timer-elapsed">
+              <TimeDisplay
+                seconds={Math.floor(timerStore.elapsed)}
+                format="hms"
+              />
+            </div>
           </div>
-        </div>
-        <div class="timer-controls">
-          {#if timerStore.isRunning}
-            <button
-              class="btn btn-sm btn-secondary"
-              onclick={() => timerStore.pause()}>Pause</button
+          <div class="timer-controls">
+            {#if timerStore.isRunning}
+              <button
+                class="btn btn-sm btn-secondary"
+                onclick={() => timerStore.pause()}>Pause</button
+              >
+            {:else}
+              <button
+                class="btn btn-sm btn-primary"
+                onclick={() => timerStore.resume()}>Resume</button
+              >
+            {/if}
+            <button class="btn btn-sm btn-danger" onclick={handleStopTimer}
+              >Stop</button
             >
-          {:else}
-            <button
-              class="btn btn-sm btn-primary"
-              onclick={() => timerStore.resume()}>Resume</button
-            >
-          {/if}
-          <button class="btn btn-sm btn-danger" onclick={handleStopTimer}
-            >Stop</button
-          >
+          </div>
         </div>
       </div>
     {/if}
@@ -1653,9 +1655,8 @@
     border-top: 3px solid var(--success);
     border-radius: var(--radius-lg) var(--radius-lg) 0 0;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: var(--spacing-md);
+    flex-direction: column;
+    gap: 0;
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
     margin: 0 var(--spacing-sm);
     z-index: 100;
@@ -1664,6 +1665,36 @@
   :global([data-theme="dark"]) .timer-widget {
     background: var(--bg-secondary);
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.4);
+  }
+
+  .auto-pause-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background-color: var(--warning-light);
+    border: 1px solid var(--warning);
+    border-radius: var(--radius-md);
+    font-size: 12px;
+    color: var(--text-primary);
+    margin-bottom: var(--spacing-sm);
+  }
+
+  .auto-pause-banner .icon {
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  :global([data-theme="dark"]) .auto-pause-banner {
+    background-color: rgba(251, 191, 36, 0.15);
+    border-color: var(--warning);
+  }
+
+  .timer-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--spacing-md);
   }
 
   .timer-info {
