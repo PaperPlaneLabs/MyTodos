@@ -55,6 +55,17 @@ export interface ActiveTimer {
   project_id?: number;
 }
 
+export enum AutoPauseReason {
+  SystemSleep = "SystemSleep",
+  ScreenLock = "ScreenLock",
+  Shutdown = "Shutdown"
+}
+
+export interface AutoPauseEvent {
+  reason: AutoPauseReason;
+  timestamp: number;
+}
+
 export interface WindowState {
   x?: number;
   y?: number;

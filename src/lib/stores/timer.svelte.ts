@@ -1,4 +1,4 @@
-import { db, type ActiveTimer } from "$lib/services/db";
+import { db, type ActiveTimer, type AutoPauseEvent, AutoPauseReason } from "$lib/services/db";
 import { taskStore } from "./tasks.svelte";
 import { projectStore } from "./projects.svelte";
 
@@ -11,6 +11,7 @@ let initialProjectTime = 0;
 let currentProjectId = $state<number | null>(null);
 let timerChangeCounter = $state(0);
 let lastKnownDay = new Date().getDate();
+let autoPausedReason = $state<AutoPauseReason | null>(null);
 
 function getStartOfToday(): number {
   const now = new Date();
@@ -57,6 +58,14 @@ export const timerStore = {
 
   get changeSignal() {
     return timerChangeCounter;
+  },
+
+  get autoPausedReason() {
+    return autoPausedReason;
+  },
+
+  get isAutoPaused() {
+    return autoPausedReason !== null && !activeTimer?.is_running;
   },
 
   async loadActive() {
@@ -158,6 +167,7 @@ export const timerStore = {
       // Refresh daily total before resuming
       dailyTotalBeforeActive = await db.timeEntries.getDailyTotalTime(getStartOfToday());
       currentElapsed = 0;
+      autoPausedReason = null; // Clear auto-pause state
       this.startInterval();
       timerChangeCounter++;
     } catch (e) {
@@ -253,3 +263,24 @@ export const timerStore = {
     }
   },
 };
+
+// Listen for auto-pause events from the backend
+if (typeof window !== 'undefined') {
+  (async () => {
+    const { listen } = await import("@tauri-apps/api/event");
+
+    await listen<AutoPauseEvent>("timer:auto-paused", (event) => {
+      console.log("Timer auto-paused:", event.payload.reason);
+      autoPausedReason = event.payload.reason;
+
+      if (activeTimer) {
+        activeTimer.is_running = false;
+        currentElapsed = 0;
+      }
+
+      timerStore.stopInterval();
+      timerStore.refreshDailyTotal();
+      timerChangeCounter++;
+    });
+  })();
+}
