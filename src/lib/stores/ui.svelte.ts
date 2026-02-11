@@ -114,6 +114,8 @@ export const uiStore = {
   },
 
   openStatsView() {
+    showCalendarView = false;
+    showSettingsView = false;
     showStatsView = true;
   },
 
@@ -122,6 +124,8 @@ export const uiStore = {
   },
 
   openSettingsView() {
+    showCalendarView = false;
+    showStatsView = false;
     showSettingsView = true;
   },
 
@@ -130,6 +134,8 @@ export const uiStore = {
   },
 
   openCalendarView() {
+    showStatsView = false;
+    showSettingsView = false;
     showCalendarView = true;
   },
 
