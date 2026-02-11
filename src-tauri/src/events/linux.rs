@@ -39,7 +39,11 @@ pub fn initialize_linux_listener(app_handle: AppHandle, db: DbConnection) {
 
                                         let app = app_handle.lock().await;
                                         let db = db.lock().await;
-                                        auto_pause_if_running(&app, &db, AutoPauseReason::SystemSleep);
+                                        auto_pause_if_running(
+                                            &app,
+                                            &db,
+                                            AutoPauseReason::SystemSleep,
+                                        );
                                     }
                                 }
                             }

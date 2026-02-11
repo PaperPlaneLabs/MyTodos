@@ -18,7 +18,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.5.3", features = [] }
 
 [dependencies]
-tauri = { version = "2.9.5", features = [] }
+tauri = { version = "2.10.2", features = [] }
 tauri-plugin-opener = "2.5.3"
 tauri-plugin-autostart = "2.5.1"
 serde = { version = "1.0.228", features = ["derive"] }
@@ -38,8 +38,8 @@ url = "2"
 uuid = { version = "1", features = ["v4"] }
 
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
-tauri-plugin-updater = "2.9.0"
-tauri-plugin-process = "2"
+tauri-plugin-updater = "2.10.0"
+tauri-plugin-process = "2.3.1"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows = { version = "0.58", features = ["Win32_System_Power", "Win32_UI_WindowsAndMessaging"] }

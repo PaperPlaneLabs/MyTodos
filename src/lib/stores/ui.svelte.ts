@@ -3,8 +3,6 @@ import type { TimeEntryWithTask } from "$lib/types/calendar";
 
 let showProjectModal = $state(false);
 let showTaskModal = $state(false);
-let showSectionModal = $state(false);
-let showManualTimeModal = $state(false);
 let showQuickAdd = $state(false);
 let showStatsView = $state(false);
 let showSettingsView = $state(false);
@@ -14,8 +12,6 @@ let completedTasksCollapsed = $state(true);
 let handleTop = $state(120);
 let editingProjectId = $state<number | null>(null);
 let editingTaskId = $state<number | null>(null);
-let editingSectionId = $state<number | null>(null);
-let manualTimeTaskId = $state<number | null>(null);
 let newTaskDeadline = $state<string | null>(null);
 export type Theme = "light" | "dark" | "minecraft" | "retro" | "ocean" | "nord";
 let theme = $state<Theme>("light");
@@ -39,28 +35,12 @@ export const uiStore = {
     return showTaskModal;
   },
 
-  get showSectionModal() {
-    return showSectionModal;
-  },
-
-  get showManualTimeModal() {
-    return showManualTimeModal;
-  },
-
   get editingProjectId() {
     return editingProjectId;
   },
 
   get editingTaskId() {
     return editingTaskId;
-  },
-
-  get editingSectionId() {
-    return editingSectionId;
-  },
-
-  get manualTimeTaskId() {
-    return manualTimeTaskId;
   },
 
   get newTaskDeadline() {
@@ -134,6 +114,8 @@ export const uiStore = {
   },
 
   openStatsView() {
+    showCalendarView = false;
+    showSettingsView = false;
     showStatsView = true;
   },
 
@@ -142,6 +124,8 @@ export const uiStore = {
   },
 
   openSettingsView() {
+    showCalendarView = false;
+    showStatsView = false;
     showSettingsView = true;
   },
 
@@ -150,6 +134,8 @@ export const uiStore = {
   },
 
   openCalendarView() {
+    showStatsView = false;
+    showSettingsView = false;
     showCalendarView = true;
   },
 
@@ -187,26 +173,6 @@ export const uiStore = {
     showTaskModal = false;
     editingTaskId = null;
     newTaskDeadline = null;
-  },
-
-  openSectionModal(sectionId: number | null = null) {
-    editingSectionId = sectionId;
-    showSectionModal = true;
-  },
-
-  closeSectionModal() {
-    showSectionModal = false;
-    editingSectionId = null;
-  },
-
-  openManualTimeModal(taskId: number) {
-    manualTimeTaskId = taskId;
-    showManualTimeModal = true;
-  },
-
-  closeManualTimeModal() {
-    showManualTimeModal = false;
-    manualTimeTaskId = null;
   },
 
   // Context Menu Methods

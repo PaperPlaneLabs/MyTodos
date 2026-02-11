@@ -450,7 +450,7 @@ fn test_delete_one_of_multiple_entries() {
     let task_id = create_test_task(&db, Some(project_id), None, "Test Task");
 
     let entry1 = create_manual_entry_impl(&db, task_id, 3600, None).unwrap();
-    let entry2 = create_manual_entry_impl(&db, task_id, 1800, None).unwrap();
+    let _entry2 = create_manual_entry_impl(&db, task_id, 1800, None).unwrap();
 
     delete_time_entry_impl(&db, entry1.id).unwrap();
 

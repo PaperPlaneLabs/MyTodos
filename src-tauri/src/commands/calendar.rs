@@ -61,7 +61,8 @@ pub fn update_task_deadline(
     let db = db.inner().clone();
     let google_state = google_state.inner().clone();
     tauri::async_runtime::spawn(async move {
-        if let Err(e) = crate::google::sync::sync_task_to_calendar(db, &google_state, task_id).await {
+        if let Err(e) = crate::google::sync::sync_task_to_calendar(db, &google_state, task_id).await
+        {
             eprintln!("Failed to sync deadline update to Google Calendar: {}", e);
         }
     });

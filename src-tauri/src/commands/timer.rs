@@ -1,10 +1,7 @@
+use super::common::{apply_task_and_parent_time_delta, get_timestamp};
 use crate::db::{ActiveTimer, DbConnection, TimeEntry};
 use crate::error::{AppError, Result};
 use tauri::State;
-
-fn get_timestamp() -> i64 {
-    chrono::Utc::now().timestamp()
-}
 
 #[tauri::command]
 pub fn get_active_timer(db: State<DbConnection>) -> Result<Option<ActiveTimer>> {
@@ -93,39 +90,7 @@ pub fn pause_timer(db: State<DbConnection>) -> Result<()> {
         (timer.task_id, duration, timer.started_at, now, now),
     )?;
 
-    // Update task total
-    conn.execute(
-        "UPDATE tasks SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
-        (duration, timer.task_id),
-    )?;
-
-    // Update project total
-    let project_id: i64 = conn.query_row(
-        "SELECT project_id FROM tasks WHERE id = ?",
-        [timer.task_id],
-        |row| row.get(0),
-    )?;
-
-    conn.execute(
-        "UPDATE projects SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
-        (duration, project_id),
-    )?;
-
-    // Update section total if applicable
-    let section_id: Option<i64> = conn
-        .query_row(
-            "SELECT section_id FROM tasks WHERE id = ?",
-            [timer.task_id],
-            |row| row.get(0),
-        )
-        .ok();
-
-    if let Some(sid) = section_id {
-        conn.execute(
-            "UPDATE sections SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
-            (duration, sid),
-        )?;
-    }
+    apply_task_and_parent_time_delta(&conn, timer.task_id, duration)?;
 
     // Reset elapsed_seconds to 0 and update active_timer
     conn.execute(
@@ -177,36 +142,7 @@ pub fn stop_timer(db: State<DbConnection>) -> Result<TimeEntry> {
 
     let entry_id = conn.last_insert_rowid();
 
-    conn.execute(
-        "UPDATE tasks SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
-        (total_duration, timer.task_id),
-    )?;
-
-    let project_id: i64 = conn.query_row(
-        "SELECT project_id FROM tasks WHERE id = ?",
-        [timer.task_id],
-        |row| row.get(0),
-    )?;
-
-    conn.execute(
-        "UPDATE projects SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
-        (total_duration, project_id),
-    )?;
-
-    let section_id: Option<i64> = conn
-        .query_row(
-            "SELECT section_id FROM tasks WHERE id = ?",
-            [timer.task_id],
-            |row| row.get(0),
-        )
-        .ok();
-
-    if let Some(sid) = section_id {
-        conn.execute(
-            "UPDATE sections SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
-            (total_duration, sid),
-        )?;
-    }
+    apply_task_and_parent_time_delta(&conn, timer.task_id, total_duration)?;
 
     conn.execute("DELETE FROM active_timer WHERE id = 1", [])?;
 

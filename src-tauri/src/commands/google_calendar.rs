@@ -44,7 +44,10 @@ pub async fn google_auth_disconnect(
 
     // Clear all google_event_ids from tasks
     let conn = db.lock();
-    conn.execute("UPDATE tasks SET google_event_id = NULL WHERE google_event_id IS NOT NULL", [])?;
+    conn.execute(
+        "UPDATE tasks SET google_event_id = NULL WHERE google_event_id IS NOT NULL",
+        [],
+    )?;
 
     Ok(())
 }

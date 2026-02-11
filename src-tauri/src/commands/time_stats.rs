@@ -32,6 +32,8 @@ pub struct TimeStats {
     pub projects: Vec<ProjectTime>,
 }
 
+type ActiveTimerStatsRow = (i64, i64, String, Option<String>, Option<String>, i64);
+
 fn get_start_of_today() -> i64 {
     let now = chrono::Local::now();
     now.date_naive()
@@ -51,9 +53,7 @@ fn get_start_of_week() -> i64 {
         .unwrap_or(0)
 }
 
-fn get_active_timer_duration(
-    conn: &rusqlite::Connection,
-) -> Result<Option<(i64, i64, String, Option<String>, Option<String>, i64)>> {
+fn get_active_timer_duration(conn: &rusqlite::Connection) -> Result<Option<ActiveTimerStatsRow>> {
     let mut stmt = conn.prepare(
         r#"
         SELECT

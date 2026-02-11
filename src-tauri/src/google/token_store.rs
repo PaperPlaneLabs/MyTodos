@@ -38,10 +38,8 @@ pub fn load_tokens() -> Option<GoogleTokens> {
 }
 
 pub fn clear_tokens() {
-    let _ = keyring::Entry::new(SERVICE_NAME, KEY_ACCESS_TOKEN)
-        .and_then(|e| e.delete_credential());
-    let _ = keyring::Entry::new(SERVICE_NAME, KEY_REFRESH_TOKEN)
-        .and_then(|e| e.delete_credential());
-    let _ = keyring::Entry::new(SERVICE_NAME, KEY_EXPIRES_AT)
-        .and_then(|e| e.delete_credential());
+    let _ = keyring::Entry::new(SERVICE_NAME, KEY_ACCESS_TOKEN).and_then(|e| e.delete_credential());
+    let _ =
+        keyring::Entry::new(SERVICE_NAME, KEY_REFRESH_TOKEN).and_then(|e| e.delete_credential());
+    let _ = keyring::Entry::new(SERVICE_NAME, KEY_EXPIRES_AT).and_then(|e| e.delete_credential());
 }

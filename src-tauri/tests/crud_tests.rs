@@ -1,7 +1,7 @@
 mod common;
 
 use common::*;
-use my_todos_lib::db::{Project, ProjectStats, Section, Task};
+use my_todos_lib::db::{Project, ProjectStats, Section};
 use my_todos_lib::error::{AppError, Result};
 
 fn get_timestamp() -> i64 {
@@ -303,11 +303,9 @@ fn test_delete_project_cascades_to_sections() {
     // Section should also be deleted
     let conn = db.lock();
     let section_exists: bool = conn
-        .query_row(
-            "SELECT 1 FROM sections WHERE id = ?",
-            [section_id],
-            |_| Ok(true),
-        )
+        .query_row("SELECT 1 FROM sections WHERE id = ?", [section_id], |_| {
+            Ok(true)
+        })
         .unwrap_or(false);
 
     assert!(!section_exists);
@@ -480,9 +478,11 @@ fn test_toggle_task_completion() {
     // Initially not completed
     let conn = db.lock();
     let initial_completed: bool = conn
-        .query_row("SELECT completed FROM tasks WHERE id = ?", [task_id], |row| {
-            row.get(0)
-        })
+        .query_row(
+            "SELECT completed FROM tasks WHERE id = ?",
+            [task_id],
+            |row| row.get(0),
+        )
         .unwrap();
     drop(conn);
 

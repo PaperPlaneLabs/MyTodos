@@ -6,7 +6,6 @@
   import TimeDisplay from "$lib/components/common/TimeDisplay.svelte";
   import { fly } from "svelte/transition";
 
-  let elapsed = $derived(Math.floor(timerStore.elapsed));
   let isMobile = $state(true); // Default to true (safe for mobile/web) until confirmed
 
   onMount(async () => {
