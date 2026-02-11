@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use parking_lot::Mutex;
 use rusqlite::Connection;
 use std::sync::Arc;
@@ -13,8 +15,7 @@ pub fn setup_test_db() -> DbConnection {
         .expect("Failed to enable foreign keys");
 
     // Initialize schema
-    my_todos_lib::db::schema::initialize_schema(&conn)
-        .expect("Failed to initialize schema");
+    my_todos_lib::db::schema::initialize_schema(&conn).expect("Failed to initialize schema");
 
     Arc::new(Mutex::new(conn))
 }
@@ -127,9 +128,11 @@ pub fn get_section_time(db: &DbConnection, section_id: i64) -> i64 {
 pub fn has_active_timer(db: &DbConnection) -> bool {
     let conn = db.lock();
     let count: i64 = conn
-        .query_row("SELECT COUNT(*) FROM active_timer WHERE id = 1", [], |row| {
-            row.get(0)
-        })
+        .query_row(
+            "SELECT COUNT(*) FROM active_timer WHERE id = 1",
+            [],
+            |row| row.get(0),
+        )
         .unwrap_or(0);
     count > 0
 }

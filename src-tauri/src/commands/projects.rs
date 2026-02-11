@@ -1,10 +1,7 @@
+use super::common::get_timestamp;
 use crate::db::{DbConnection, Project, ProjectStats};
 use crate::error::{AppError, Result};
 use tauri::State;
-
-fn get_timestamp() -> i64 {
-    chrono::Utc::now().timestamp()
-}
 
 #[tauri::command]
 pub fn get_all_projects(db: State<DbConnection>) -> Result<Vec<Project>> {
@@ -169,7 +166,7 @@ pub fn get_project_stats(db: State<DbConnection>, project_id: i64) -> Result<Pro
 
     let mut stmt = conn.prepare(
         "SELECT COUNT(*) as task_count,
-                SUM(CASE WHEN completed = 1 THEN 1 ELSE 0 END) as completed_count,
+                COALESCE(SUM(CASE WHEN completed = 1 THEN 1 ELSE 0 END), 0) as completed_count,
                 COALESCE(SUM(total_time_seconds), 0) as total_time
          FROM tasks WHERE project_id = ?",
     )?;

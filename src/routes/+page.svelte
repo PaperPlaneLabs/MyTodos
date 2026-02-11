@@ -17,8 +17,6 @@
   import { timerStore } from "$lib/stores/timer.svelte";
   import { uiStore } from "$lib/stores/ui.svelte";
   import { googleCalendarStore } from "$lib/stores/google-calendar.svelte";
-  import { db } from "$lib/services/db";
-  import type { Task } from "$lib/services/db";
 
   let projectName = $state("");
   let taskTitle = $state("");
@@ -137,16 +135,10 @@
     await projectStore.loadAll();
     await timerStore.loadActive();
     googleCalendarStore.init();
-
-    // Default to Inbox (null) if no projects or just load tasks for whatever is selected
-    await taskStore.loadByProject(projectStore.selectedId);
   });
 
   $effect(() => {
-    // Only reload if selectedId changes (including to null)
-    if (projectStore.selectedId !== undefined) {
-      taskStore.loadByProject(projectStore.selectedId);
-    }
+    taskStore.loadByProject(projectStore.selectedId);
   });
 
   async function handleCreateProject() {
@@ -202,9 +194,6 @@
 
   async function handleStopTimer() {
     await timerStore.stop();
-    if (projectStore.selectedId !== undefined) {
-      await taskStore.loadByProject(projectStore.selectedId);
-    }
   }
 
   function openResetModal(taskId: number) {
@@ -219,15 +208,11 @@
       await timerStore.reset();
     } else {
       await taskStore.resetTaskTime(taskToReset);
+      await projectStore.loadAll();
     }
 
     showResetModal = false;
     taskToReset = null;
-
-    await projectStore.loadAll();
-    if (projectStore.selectedId !== undefined) {
-      await taskStore.loadByProject(projectStore.selectedId);
-    }
   }
 
   // Deletion Handlers

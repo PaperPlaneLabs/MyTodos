@@ -1,7 +1,6 @@
-import { db, type Task, type Section } from "$lib/services/db";
+import { db, type Task } from "$lib/services/db";
 
 let tasks = $state<Task[]>([]);
-let sections = $state<Section[]>([]);
 let currentProjectId = $state<number | null>(null);
 let loading = $state(false);
 let error = $state<string | null>(null);
@@ -24,10 +23,6 @@ export const taskStore = {
     return sortedTasks.filter(t => t.completed);
   },
 
-  get sections() {
-    return sections;
-  },
-
   get loading() {
     return loading;
   },
@@ -43,14 +38,8 @@ export const taskStore = {
       currentProjectId = projectId;
       if (projectId === null) {
         tasks = await db.tasks.getUnassigned();
-        sections = [];
       } else {
-        const [loadedTasks, loadedSections] = await Promise.all([
-          db.tasks.getByProject(projectId),
-          db.sections.getByProject(projectId),
-        ]);
-        tasks = loadedTasks;
-        sections = loadedSections;
+        tasks = await db.tasks.getByProject(projectId);
       }
     } catch (e) {
       error = e instanceof Error ? e.message : "Failed to load tasks";
@@ -152,22 +141,6 @@ export const taskStore = {
     }
   },
 
-  async move(fromIndex: number, toIndex: number) {
-    if (fromIndex === toIndex) return;
-
-    this.reorderLocal(fromIndex, toIndex);
-
-    try {
-      error = null;
-      const ids = tasks.map(t => t.id);
-      await db.tasks.reorder(ids);
-    } catch (e) {
-      console.error("Failed to persist task order:", e);
-      error = e instanceof Error ? e.message : "Failed to save order";
-      await this.loadByProject(currentProjectId);
-    }
-  },
-
   reorderLocal(fromIndex: number, toIndex: number) {
     if (fromIndex === toIndex) return;
     const currentTasks = sortedTasks;
@@ -191,48 +164,6 @@ export const taskStore = {
     }
   },
 
-  async createSection(projectId: number, name: string) {
-    try {
-      error = null;
-      const section = await db.sections.create(projectId, name);
-      sections = [...sections, section];
-      return section;
-    } catch (e) {
-      error = e instanceof Error ? e.message : "Failed to create section";
-      console.error("Failed to create section:", e);
-      throw e;
-    }
-  },
-
-  async updateSection(id: number, name: string) {
-    try {
-      error = null;
-      await db.sections.update(id, name);
-      sections = sections.map((s) => (s.id === id ? { ...s, name } : s));
-    } catch (e) {
-      error = e instanceof Error ? e.message : "Failed to update section";
-      console.error("Failed to update section:", e);
-      throw e;
-    }
-  },
-
-  async deleteSection(id: number) {
-    try {
-      error = null;
-      await db.sections.delete(id);
-      sections = sections.filter((s) => s.id !== id);
-      tasks = tasks.filter((t) => t.section_id !== id);
-    } catch (e) {
-      error = e instanceof Error ? e.message : "Failed to delete section";
-      console.error("Failed to delete section:", e);
-      throw e;
-    }
-  },
-
-  getTasksBySection(sectionId: number | null) {
-    return tasks.filter((t) => t.section_id === sectionId);
-  },
-
   updateTaskTime(taskId: number, timeSeconds: number) {
     tasks = tasks.map((t) =>
       t.id === taskId ? { ...t, total_time_seconds: timeSeconds } : t
@@ -241,6 +172,5 @@ export const taskStore = {
 
   clear() {
     tasks = [];
-    sections = [];
   },
 };

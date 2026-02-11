@@ -114,11 +114,7 @@ fn pause_timer_internal(db: &DbConnection, timer: &ActiveTimer) -> crate::error:
 /// * `app_handle` - Tauri app handle for emitting events
 /// * `db` - Database connection
 /// * `reason` - The reason for auto-pausing
-pub fn auto_pause_if_running(
-    app_handle: &AppHandle,
-    db: &DbConnection,
-    reason: AutoPauseReason,
-) {
+pub fn auto_pause_if_running(app_handle: &AppHandle, db: &DbConnection, reason: AutoPauseReason) {
     // Check if timer exists and is running
     match get_active_timer_internal(db) {
         Ok(Some(timer)) if timer.is_running => {

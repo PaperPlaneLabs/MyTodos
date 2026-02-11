@@ -137,29 +137,17 @@ export interface WindowOrientation {
 export const db = {
   projects: {
     getAll: () => invoke<Project[]>("get_all_projects"),
-    get: (id: number) => invoke<Project>("get_project", { id }),
     create: (name: string, description?: string, color?: string) =>
       invoke<Project>("create_project", { name, description, color }),
     update: (id: number, name?: string, description?: string, color?: string) =>
       invoke<void>("update_project", { id, name, description, color }),
     delete: (id: number) => invoke<void>("delete_project", { id }),
     reorder: (projectIds: number[]) => invoke<void>("reorder_projects", { projectIds }),
-    getStats: (projectId: number) => invoke<ProjectStats>("get_project_stats", { projectId }),
-  },
-
-  sections: {
-    getByProject: (projectId: number) => invoke<Section[]>("get_sections_by_project", { projectId }),
-    create: (projectId: number, name: string) =>
-      invoke<Section>("create_section", { projectId, name }),
-    update: (id: number, name: string) => invoke<void>("update_section", { id, name }),
-    delete: (id: number) => invoke<void>("delete_section", { id }),
-    reorder: (sectionIds: number[]) => invoke<void>("reorder_sections", { sectionIds }),
   },
 
   tasks: {
     getByProject: (projectId: number) => invoke<Task[]>("get_tasks_by_project", { projectId }),
     getUnassigned: () => invoke<Task[]>("get_unassigned_tasks"),
-    getBySection: (sectionId: number) => invoke<Task[]>("get_tasks_by_section", { sectionId }),
     getByDeadlineRange: (startDate: string, endDate: string) =>
       invoke<Task[]>("get_tasks_by_deadline_range", { startDate, endDate }),
     create: (projectId: number | null, sectionId: number | null, title: string, description?: string) =>
@@ -177,8 +165,6 @@ export const db = {
   calendarEvents: {
     getInRange: (startDate: string, endDate: string) =>
       invoke<CalendarEvent[]>("get_calendar_events_in_range", { startDate, endDate }),
-    create: (title: string, description: string | null, date: string, isAllDay: boolean, color: string | null) =>
-      invoke<CalendarEvent>("create_calendar_event", { title, description, date, isAllDay, color }),
   },
 
   timer: {
@@ -191,13 +177,8 @@ export const db = {
   },
 
   timeEntries: {
-    getByTask: (taskId: number) => invoke<TimeEntry[]>("get_time_entries_by_task", { taskId }),
     getWithTasks: (startDate: string, endDate: string) =>
       invoke<TimeEntryWithTask[]>("get_time_entries_with_tasks", { startDate, endDate }),
-    createManual: (taskId: number, durationSeconds: number, note?: string) =>
-      invoke<TimeEntry>("create_manual_entry", { taskId, durationSeconds, note }),
-    update: (id: number, durationSeconds: number, note?: string) =>
-      invoke<void>("update_time_entry", { id, durationSeconds, note }),
     delete: (id: number) => invoke<void>("delete_time_entry", { id }),
     getDailyTotalTime: (startTimestamp: number) =>
       invoke<number>("get_daily_total_time", { startTimestamp }),
@@ -206,9 +187,6 @@ export const db = {
   },
 
   window: {
-    saveState: (x?: number, y?: number, width?: number, height?: number) =>
-      invoke<void>("save_window_state", { x, y, width, height }),
-    getState: () => invoke<WindowState | null>("get_window_state"),
     getOrientation: () => invoke<WindowOrientation>("get_window_orientation"),
     minimize: () => invoke<void>("minimize_window"),
     toggleMaximize: () => invoke<void>("toggle_maximize"),
@@ -217,12 +195,6 @@ export const db = {
     setCollapsed: (collapsed: boolean, top: number) => invoke<void>("set_collapsed", { collapsed, top }),
     move: (x: number, y: number) => invoke<void>("move_window", { x, y }),
     startDragging: () => invoke<void>("start_window_drag"),
-  },
-
-  autostart: {
-    enable: () => invoke<void>("plugin:autostart|enable"),
-    disable: () => invoke<void>("plugin:autostart|disable"),
-    isEnabled: () => invoke<boolean>("plugin:autostart|is_enabled"),
   },
 
   googleCalendar: {
@@ -234,6 +206,4 @@ export const db = {
         "google_sync_all_tasks"
       ),
   },
-
-  initialize: () => invoke<void>("initialize_database"),
 };
