@@ -6,6 +6,7 @@
     import { projectStore } from "$lib/stores/projects.svelte";
     import { taskStore } from "$lib/stores/tasks.svelte";
     import { timerStore } from "$lib/stores/timer.svelte";
+    import { db } from "$lib/services/db";
     import { getVersion } from "@tauri-apps/api/app";
     import { check } from "@tauri-apps/plugin-updater";
     import { relaunch } from "@tauri-apps/plugin-process";
@@ -152,6 +153,13 @@
 
     function handleWindowOrientation(orientation: WindowOrientation) {
         uiStore.setWindowOrientation(orientation);
+        if (orientation === "left") {
+            db.window.dock("left");
+        } else if (orientation === "right") {
+            db.window.dock("right");
+        } else {
+            db.window.center();
+        }
     }
 </script>
 
@@ -190,8 +198,8 @@
 
             <div class="setting-item">
                 <div class="setting-info">
-                    <span class="setting-label">Window Position</span>
-                    <span class="setting-desc">Preferred location on screen</span>
+                    <span class="setting-label">Window Docking</span>
+                    <span class="setting-desc">Position and snap window</span>
                 </div>
                 <div class="segmented-control">
                     <button 
@@ -201,7 +209,7 @@
                     <button 
                         class:active={uiStore.windowOrientation === 'center'} 
                         onclick={() => handleWindowOrientation('center')}
-                    >Center</button>
+                    >FreeForm</button>
                     <button 
                         class:active={uiStore.windowOrientation === 'right'} 
                         onclick={() => handleWindowOrientation('right')}

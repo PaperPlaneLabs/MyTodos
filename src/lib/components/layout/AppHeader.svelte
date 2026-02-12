@@ -39,6 +39,7 @@
 
   async function dock(side: "left" | "right") {
     await db.window.dock(side);
+    uiStore.setWindowOrientation(side);
   }
 
   async function handleDrag(e: MouseEvent) {

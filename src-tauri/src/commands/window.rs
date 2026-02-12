@@ -38,6 +38,42 @@ pub fn close_window(window: WebviewWindow) -> Result<()> {
 }
 
 #[tauri::command]
+pub fn center_window(window: WebviewWindow) -> Result<()> {
+    let monitor = window
+        .current_monitor()
+        .map_err(|e| AppError::Other(e.to_string()))?
+        .ok_or_else(|| AppError::Other("Could not find current monitor".to_string()))?;
+
+    let scale_factor = monitor.scale_factor();
+    let work_area = monitor.work_area();
+
+    let logical_work_x = (work_area.position.x as f64) / scale_factor;
+    let logical_work_y = (work_area.position.y as f64) / scale_factor;
+    let logical_work_width = (work_area.size.width as f64) / scale_factor;
+    let logical_work_height = (work_area.size.height as f64) / scale_factor;
+
+    let width: f64 = 1000.0;
+    let height: f64 = 800.0;
+
+    // Ensure it fits
+    let width = width.min(logical_work_width);
+    let height = height.min(logical_work_height);
+
+    let x = logical_work_x + (logical_work_width - width) / 2.0;
+    let y = logical_work_y + (logical_work_height - height) / 2.0;
+
+    window
+        .set_size(LogicalSize::new(width, height))
+        .map_err(|e| AppError::Other(e.to_string()))?;
+
+    window
+        .set_position(LogicalPosition::new(x, y))
+        .map_err(|e| AppError::Other(e.to_string()))?;
+
+    Ok(())
+}
+
+#[tauri::command]
 pub fn dock_window(window: WebviewWindow, side: String) -> Result<()> {
     let monitor = window
         .current_monitor()
