@@ -20,7 +20,7 @@ This document provides essential information for AI agents working on the MyTodo
 - **Format**: `cargo fmt`
 - **Run All Tests**: `cargo test`
 - **Run Single Test**: `cargo test test_name`
-- **Check (No Build)**: `cargo check`
+- **Check (No Build)**: `cargo check` (Run this inside `src-tauri` directory)
 
 ---
 
@@ -46,6 +46,7 @@ This document provides essential information for AI agents working on the MyTodo
   - Interfaces/Types: `PascalCase`.
 - **Typing**: Prefer explicit interfaces over `any`. Define shared models in `src/lib/services/db.ts` or `src/lib/types/`.
 - **Error Handling**: Wrap async service calls in `try/catch` within stores. Log errors and update a reactive `error` state.
+- **Compact Mode**: Use the global `compact-mode` class on `<body>` for density adjustments. Check `uiStore.compactMode`.
 
 ### Backend (Rust)
 
@@ -57,6 +58,8 @@ This document provides essential information for AI agents working on the MyTodo
   - Use `snake_case` for function names.
   - Return `Result<T>`.
   - Use `State<DbConnection>` for database access.
+  - **Register New Commands**: Add to `tauri::generate_handler![]` in `src-tauri/src/lib.rs`.
+- **Numeric Types**: When defining float variables (e.g., for window size), ALWAYS explicitly specify the type `f64` to avoid ambiguous type errors (e.g., `let width: f64 = 1000.0;`).
 - **Database (SQLite)**:
   - Use parameterized queries to prevent SQL injection.
   - Acquire database locks using `db.lock()`.
@@ -68,12 +71,20 @@ This document provides essential information for AI agents working on the MyTodo
 
 ## Project Architecture
 
-- **Communication**: Frontend calls backend via `invoke<T>('command_name', { args })`.
+- **Communication**: Frontend calls backend via `invoke<T>('command_name', { args })` wrapped in `src/lib/services/db.ts`.
 - **Persistence**: SQLite database managed by Rust. Time totals are denormalized in projects/sections for performance.
 - **Styling**: Global CSS variables in `theme.css`. Use `data-theme="dark"` on the `html` element for theming.
-- **Window Management**: Custom window controls and orientation logic handled in `src-tauri/src/commands/window.rs`.
+- **Window Management**: Custom window controls (Minimize, Maximize, Close, Dock Left/Right/Center) are handled in `src-tauri/src/commands/window.rs`.
+  - "FreeForm" centers the window.
+  - "Dock" snaps to sides.
+- **State Management**: 
+  - `uiStore` handles UI state (modals, theme, compact mode, window orientation).
+  - `projectStore` / `taskStore` handle data.
 
-## Development Safety
-- **Database Migrations**: We currently use a simple schema initialization. Changes to `schema.rs` may require manual database resets during development.
+## Debugging & Common Issues
+
+- **Rust Compilation**: If you see "ambiguous numeric type" errors for floats, add explicit `: f64` type annotations.
+- **Svelte Check**: Run `npm run check` to validate Svelte code. Note that IDE/LSP errors might be stale; trust `svelte-check`.
+- **Database Migrations**: We currently use a simple schema initialization. Changes to `schema.rs` may require manual database resets during development. A "Reset Application" button exists in Settings -> Data Management to clear all projects/tasks.
 - **Secrets**: NEVER commit API keys or tokens. Use `keyring` for sensitive data storage (already integrated for Google OAuth).
 - **Testing**: When adding features, add Vitest tests for frontend logic and Rust `#[test]` for backend logic.
