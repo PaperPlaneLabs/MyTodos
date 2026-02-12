@@ -17,6 +17,7 @@ export type Theme = "light" | "dark" | "minecraft" | "retro" | "ocean" | "nord";
 let theme = $state<Theme>("light");
 export type WindowOrientation = "left" | "right" | "center";
 let windowOrientation = $state<WindowOrientation>("center");
+let compactMode = $state(false);
 let calendarSelectedEntry = $state<TimeEntryWithTask | null>(null);
 type TaskModalPayload = number | { taskId?: number; task?: Pick<Task, "id">; deadline?: string };
 
@@ -73,6 +74,10 @@ export const uiStore = {
 
   get theme() {
     return theme;
+  },
+
+  get compactMode() {
+    return compactMode;
   },
 
   get isCollapsed() {
@@ -146,6 +151,10 @@ export const uiStore = {
 
   setWindowOrientation(orientation: WindowOrientation) {
     windowOrientation = orientation;
+    // Note: The actual window orientation logic is handled in src-tauri/src/commands/window.rs
+    // We assume there is a command to update this, or the frontend just stores the preference 
+    // and the backend reads it or we invoke a command.
+    // For now we just update the store.
   },
 
   selectCalendarEntry(entry: TimeEntryWithTask | null) {
@@ -193,11 +202,28 @@ export const uiStore = {
     localStorage.setItem("theme", theme);
   },
 
+  setCompactMode(enabled: boolean) {
+    compactMode = enabled;
+    if (enabled) {
+      document.body.classList.add("compact-mode");
+    } else {
+      document.body.classList.remove("compact-mode");
+    }
+    localStorage.setItem("compactMode", String(enabled));
+  },
+
   initTheme() {
     const savedTheme = localStorage.getItem("theme") as "light" | "dark" | null;
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
 
     theme = (savedTheme as Theme) ?? (prefersDark ? "dark" : "light");
     document.documentElement.setAttribute("data-theme", theme);
+
+    // Init compact mode
+    const savedCompact = localStorage.getItem("compactMode");
+    compactMode = savedCompact === "true";
+    if (compactMode) {
+      document.body.classList.add("compact-mode");
+    }
   },
 };

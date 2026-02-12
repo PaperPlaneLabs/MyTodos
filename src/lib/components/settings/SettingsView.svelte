@@ -1,21 +1,20 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import { fade, fly } from "svelte/transition";
-    import { uiStore, type Theme } from "$lib/stores/ui.svelte";
+    import { fade, fly, slide } from "svelte/transition";
+    import { uiStore, type Theme, type WindowOrientation } from "$lib/stores/ui.svelte";
     import { googleCalendarStore } from "$lib/stores/google-calendar.svelte";
+    import { projectStore } from "$lib/stores/projects.svelte";
+    import { taskStore } from "$lib/stores/tasks.svelte";
+    import { timerStore } from "$lib/stores/timer.svelte";
     import { getVersion } from "@tauri-apps/api/app";
     import { check } from "@tauri-apps/plugin-updater";
     import { relaunch } from "@tauri-apps/plugin-process";
+    import Modal from "$lib/components/common/Modal.svelte";
 
     const themes: { id: Theme; name: string; bg: string; accent: string }[] = [
         { id: "light", name: "Light", bg: "#ffffff", accent: "#6366f1" },
         { id: "dark", name: "Dark", bg: "#1a1a1a", accent: "#818cf8" },
-        {
-            id: "minecraft",
-            name: "Minecraft",
-            bg: "#3d2b1f",
-            accent: "#3c8527",
-        },
+        { id: "minecraft", name: "Minecraft", bg: "#3d2b1f", accent: "#3c8527" },
         { id: "retro", name: "Retro", bg: "#0c0c0c", accent: "#ffb000" },
         { id: "ocean", name: "Ocean", bg: "#001219", accent: "#0a9396" },
         { id: "nord", name: "Nord", bg: "#2e3440", accent: "#88c0d0" },
@@ -24,6 +23,8 @@
     let isAutoStartEnabled = $state(false);
     let loading = $state(true);
     let toggling = $state(false);
+    let themeDropdownOpen = $state(false);
+    let showResetConfirm = $state(false);
 
     let appVersion = $state("");
     let updateStatus = $state<"idle" | "checking" | "up-to-date" | "available" | "downloading" | "error">("idle");
@@ -125,19 +126,39 @@
             toggling = false;
         }
     }
+
+    async function handleClearData() {
+        try {
+            await timerStore.stop();
+            const projects = [...projectStore.projects];
+            for (const p of projects) {
+                await projectStore.delete(p.id);
+            }
+            await projectStore.loadAll();
+            showResetConfirm = false;
+        } catch (e) {
+            console.error("Failed to clear data:", e);
+        }
+    }
+
+    function toggleThemeDropdown() {
+        themeDropdownOpen = !themeDropdownOpen;
+    }
+
+    function selectTheme(id: Theme) {
+        uiStore.setTheme(id);
+        themeDropdownOpen = false;
+    }
+
+    function handleWindowOrientation(orientation: WindowOrientation) {
+        uiStore.setWindowOrientation(orientation);
+    }
 </script>
 
 <div class="settings-view" transition:fade={{ duration: 200 }}>
     <header class="settings-header">
         <button class="back-btn" onclick={() => uiStore.closeSettingsView()}>
-            <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-            >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="m15 18-6-6 6-6" />
             </svg>
             <span>Back</span>
@@ -146,21 +167,14 @@
     </header>
 
     <div class="settings-content">
-        <section
-            class="settings-section"
-            transition:fly={{ y: 20, duration: 300, delay: 100 }}
-        >
-            <h3>
-                <span class="section-icon">🚀</span>
-                Startup
-            </h3>
-
+        <!-- GENERAL SECTION -->
+        <section class="settings-section" transition:fly={{ y: 20, duration: 300, delay: 100 }}>
+            <h3><span class="section-icon">⚙️</span> General</h3>
+            
             <div class="setting-item">
                 <div class="setting-info">
                     <span class="setting-label">Start at login</span>
-                    <span class="setting-desc"
-                        >Automatically launch MyTodos when you log in</span
-                    >
+                    <span class="setting-desc">Automatically launch MyTodos when you log in</span>
                 </div>
                 <button
                     class="toggle-switch"
@@ -168,178 +182,191 @@
                     class:loading={loading || toggling}
                     onclick={toggleAutoStart}
                     disabled={loading || toggling}
-                    title={isAutoStartEnabled
-                        ? "Disable autostart"
-                        : "Enable autostart"}
+                    title={isAutoStartEnabled ? "Disable autostart" : "Enable autostart"}
                 >
                     <span class="toggle-knob"></span>
                 </button>
             </div>
-        </section>
-
-        <section
-            class="settings-section"
-            transition:fly={{ y: 20, duration: 300, delay: 150 }}
-        >
-            <h3>
-                <span class="section-icon">🔄</span>
-                Updates
-            </h3>
 
             <div class="setting-item">
+                <div class="setting-info">
+                    <span class="setting-label">Window Position</span>
+                    <span class="setting-desc">Preferred location on screen</span>
+                </div>
+                <div class="segmented-control">
+                    <button 
+                        class:active={uiStore.windowOrientation === 'left'} 
+                        onclick={() => handleWindowOrientation('left')}
+                    >Left</button>
+                    <button 
+                        class:active={uiStore.windowOrientation === 'center'} 
+                        onclick={() => handleWindowOrientation('center')}
+                    >Center</button>
+                    <button 
+                        class:active={uiStore.windowOrientation === 'right'} 
+                        onclick={() => handleWindowOrientation('right')}
+                    >Right</button>
+                </div>
+            </div>
+
+             <div class="setting-item">
+                <div class="setting-info">
+                    <span class="setting-label">Compact Mode</span>
+                    <span class="setting-desc">Reduce spacing for a denser layout</span>
+                </div>
+                <button
+                    class="toggle-switch"
+                    class:active={uiStore.compactMode}
+                    onclick={() => uiStore.setCompactMode(!uiStore.compactMode)}
+                    title={uiStore.compactMode ? "Disable compact mode" : "Enable compact mode"}
+                >
+                    <span class="toggle-knob"></span>
+                </button>
+            </div>
+            
+             <div class="setting-item">
                 <div class="setting-info">
                     <span class="setting-label">App Updates</span>
                     <span class="setting-desc" class:update-error={updateStatus === "error"} class:update-success={updateStatus === "up-to-date"}>
                         {#if updateStatus === "checking"}
-                            Checking for updates...
+                            Checking...
                         {:else if updateStatus === "up-to-date"}
-                            You're up to date!
+                            Up to date
                         {:else if updateStatus === "available"}
-                            Update available: <strong>v{updateVersion}</strong>
+                            Update: v{updateVersion}
                         {:else if updateStatus === "downloading"}
-                            Downloading update... {updateProgress}%
+                            Downloading... {updateProgress}%
                         {:else if updateStatus === "error"}
                             {updateError}
                         {:else}
-                            Check if a newer version is available
+                            v{appVersion}
                         {/if}
                     </span>
                 </div>
                 {#if updateStatus === "available"}
-                    <button
-                        class="btn btn-primary btn-sm"
-                        onclick={downloadAndInstallUpdate}
-                    >
-                        Update Now
-                    </button>
+                    <button class="btn btn-primary btn-sm" onclick={downloadAndInstallUpdate}>Update</button>
                 {:else if updateStatus === "downloading"}
-                    <div class="update-progress-inline">
+                     <div class="update-progress-inline">
                         <div class="progress-bar-sm">
                             <div class="progress-fill-sm" style="width: {updateProgress}%"></div>
                         </div>
                     </div>
                 {:else}
-                    <button
-                        class="btn btn-secondary btn-sm"
-                        onclick={checkForUpdates}
-                        disabled={updateStatus === "checking"}
-                    >
-                        {#if updateStatus === "checking"}
-                            Checking...
-                        {:else if updateStatus === "error"}
-                            Retry
-                        {:else}
-                            Check for Updates
-                        {/if}
+                    <button class="btn btn-secondary btn-sm" onclick={checkForUpdates} disabled={updateStatus === "checking"}>
+                        Check
                     </button>
                 {/if}
             </div>
         </section>
 
-        <section
-            class="settings-section"
-            transition:fly={{ y: 20, duration: 300, delay: 200 }}
-        >
-            <h3>
-                <span class="section-icon">📅</span>
-                Google Calendar
-            </h3>
+        <!-- APPEARANCE SECTION -->
+        <section class="settings-section" transition:fly={{ y: 20, duration: 300, delay: 150 }}>
+            <h3><span class="section-icon">🎨</span> Appearance</h3>
+            
+            <div class="setting-item">
+                <div class="setting-info">
+                    <span class="setting-label">Theme</span>
+                    <span class="setting-desc">Customize application look</span>
+                </div>
+                
+                <div class="theme-dropdown-container">
+                    <button class="theme-dropdown-trigger" onclick={toggleThemeDropdown}>
+                        {#if uiStore.theme}
+                            {@const current = themes.find(t => t.id === uiStore.theme)}
+                            <span class="theme-name-current">{current?.name || 'Select Theme'}</span>
+                            <div class="preview-dot" style="--preview-bg: {current?.bg}; --preview-accent: {current?.accent}"></div>
+                        {/if}
+                        <span class="chevron">▼</span>
+                    </button>
 
-            {#if !googleCalendarStore.connected}
-                <div class="setting-item">
-                    <div class="setting-info">
-                        <span class="setting-label">Connect Google Calendar</span>
-                        <span class="setting-desc">Sync task deadlines as all-day events</span>
-                    </div>
-                    <button
-                        class="btn btn-primary btn-sm"
-                        onclick={() => googleCalendarStore.connect()}
-                        disabled={googleCalendarStore.connecting}
-                    >
-                        {googleCalendarStore.connecting ? "Connecting..." : "Connect"}
-                    </button>
+                    {#if themeDropdownOpen}
+                        <div class="theme-dropdown-menu" transition:slide={{ duration: 150 }}>
+                            {#each themes as t}
+                                <button class="theme-option" class:selected={uiStore.theme === t.id} onclick={() => selectTheme(t.id)}>
+                                    <span class="theme-name">{t.name}</span>
+                                    <div class="preview-dot" style="--preview-bg: {t.bg}; --preview-accent: {t.accent}"></div>
+                                </button>
+                            {/each}
+                        </div>
+                    {/if}
                 </div>
-            {:else}
-                <div class="setting-item">
-                    <div class="setting-info">
-                        <span class="setting-label gcal-connected">Connected</span>
-                        <span class="setting-desc">Tasks with deadlines sync to your Google Calendar</span>
-                    </div>
-                    <button
-                        class="btn btn-secondary btn-sm"
-                        onclick={() => googleCalendarStore.disconnect()}
-                    >
-                        Disconnect
-                    </button>
-                </div>
-                <div class="setting-item">
-                    <div class="setting-info">
-                        <span class="setting-label">Manual Sync</span>
-                        <span class="setting-desc">
-                            {#if googleCalendarStore.lastSyncResult}
-                                Last sync: {googleCalendarStore.lastSyncResult.synced} synced{#if googleCalendarStore.lastSyncResult.failed > 0}, {googleCalendarStore.lastSyncResult.failed} failed{/if}
-                            {:else}
-                                Sync all tasks with deadlines
-                            {/if}
-                        </span>
-                    </div>
-                    <button
-                        class="btn btn-secondary btn-sm"
-                        onclick={() => googleCalendarStore.syncAll()}
-                        disabled={googleCalendarStore.syncing}
-                    >
-                        {googleCalendarStore.syncing ? "Syncing..." : "Sync Now"}
-                    </button>
-                </div>
-            {/if}
-
-            {#if googleCalendarStore.error}
-                <div class="gcal-error">
-                    {googleCalendarStore.error}
-                </div>
+            </div>
+            
+            {#if themeDropdownOpen}
+                <div class="backdrop" onclick={() => themeDropdownOpen = false}></div>
             {/if}
         </section>
 
-        <section
-            class="settings-section"
-            transition:fly={{ y: 20, duration: 300, delay: 250 }}
-        >
-            <h3>
-                <span class="section-icon">🎨</span>
-                Appearance
-            </h3>
-
-            <div class="themes-grid">
-                {#each themes as t}
-                    <button
-                        class="theme-card"
-                        class:active={uiStore.theme === t.id}
-                        onclick={() => uiStore.setTheme(t.id)}
-                    >
-                        <div
-                            class="theme-preview"
-                            style="--preview-bg: {t.bg}; --preview-accent: {t.accent}"
-                        >
-                            <div class="preview-dot"></div>
-                        </div>
-                        <span class="theme-name">{t.name}</span>
+        <!-- INTEGRATIONS SECTION -->
+        <section class="settings-section" transition:fly={{ y: 20, duration: 300, delay: 200 }}>
+            <h3><span class="section-icon">🔗</span> Integrations</h3>
+            
+            <div class="setting-item">
+                <div class="setting-info">
+                    <span class="setting-label">Google Calendar</span>
+                    <span class="setting-desc">
+                         {#if !googleCalendarStore.connected}
+                            Sync tasks as events
+                        {:else}
+                            <span class="gcal-connected">Connected</span>
+                        {/if}
+                    </span>
+                </div>
+                 {#if !googleCalendarStore.connected}
+                    <button class="btn btn-primary btn-sm" onclick={() => googleCalendarStore.connect()} disabled={googleCalendarStore.connecting}>
+                         {googleCalendarStore.connecting ? "..." : "Connect"}
                     </button>
-                {/each}
+                 {:else}
+                    <div style="display:flex; gap: 8px;">
+                         <button class="btn btn-secondary btn-sm" onclick={() => googleCalendarStore.syncAll()} disabled={googleCalendarStore.syncing}>
+                            {googleCalendarStore.syncing ? "..." : "Sync"}
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick={() => googleCalendarStore.disconnect()}>
+                            Disconnect
+                        </button>
+                    </div>
+                 {/if}
+            </div>
+             {#if googleCalendarStore.error}
+                <div class="gcal-error">{googleCalendarStore.error}</div>
+            {/if}
+        </section>
+
+        <!-- DATA MANAGEMENT SECTION -->
+        <section class="settings-section danger-zone" transition:fly={{ y: 20, duration: 300, delay: 250 }}>
+            <h3><span class="section-icon">⚠️</span> Data Management</h3>
+            
+            <div class="setting-item">
+                <div class="setting-info">
+                    <span class="setting-label text-danger">Reset Application</span>
+                    <span class="setting-desc">Permanently delete all projects and tasks</span>
+                </div>
+                <button class="btn btn-danger btn-sm" onclick={() => showResetConfirm = true}>
+                    Reset Data
+                </button>
             </div>
         </section>
 
-        <section
-            class="settings-section about"
-            transition:fly={{ y: 20, duration: 300, delay: 350 }}
-        >
-            <h3>
-                <span class="section-icon">ℹ️</span>
-                About
-            </h3>
-            <p class="version">MyTodos v{appVersion}</p>
+        <!-- ABOUT SECTION -->
+        <section class="settings-section about" transition:fly={{ y: 20, duration: 300, delay: 300 }}>
+             <p class="version">MyTodos v{appVersion}</p>
         </section>
     </div>
 </div>
+
+<Modal open={showResetConfirm} title="⚠️ Irreversible Action" onClose={() => showResetConfirm = false}>
+    {#snippet children()}
+        <div class="reset-confirm-content">
+            <p style="margin-bottom: 20px; color: var(--text-secondary); line-height: 1.5;">
+                Are you absolutely sure you want to delete all data? This action cannot be undone.
+            </p>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick={() => showResetConfirm = false}>Cancel</button>
+                <button class="btn btn-danger" onclick={handleClearData}>Yes, Delete Everything</button>
+            </div>
+        </div>
+    {/snippet}
+</Modal>
 
 <style>
     .settings-view {
@@ -400,6 +427,11 @@
         padding: var(--spacing-md);
     }
 
+    .settings-section.danger-zone {
+        border-color: var(--danger-light);
+        background-color: color-mix(in srgb, var(--danger-light) 10%, var(--bg-secondary));
+    }
+
     .settings-section h3 {
         display: flex;
         align-items: center;
@@ -408,6 +440,7 @@
         font-weight: 600;
         color: var(--text-primary);
         margin-bottom: var(--spacing-md);
+        opacity: 0.8;
     }
 
     .section-icon {
@@ -420,6 +453,11 @@
         justify-content: space-between;
         gap: var(--spacing-md);
         padding: var(--spacing-sm) 0;
+        border-bottom: 1px solid var(--border-light);
+    }
+    
+    .setting-item:last-child {
+        border-bottom: none;
     }
 
     .setting-info {
@@ -434,6 +472,10 @@
         font-weight: 500;
         color: var(--text-primary);
     }
+    
+    .setting-label.text-danger {
+        color: var(--danger);
+    }
 
     .setting-desc {
         font-size: 11px;
@@ -443,10 +485,10 @@
     /* Toggle Switch */
     .toggle-switch {
         position: relative;
-        width: 44px;
-        height: 24px;
+        width: 40px;
+        height: 22px;
         background-color: var(--bg-tertiary);
-        border-radius: 12px;
+        border-radius: 11px;
         border: 1px solid var(--border);
         cursor: pointer;
         transition: all var(--transition-fast);
@@ -462,17 +504,12 @@
         border-color: var(--accent);
     }
 
-    .toggle-switch.loading {
-        opacity: 0.6;
-        cursor: wait;
-    }
-
     .toggle-knob {
         position: absolute;
         top: 2px;
         left: 2px;
-        width: 18px;
-        height: 18px;
+        width: 16px;
+        height: 16px;
         background-color: white;
         border-radius: 50%;
         transition: transform var(--transition-fast);
@@ -480,68 +517,134 @@
     }
 
     .toggle-switch.active .toggle-knob {
-        transform: translateX(20px);
+        transform: translateX(18px);
     }
 
-    .themes-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: var(--spacing-md);
-        margin-top: var(--spacing-sm);
-    }
-
-    .theme-card {
+    /* Segmented Control */
+    .segmented-control {
         display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: var(--spacing-sm);
-        padding: var(--spacing-sm);
-        background: var(--bg-primary);
-        border: 2px solid transparent;
+        background: var(--bg-tertiary);
+        padding: 2px;
         border-radius: var(--radius-md);
+        border: 1px solid var(--border);
+    }
+
+    .segmented-control button {
+        padding: 4px 10px;
+        font-size: 11px;
+        border-radius: var(--radius-sm);
+        color: var(--text-secondary);
+        background: transparent;
+        border: none;
         cursor: pointer;
+        font-weight: 500;
         transition: all var(--transition-fast);
     }
 
-    .theme-card:hover {
-        background: var(--bg-hover);
-        border-color: var(--border);
+    .segmented-control button:hover {
+        color: var(--text-primary);
     }
 
-    .theme-card.active {
-        border-color: var(--accent);
-        background: var(--accent-light);
+    .segmented-control button.active {
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        box-shadow: var(--shadow-sm);
     }
 
-    .theme-preview {
-        width: 100%;
-        aspect-ratio: 16/9;
-        background-color: var(--preview-bg);
-        border-radius: var(--radius-sm);
-        border: 1px solid var(--border);
-        display: flex;
-        align-items: center;
-        justify-content: center;
+    /* Theme Dropdown */
+    .theme-dropdown-container {
         position: relative;
     }
 
-    .preview-dot {
-        width: 12px;
-        height: 12px;
-        background-color: var(--preview-accent);
-        border-radius: 50%;
-        box-shadow: 0 0 8px var(--preview-accent);
+    .theme-dropdown-trigger {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        background: var(--bg-primary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        min-width: 140px;
+        justify-content: space-between;
+        color: var(--text-primary);
+        font-size: 13px;
+        transition: all var(--transition-fast);
     }
 
-    .theme-name {
-        font-size: 11px;
+    .theme-dropdown-trigger:hover {
+        border-color: var(--accent);
+    }
+
+    .theme-name-current {
         font-weight: 500;
+    }
+
+    .chevron {
+        font-size: 10px;
+        opacity: 0.5;
+    }
+
+    .theme-dropdown-menu {
+        position: absolute;
+        top: 100%;
+        right: 0;
+        margin-top: 4px;
+        background: var(--bg-primary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-lg);
+        width: 160px;
+        z-index: 1000;
+        padding: 4px;
+        overflow: hidden;
+    }
+
+    .theme-option {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        padding: 6px 10px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        border-radius: var(--radius-sm);
         color: var(--text-primary);
+        font-size: 12px;
+        transition: all var(--transition-fast);
+    }
+
+    .theme-option:hover {
+        background: var(--bg-hover);
+    }
+
+    .theme-option.selected {
+        background: var(--accent-light);
+        color: var(--accent);
+    }
+
+    .preview-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--preview-bg) 50%, var(--preview-accent) 50%);
+        border: 1px solid var(--border);
+    }
+
+    .backdrop {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 900;
     }
 
     /* Google Calendar */
     .gcal-connected {
         color: var(--success);
+        font-weight: 500;
     }
 
     .gcal-error {
@@ -550,31 +653,20 @@
         background: var(--danger-light);
         color: var(--danger);
         border-radius: var(--radius-sm);
-        font-size: 12px;
+        font-size: 11px;
     }
 
     /* Update status */
-    .update-error {
-        color: var(--danger);
-    }
+    .update-error { color: var(--danger); }
+    .update-success { color: var(--success); }
 
-    .update-success {
-        color: var(--success);
-    }
-
-    /* Update progress */
-    .update-progress-inline {
-        width: 80px;
-        flex-shrink: 0;
-    }
-
+    .update-progress-inline { width: 60px; flex-shrink: 0; }
     .progress-bar-sm {
-        height: 4px;
+        height: 3px;
         background: var(--bg-tertiary);
         border-radius: 2px;
         overflow: hidden;
     }
-
     .progress-fill-sm {
         height: 100%;
         background: var(--accent);
@@ -584,10 +676,13 @@
     /* About Section */
     .settings-section.about {
         text-align: center;
+        background: transparent;
+        border: none;
+        padding-top: 0;
     }
 
     .version {
-        font-size: 12px;
+        font-size: 11px;
         color: var(--text-tertiary);
     }
 </style>
