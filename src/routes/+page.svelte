@@ -21,6 +21,7 @@
   let projectName = $state("");
   let taskTitle = $state("");
   let taskDeadline = $state<string | null>(null);
+  let taskTime = $state("");
   let isCalendarPresetDeadline = $derived(
     uiStore.showTaskModal &&
       !uiStore.editingTaskId &&
@@ -53,15 +54,27 @@
 
   function formatDeadline(deadline: string | null | undefined): string {
     if (!deadline) return '';
+    const hasTime = deadline.includes('T');
     const date = new Date(deadline);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
     
-    if (date.toDateString() === today.toDateString()) return 'Due Today';
-    if (date.toDateString() === tomorrow.toDateString()) return 'Due Tomorrow';
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    let dateStr = '';
+    if (date.toDateString() === today.toDateString()) {
+      dateStr = 'Due Today';
+    } else if (date.toDateString() === tomorrow.toDateString()) {
+      dateStr = 'Due Tomorrow';
+    } else {
+      dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    }
+
+    if (hasTime) {
+      const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+      return `${dateStr} ${timeStr}`;
+    }
+    return dateStr;
   }
 
   function formatPresetDeadline(deadline: string | null): string {
@@ -117,16 +130,25 @@
         );
         if (task) {
           taskTitle = task.title;
-          taskDeadline = task.deadline ?? null;
+          if (task.deadline) {
+            const [date, time] = task.deadline.split('T');
+            taskDeadline = date;
+            taskTime = time ? time.substring(0, 5) : "";
+          } else {
+            taskDeadline = null;
+            taskTime = "";
+          }
         }
       } else {
         taskTitle = "";
         taskDeadline = uiStore.newTaskDeadline;
+        taskTime = "";
       }
     } else {
       lastTaskModalKey = null;
       taskTitle = "";
       taskDeadline = null;
+      taskTime = "";
     }
   });
 
@@ -153,10 +175,12 @@
     try {
       const task = await taskStore.createTask(projectStore.selectedId, null, taskTitle);
       if (taskDeadline) {
-        await taskStore.updateDeadline(task.id, taskDeadline);
+        const fullDeadline = taskTime ? `${taskDeadline}T${taskTime}` : taskDeadline;
+        await taskStore.updateDeadline(task.id, fullDeadline);
       }
       taskTitle = "";
       taskDeadline = null;
+      taskTime = "";
       uiStore.closeTaskModal();
     } catch (e) {
       console.error("Error creating task in UI:", e);
@@ -169,7 +193,8 @@
 
     try {
       await taskStore.updateTask(uiStore.editingTaskId, taskTitle);
-      await taskStore.updateDeadline(uiStore.editingTaskId, taskDeadline);
+      const fullDeadline = taskDeadline ? (taskTime ? `${taskDeadline}T${taskTime}` : taskDeadline) : null;
+      await taskStore.updateDeadline(uiStore.editingTaskId, fullDeadline);
       uiStore.closeTaskModal();
     } catch (e) {
       console.error("Error updating task:", e);
@@ -972,8 +997,17 @@
         <div>
           {#if isCalendarPresetDeadline}
             <div class="text-sm text-secondary">Deadline</div>
-            <div class="deadline-fixed">
-              <span>{formatPresetDeadline(taskDeadline)}</span>
+            <div class="deadline-input">
+              <div class="deadline-fixed">
+                <span>{formatPresetDeadline(taskDeadline)}</span>
+              </div>
+              <input
+                type="time"
+                class="input"
+                bind:value={taskTime}
+                step="300"
+                style="width: 110px;"
+              />
             </div>
           {:else}
             <label for="task-deadline" class="text-sm text-secondary"
@@ -987,11 +1021,22 @@
                 bind:value={taskDeadline}
                 placeholder="No deadline"
               />
+              <input
+                type="time"
+                class="input"
+                bind:value={taskTime}
+                step="300"
+                style="width: 110px;"
+                disabled={!taskDeadline}
+              />
               {#if taskDeadline}
                 <button
                   type="button"
                   class="btn btn-ghost"
-                  onclick={() => taskDeadline = null}
+                  onclick={() => {
+                    taskDeadline = null;
+                    taskTime = "";
+                  }}
                 >
                   ✕
                 </button>
@@ -1178,6 +1223,58 @@
     padding: 2px 6px;
     border-radius: 10px;
     border: 1px solid var(--border);
+  }
+
+  /* Date and Time Input Theme Support */
+  input[type="date"],
+  input[type="time"] {
+    appearance: none;
+    -webkit-appearance: none;
+    font-family: var(--font-mono);
+  }
+
+  /* Force dark color scheme for native pickers in dark themes */
+  :global([data-theme="dark"]) input[type="date"],
+  :global([data-theme="dark"]) input[type="time"],
+  :global([data-theme="retro"]) input[type="date"],
+  :global([data-theme="retro"]) input[type="time"],
+  :global([data-theme="ocean"]) input[type="date"],
+  :global([data-theme="ocean"]) input[type="time"],
+  :global([data-theme="nord"]) input[type="date"],
+  :global([data-theme="nord"]) input[type="time"],
+  :global([data-theme="minecraft"]) input[type="date"],
+  :global([data-theme="minecraft"]) input[type="time"] {
+    color-scheme: dark;
+  }
+
+  /* Style the picker indicator icon */
+  input[type="date"]::-webkit-calendar-picker-indicator,
+  input[type="time"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.5;
+    transition: all 0.2s;
+    filter: invert(0); /* Default for light themes */
+  }
+
+  /* Invert icon for dark themes if color-scheme doesn't handle it fully */
+  :global([data-theme="dark"]) input[type="date"]::-webkit-calendar-picker-indicator,
+  :global([data-theme="dark"]) input[type="time"]::-webkit-calendar-picker-indicator,
+  :global([data-theme="retro"]) input[type="date"]::-webkit-calendar-picker-indicator,
+  :global([data-theme="retro"]) input[type="time"]::-webkit-calendar-picker-indicator,
+  :global([data-theme="ocean"]) input[type="date"]::-webkit-calendar-picker-indicator,
+  :global([data-theme="ocean"]) input[type="time"]::-webkit-calendar-picker-indicator,
+  :global([data-theme="nord"]) input[type="date"]::-webkit-calendar-picker-indicator,
+  :global([data-theme="nord"]) input[type="time"]::-webkit-calendar-picker-indicator,
+  :global([data-theme="minecraft"]) input[type="date"]::-webkit-calendar-picker-indicator,
+  :global([data-theme="minecraft"]) input[type="time"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: 0.7;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator:hover,
+  input[type="time"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
+    transform: scale(1.1);
   }
 
   .draggable-wrapper,

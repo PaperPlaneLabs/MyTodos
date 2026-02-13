@@ -267,3 +267,34 @@ textarea:focus {
     opacity: 1;
   }
 }
+
+/* Compact Mode Overrides */
+body.compact-mode {
+  --spacing-md: 10px; 
+  --spacing-lg: 16px;
+}
+
+body.compact-mode .task-item,
+body.compact-mode .project-item {
+  padding-top: 4px;
+  padding-bottom: 4px;
+  min-height: 36px;
+}
+
+body.compact-mode .checkbox-container {
+    transform: scale(0.9);
+}
+
+body.compact-mode .task-title {
+    font-size: 13px;
+}
+
+body.compact-mode .project-name {
+    font-size: 13px;
+}
+
+body.compact-mode .btn {
+    padding: 2px 8px;
+    height: 28px;
+    font-size: 12px;
+}
