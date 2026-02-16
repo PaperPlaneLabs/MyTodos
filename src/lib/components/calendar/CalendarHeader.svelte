@@ -1,8 +1,21 @@
 <script lang="ts">
-  import { calendarStore } from '$lib/stores/calendar.svelte';
+  import { calendarStore } from "$lib/stores/calendar.svelte";
+  import { uiStore } from "$lib/stores/ui.svelte";
 
-  const months = ['January', 'February', 'March', 'April', 'May', 'June',
-                 'July', 'August', 'September', 'October', 'November', 'December'];
+  const months = [
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+  ];
 
   function previousMonth() {
     const newDate = new Date(calendarStore.currentDate);
@@ -46,9 +59,9 @@
 
   function getNavFunctions() {
     switch (calendarStore.viewMode) {
-      case 'week':
+      case "week":
         return { prev: previousWeek, next: nextWeek };
-      case 'day':
+      case "day":
         return { prev: previousDay, next: nextDay };
       default:
         return { prev: previousMonth, next: nextMonth };
@@ -56,33 +69,58 @@
   }
 
   let navFunctions = $derived(getNavFunctions());
+  let isPortrait = $derived(
+    uiStore.windowOrientation === "left" ||
+      uiStore.windowOrientation === "right",
+  );
 </script>
 
 <div class="calendar-header">
   <div class="header-nav">
     <button class="nav-btn" onclick={navFunctions.prev} aria-label="Previous">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+      >
         <path d="m15 18-6-6 6-6" />
       </svg>
     </button>
 
-    {#if calendarStore.viewMode === 'month'}
+    {#if calendarStore.viewMode === "month"}
       <button class="month-label" onclick={goToToday}>
         {months[calendarStore.currentDate.getMonth()]}
         {calendarStore.currentDate.getFullYear()}
       </button>
-    {:else if calendarStore.viewMode === 'week'}
+    {:else if calendarStore.viewMode === "week"}
       <button class="month-label" onclick={goToToday}>
-        Week of {calendarStore.currentDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+        Week of {calendarStore.currentDate.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        })}
       </button>
     {:else}
       <button class="month-label" onclick={goToToday}>
-        {calendarStore.currentDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+        {calendarStore.currentDate.toLocaleDateString("en-US", {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+        })}
       </button>
     {/if}
 
     <button class="nav-btn" onclick={navFunctions.next} aria-label="Next">
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+      >
         <path d="m9 18 6-6-6-6" />
       </svg>
     </button>
@@ -90,17 +128,20 @@
 
   <div class="view-toggle">
     <button
-      class:active={calendarStore.viewMode === 'month'}
-      onclick={() => calendarStore.setViewMode('month')}
-    >Month</button>
+      class:active={calendarStore.viewMode === "month"}
+      onclick={() => calendarStore.setViewMode("month")}
+      title="Month View">{isPortrait ? "M" : "Month"}</button
+    >
     <button
-      class:active={calendarStore.viewMode === 'week'}
-      onclick={() => calendarStore.setViewMode('week')}
-    >Week</button>
+      class:active={calendarStore.viewMode === "week"}
+      onclick={() => calendarStore.setViewMode("week")}
+      title="Week View">{isPortrait ? "W" : "Week"}</button
+    >
     <button
-      class:active={calendarStore.viewMode === 'day'}
-      onclick={() => calendarStore.setViewMode('day')}
-    >Day</button>
+      class:active={calendarStore.viewMode === "day"}
+      onclick={() => calendarStore.setViewMode("day")}
+      title="Day View">{isPortrait ? "D" : "Day"}</button
+    >
   </div>
 </div>
 
