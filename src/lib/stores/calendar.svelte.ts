@@ -70,9 +70,10 @@ export const calendarStore = {
             for (const task of tasks) {
                 const deadline = task.deadline ?? null;
                 if (deadline) {
-                    const existing = nextTasksByDate.get(deadline) || [];
+                    const dateOnly = deadline.split('T')[0];
+                    const existing = nextTasksByDate.get(dateOnly) || [];
                     existing.push(task);
-                    nextTasksByDate.set(deadline, existing);
+                    nextTasksByDate.set(dateOnly, existing);
                 }
             }
 

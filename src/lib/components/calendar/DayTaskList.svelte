@@ -1,18 +1,26 @@
 <script lang="ts">
-  import { calendarStore } from '$lib/stores/calendar.svelte';
-  import { uiStore } from '$lib/stores/ui.svelte';
-  import { taskStore } from '$lib/stores/tasks.svelte';
-  import { projectStore } from '$lib/stores/projects.svelte';
-  import TimeDisplay from '$lib/components/common/TimeDisplay.svelte';
+  import { calendarStore } from "$lib/stores/calendar.svelte";
+  import { uiStore } from "$lib/stores/ui.svelte";
+  import { taskStore } from "$lib/stores/tasks.svelte";
+  import { projectStore } from "$lib/stores/projects.svelte";
+  import TimeDisplay from "$lib/components/common/TimeDisplay.svelte";
 
-  let selectedDateStr = $derived(calendarStore.selectedDate ? calendarStore.dateToString(calendarStore.selectedDate) : null);
-  let tasks = $derived(selectedDateStr ? calendarStore.getTasksForDate(selectedDateStr) : []);
-  let events = $derived(selectedDateStr ? calendarStore.getEventsForDate(selectedDateStr) : []);
+  let selectedDateStr = $derived(
+    calendarStore.selectedDate
+      ? calendarStore.dateToString(calendarStore.selectedDate)
+      : null,
+  );
+  let tasks = $derived(
+    selectedDateStr ? calendarStore.getTasksForDate(selectedDateStr) : [],
+  );
+  let events = $derived(
+    selectedDateStr ? calendarStore.getEventsForDate(selectedDateStr) : [],
+  );
 
   function getProjectColor(projectId: number | null): string {
-    if (!projectId) return 'var(--text-tertiary)';
-    const project = projectStore.projects.find(p => p.id === projectId);
-    return project?.color || 'var(--text-tertiary)';
+    if (!projectId) return "var(--text-tertiary)";
+    const project = projectStore.projects.find((p) => p.id === projectId);
+    return project?.color || "var(--text-tertiary)";
   }
 
   function handleTaskClick(task: any) {
@@ -24,13 +32,24 @@
       uiStore.openTaskModal({ deadline: selectedDateStr });
     }
   }
+
+  function formatTime(deadline: string | null): string | null {
+    if (!deadline || !deadline.includes("T")) return null;
+    const timePart = deadline.split("T")[1];
+    if (!timePart) return null;
+    return timePart.substring(0, 5);
+  }
 </script>
 
 <div class="day-task-list">
   <div class="list-header">
     <h3>
       {#if calendarStore.selectedDate}
-        {calendarStore.selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+        {calendarStore.selectedDate.toLocaleDateString("en-US", {
+          weekday: "long",
+          month: "long",
+          day: "numeric",
+        })}
       {:else}
         Select a date
       {/if}
@@ -56,7 +75,10 @@
         <div class="section">
           <h4>Events</h4>
           {#each events as event}
-            <div class="event-item" style="border-left-color: {event.color || 'var(--accent)'}">
+            <div
+              class="event-item"
+              style="border-left-color: {event.color || 'var(--accent)'}"
+            >
               <span class="event-title">{event.title}</span>
             </div>
           {/each}
@@ -67,20 +89,37 @@
         <div class="section">
           <h4>Tasks</h4>
           {#each tasks as task}
-            <div 
-              class="task-item" 
+            <div
+              class="task-item"
               onclick={() => handleTaskClick(task)}
               role="button"
               tabindex="0"
-              onkeydown={(e) => e.key === 'Enter' && handleTaskClick(task)}
+              onkeydown={(e) => e.key === "Enter" && handleTaskClick(task)}
             >
-              <div class="project-indicator" style="background-color: {getProjectColor(task.project_id)}"></div>
+              <div
+                class="project-indicator"
+                style="background-color: {getProjectColor(
+                  task.project_id ?? null,
+                )}"
+              ></div>
               <div class="task-info">
-                <span class="task-title" class:completed={task.completed}>{task.title}</span>
+                <div class="task-main-row">
+                  <span class="task-title" class:completed={task.completed}
+                    >{task.title}</span
+                  >
+                  {#if formatTime(task.deadline ?? null)}
+                    <span class="task-scheduled-time"
+                      >{formatTime(task.deadline ?? null)}</span
+                    >
+                  {/if}
+                </div>
                 <div class="task-meta">
                   {#if task.total_time_seconds > 0}
                     <span class="task-time">
-                      <TimeDisplay seconds={task.total_time_seconds} format="short" />
+                      <TimeDisplay
+                        seconds={task.total_time_seconds}
+                        format="short"
+                      />
                     </span>
                   {/if}
                 </div>
@@ -198,12 +237,34 @@
     flex: 1;
     display: flex;
     flex-direction: column;
+    gap: 2px;
+  }
+
+  .task-main-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-sm);
   }
 
   .task-title {
     font-size: 14px;
     font-weight: 500;
     color: var(--text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .task-scheduled-time {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--bg-secondary);
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    flex-shrink: 0;
   }
 
   .task-title.completed {
