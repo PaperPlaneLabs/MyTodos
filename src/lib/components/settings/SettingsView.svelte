@@ -656,6 +656,23 @@
         width: 140px;
         font-size: 12px;
         padding: 6px 10px;
+        color: var(--text-primary);
+        background-color: var(--bg-primary);
+        border: 1px solid var(--border);
+        color-scheme: light;
+    }
+
+    .break-interval-select option {
+        color: var(--text-primary);
+        background-color: var(--bg-primary);
+    }
+
+    :global([data-theme="dark"]) .break-interval-select,
+    :global([data-theme="retro"]) .break-interval-select,
+    :global([data-theme="ocean"]) .break-interval-select,
+    :global([data-theme="nord"]) .break-interval-select,
+    :global([data-theme="minecraft"]) .break-interval-select {
+        color-scheme: dark;
     }
 
     .break-interval-select:disabled {
