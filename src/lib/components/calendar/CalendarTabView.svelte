@@ -7,7 +7,6 @@
   import CalendarHeader from "./CalendarHeader.svelte";
   import CalendarMonth from "./CalendarMonth.svelte";
   import CalendarWeek from "./CalendarWeek.svelte";
-  import CalendarDay from "./CalendarDay.svelte";
   import TimeEntryPanel from "./TimeEntryPanel.svelte";
   import DayTaskList from "./DayTaskList.svelte";
 
@@ -63,19 +62,15 @@
         <div class="calendar-content">
           {#if calendarStore.viewMode === "month"}
             <CalendarMonth />
-          {:else if calendarStore.viewMode === "week"}
-            <CalendarWeek />
           {:else}
-            <CalendarDay />
+            <CalendarWeek />
           {/if}
         </div>
       </div>
 
-      {#if calendarStore.viewMode !== "day"}
-        <div class="day-list-panel">
-          <DayTaskList />
-        </div>
-      {/if}
+      <div class="day-list-panel">
+        <DayTaskList />
+      </div>
 
       {#if uiStore.calendarSelectedEntry}
         <div class="entry-panel-wrapper">

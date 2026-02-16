@@ -3,7 +3,7 @@ import type { CalendarDay, TimeEntryWithTask } from '$lib/types/calendar';
 
 let currentDate = $state<Date>(new Date());
 let selectedDate = $state<Date | null>(null);
-let viewMode = $state<'month' | 'week' | 'day'>('month');
+let viewMode = $state<'month' | 'week'>('month');
 let tasksByDate = $state<Map<string, Task[]>>(new Map());
 let eventsByDate = $state<Map<string, CalendarEvent[]>>(new Map());
 let timeEntriesByDate = $state<Map<string, TimeEntryWithTask[]>>(new Map());
@@ -33,7 +33,7 @@ export const calendarStore = {
         }
     },
 
-    setViewMode(mode: 'month' | 'week' | 'day') {
+    setViewMode(mode: 'month' | 'week') {
         viewMode = mode;
         void this.ensureCurrentRangeLoaded();
     },
@@ -128,10 +128,6 @@ export const calendarStore = {
             start = this.getWeekStart(currentDate);
             end = new Date(start);
             end.setDate(start.getDate() + 6);
-        } else if (viewMode === 'day') {
-            start = new Date(currentDate);
-            start.setHours(0, 0, 0, 0);
-            end = new Date(start);
         } else {
             const year = currentDate.getFullYear();
             const month = currentDate.getMonth();

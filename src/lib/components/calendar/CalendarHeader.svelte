@@ -45,24 +45,10 @@
     calendarStore.setCurrentDate(newDate);
   }
 
-  function previousDay() {
-    const newDate = new Date(calendarStore.currentDate);
-    newDate.setDate(newDate.getDate() - 1);
-    calendarStore.setCurrentDate(newDate);
-  }
-
-  function nextDay() {
-    const newDate = new Date(calendarStore.currentDate);
-    newDate.setDate(newDate.getDate() + 1);
-    calendarStore.setCurrentDate(newDate);
-  }
-
   function getNavFunctions() {
     switch (calendarStore.viewMode) {
       case "week":
         return { prev: previousWeek, next: nextWeek };
-      case "day":
-        return { prev: previousDay, next: nextDay };
       default:
         return { prev: previousMonth, next: nextMonth };
     }
@@ -95,18 +81,10 @@
         {months[calendarStore.currentDate.getMonth()]}
         {calendarStore.currentDate.getFullYear()}
       </button>
-    {:else if calendarStore.viewMode === "week"}
+    {:else}
       <button class="month-label" onclick={goToToday}>
         Week of {calendarStore.currentDate.toLocaleDateString("en-US", {
           month: "short",
-          day: "numeric",
-        })}
-      </button>
-    {:else}
-      <button class="month-label" onclick={goToToday}>
-        {calendarStore.currentDate.toLocaleDateString("en-US", {
-          weekday: "long",
-          month: "long",
           day: "numeric",
         })}
       </button>
@@ -136,11 +114,6 @@
       class:active={calendarStore.viewMode === "week"}
       onclick={() => calendarStore.setViewMode("week")}
       title="Week View">{isPortrait ? "W" : "Week"}</button
-    >
-    <button
-      class:active={calendarStore.viewMode === "day"}
-      onclick={() => calendarStore.setViewMode("day")}
-      title="Day View">{isPortrait ? "D" : "Day"}</button
     >
   </div>
 </div>
