@@ -89,12 +89,10 @@
         <div class="section">
           <h4>Tasks</h4>
           {#each tasks as task}
-            <div
+            <button
               class="task-item"
               onclick={() => handleTaskClick(task)}
-              role="button"
-              tabindex="0"
-              onkeydown={(e) => e.key === "Enter" && handleTaskClick(task)}
+              type="button"
             >
               <div
                 class="project-indicator"
@@ -127,7 +125,7 @@
               {#if task.completed}
                 <span class="completed-badge">✓</span>
               {/if}
-            </div>
+            </button>
           {/each}
         </div>
       {/if}

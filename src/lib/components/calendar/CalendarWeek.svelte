@@ -1,388 +1,351 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte';
-  import { calendarStore } from '$lib/stores/calendar.svelte';
-  import { uiStore } from '$lib/stores/ui.svelte';
-  import type { TimeEntryWithTask } from '$lib/types/calendar';
-  import TimeDisplay from '$lib/components/common/TimeDisplay.svelte';
+  import { onMount, tick } from "svelte";
+  import { calendarStore } from "$lib/stores/calendar.svelte";
+  import { uiStore } from "$lib/stores/ui.svelte";
+  import { projectStore } from "$lib/stores/projects.svelte";
+  import type { Task, CalendarEvent } from "$lib/services/db";
+  import TimeDisplay from "$lib/components/common/TimeDisplay.svelte";
 
-  interface PositionedEntry {
-    entry: TimeEntryWithTask;
-    top: number;
-    height: number;
-    leftPercent: number;
-    widthPercent: number;
-  }
-
-  interface WorkingEntry {
-    entry: TimeEntryWithTask;
-    startMinutes: number;
-    endMinutes: number;
-    lane: number;
-  }
-
-  const hours = Array.from({ length: 24 }, (_, i) => i);
-  let weekContainer = $state<HTMLDivElement | null>(null);
-  let isPortrait = $derived(uiStore.windowOrientation === 'left' || uiStore.windowOrientation === 'right');
-  let pxPerMinute = $derived(isPortrait ? 0.8 : 1);
-  let hourHeight = $derived(60 * pxPerMinute);
-  let timelineHeight = $derived(1440 * pxPerMinute);
-
-  let weekStart = $derived(calendarStore.getWeekStart(calendarStore.currentDate));
-
+  // Derived state
+  let weekStart = $derived(
+    calendarStore.getWeekStart(calendarStore.currentDate),
+  );
   let weekDays = $derived(calendarStore.generateWeekDays(weekStart));
+  let isPortrait = $derived(
+    uiStore.windowOrientation === "left" ||
+      uiStore.windowOrientation === "right",
+  );
 
-  function getEntriesForDay(date: Date): TimeEntryWithTask[] {
+  // Helpers
+  function getProjectColor(projectId: number | null): string {
+    if (!projectId) return "var(--text-tertiary)";
+    const project = projectStore.projects.find((p) => p.id === projectId);
+    return project?.color || "var(--text-tertiary)";
+  }
+
+  function formatTimeFromDate(date: Date): string {
+    return date.toLocaleTimeString("en-US", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  }
+
+  function formatDocsTime(deadline: string | null): string | null {
+    if (!deadline || !deadline.includes("T")) return null;
+    const timePart = deadline.split("T")[1];
+    if (!timePart) return null;
+    const [hours, minutes] = timePart.split(":");
+    const date = new Date();
+    date.setHours(parseInt(hours), parseInt(minutes));
+    return formatTimeFromDate(date);
+  }
+
+  function getSortableTime(deadline: string | null): string {
+    if (!deadline || !deadline.includes("T")) return "99:99"; // Sort to bottom if using string sort, but we handle separation logic
+    return deadline.split("T")[1];
+  }
+
+  function handleTaskClick(task: Task) {
+    uiStore.openTaskModal({ taskId: task.id });
+  }
+
+  type ScheduleItem = {
+    type: "task" | "event";
+    id: number | string;
+    title: string;
+    color: string;
+    time: string | null;
+    isAllDay: boolean;
+    sortTime: string; // HH:MM for sorting
+    data: Task | CalendarEvent;
+  };
+
+  function getDayItems(date: Date) {
     const dateStr = calendarStore.dateToString(date);
-    return [...(calendarStore.timeEntriesByDate.get(dateStr) || [])].sort(
-      (a, b) => a.started_at - b.started_at
-    );
-  }
+    const tasks = calendarStore.getTasksForDate(dateStr);
+    const events = calendarStore.getEventsForDate(dateStr);
 
-  function getMinutesFromTimestamp(timestamp: number): number {
-    const date = new Date(timestamp * 1000);
-    return (date.getHours() * 60) + date.getMinutes();
-  }
+    const items: ScheduleItem[] = [];
 
-  function getLaidOutEntries(date: Date): PositionedEntry[] {
-    const entries = getEntriesForDay(date);
-    if (entries.length === 0) {
-      return [];
-    }
-
-    const workingEntries: WorkingEntry[] = entries.map((entry) => {
-      const startMinutes = Math.max(0, Math.min(1439, getMinutesFromTimestamp(entry.started_at)));
-      const durationMinutes = Math.max(1, Math.round(entry.duration_seconds / 60));
-      const endMinutes = Math.min(1440, startMinutes + durationMinutes);
-      return {
-        entry,
-        startMinutes,
-        endMinutes,
-        lane: 0,
-      };
+    // Process Tasks
+    tasks.forEach((task) => {
+      const hasTime = task.deadline && task.deadline.includes("T");
+      items.push({
+        type: "task",
+        id: task.id,
+        title: task.title,
+        color: getProjectColor(task.project_id ?? null),
+        time: hasTime ? formatDocsTime(task.deadline ?? null) : null,
+        isAllDay: !hasTime,
+        sortTime: hasTime ? getSortableTime(task.deadline ?? null) : "23:59",
+        data: task,
+      });
     });
 
-    const clusters: WorkingEntry[][] = [];
-    let currentCluster: WorkingEntry[] = [];
-    let clusterEnd = -1;
+    // Process Events
+    events.forEach((event) => {
+      // Assuming event structure. If we don't have start time in event object from getEventsForDate,
+      // checking how it was used in Day view: {event.is_all_day ? 'All day' : ''}
+      // We'll treat all events without explicit start time logic as all-day or check if we have properties.
+      // Based on types seen in other files, events usually have title, color, is_all_day.
+      // We'll place them at bottom if all_day.
+      items.push({
+        type: "event",
+        id: event.id || Math.random().toString(), // fallback id
+        title: event.title,
+        color: event.color || "var(--accent)",
+        time: event.is_all_day ? null : "Event", // Placeholder if we had time
+        isAllDay: !!event.is_all_day,
+        sortTime: "23:59", // Default to bottom for events if no precise time
+        data: event,
+      });
+    });
 
-    for (const entry of workingEntries) {
-      if (currentCluster.length === 0 || entry.startMinutes < clusterEnd) {
-        currentCluster.push(entry);
-        clusterEnd = Math.max(clusterEnd, entry.endMinutes);
-      } else {
-        clusters.push(currentCluster);
-        currentCluster = [entry];
-        clusterEnd = entry.endMinutes;
-      }
-    }
+    // Sort: Timed items first (sorted by time), then All-Day items (as requested by user "at the bottom")
+    const timedItems = items.filter((i) => !i.isAllDay);
+    const allDayItems = items.filter((i) => i.isAllDay);
 
-    if (currentCluster.length > 0) {
-      clusters.push(currentCluster);
-    }
+    timedItems.sort((a, b) => a.sortTime.localeCompare(b.sortTime));
 
-    const laidOut: PositionedEntry[] = [];
+    // Sort all day items by type then title
+    allDayItems.sort((a, b) => {
+      if (a.type !== b.type) return a.type === "event" ? -1 : 1; // Events first in bottom section? Or doesn't matter.
+      return a.title.localeCompare(b.title);
+    });
 
-    for (const cluster of clusters) {
-      const laneEnds: number[] = [];
-      for (const entry of cluster) {
-        let lane = laneEnds.findIndex((endMinutes) => endMinutes <= entry.startMinutes);
-        if (lane === -1) {
-          lane = laneEnds.length;
-          laneEnds.push(entry.endMinutes);
-        } else {
-          laneEnds[lane] = entry.endMinutes;
-        }
-        entry.lane = lane;
-      }
-
-      const laneCount = Math.max(1, laneEnds.length);
-      for (const entry of cluster) {
-        laidOut.push({
-          entry: entry.entry,
-          top: entry.startMinutes * pxPerMinute,
-          height: Math.max((entry.endMinutes - entry.startMinutes) * pxPerMinute, 20),
-          leftPercent: (entry.lane / laneCount) * 100,
-          widthPercent: 100 / laneCount,
-        });
-      }
-    }
-
-    return laidOut;
+    return [...timedItems, ...allDayItems];
   }
 
   function isToday(date: Date): boolean {
     const today = new Date();
     return date.toDateString() === today.toDateString();
   }
-
-  function getNowMarkerTop(date: Date): number | null {
-    if (!isToday(date)) {
-      return null;
-    }
-    const now = new Date();
-    const nowMinutes = (now.getHours() * 60) + now.getMinutes();
-    return nowMinutes * pxPerMinute;
-  }
-
-  async function scrollToNow() {
-    await tick();
-    if (!weekContainer) {
-      return;
-    }
-
-    const today = weekDays.find((day) => isToday(day.date));
-    if (!today) {
-      return;
-    }
-
-    const nowTop = getNowMarkerTop(today.date);
-    if (nowTop === null) {
-      return;
-    }
-
-    weekContainer.scrollTop = Math.max(0, nowTop - (hourHeight * 2));
-  }
-
-  onMount(() => {
-    void scrollToNow();
-  });
-
-  $effect(() => {
-    weekStart;
-    pxPerMinute;
-    void scrollToNow();
-  });
 </script>
 
-<div class="calendar-week" class:portrait={isPortrait} bind:this={weekContainer}>
-  <div class="time-axis">
-    <div class="corner-cell"></div>
-    {#each hours as hour}
-      <div class="hour-label" class:minor={hour % 6 !== 0} style="height: {hourHeight}px">
-        {#if hour % 6 === 0}
-          {hour}:00
-        {/if}
-      </div>
-    {/each}
-  </div>
-
+<div class="schedule-view" class:portrait={isPortrait}>
   {#each weekDays as day}
-    <div class="day-column" class:today={isToday(day.date)}>
-      <div class="day-header">
+    {@const items = getDayItems(day.date)}
+    <div class="day-row" class:today={isToday(day.date)}>
+      <!-- Left Column: Date -->
+      <div class="date-column">
         <span class="day-name">{day.dayName}</span>
-        <span class="day-number">{day.date.getDate()}</span>
+        <div class="day-number-wrapper">
+          <span class="day-number">{day.date.getDate()}</span>
+        </div>
       </div>
 
-      <div class="day-timeline" style="height: {timelineHeight}px">
-        {#each getLaidOutEntries(day.date) as pos (pos.entry.id)}
-          <button
-            class="time-block"
-            class:selected={uiStore.calendarSelectedEntry?.id === pos.entry.id}
-            style="top: {pos.top}px; height: {pos.height}px; left: calc({pos.leftPercent}% + 4px); width: calc({pos.widthPercent}% - 8px); background-color: {pos.entry.project_color || 'var(--accent)'}"
-            onclick={() => uiStore.selectCalendarEntry(pos.entry)}
-          >
-            <span class="block-task">{pos.entry.task_title}</span>
-            <span class="block-duration">
-              <TimeDisplay seconds={pos.entry.duration_seconds} format="short" />
-            </span>
-          </button>
-        {/each}
-
-        {#if getNowMarkerTop(day.date) !== null}
-          <div class="now-marker" style="top: {getNowMarkerTop(day.date)}px">
-            <span class="now-label">Now</span>
-          </div>
-        {/if}
-
-        <div class="hour-grid">
-          {#each hours as hour}
-            <div class="hour-line" class:minor={hour % 6 !== 0} style="height: {hourHeight}px"></div>
+      <!-- Right Column: Schedule Items -->
+      <div class="items-column">
+        {#if items.length === 0}
+          <div class="empty-slot"></div>
+        {:else}
+          {#each items as item}
+            {#if item.type === "task"}
+              <!-- Task Item -->
+              <button
+                class="schedule-item task"
+                onclick={() => handleTaskClick(item.data as Task)}
+                type="button"
+              >
+                <div class="time-col">
+                  {#if item.time}
+                    <span class="item-time">{item.time}</span>
+                  {:else}
+                    <span class="item-time all-day">All Day</span>
+                  {/if}
+                </div>
+                <div
+                  class="color-bar"
+                  style="background-color: {item.color}"
+                ></div>
+                <div class="content-col">
+                  <span
+                    class="item-title"
+                    class:completed={(item.data as Task).completed}
+                  >
+                    {item.title}
+                  </span>
+                </div>
+                {#if (item.data as Task).completed}
+                  <span class="check-icon">✓</span>
+                {/if}
+              </button>
+            {:else}
+              <!-- Event Item -->
+              <div class="schedule-item event">
+                <div class="time-col">
+                  <span class="item-time all-day">All Day</span>
+                </div>
+                <div
+                  class="color-bar event-bar"
+                  style="background-color: {item.color}"
+                ></div>
+                <div class="content-col">
+                  <span class="item-title">{item.title}</span>
+                </div>
+              </div>
+            {/if}
           {/each}
-        </div>
+        {/if}
       </div>
     </div>
   {/each}
 </div>
 
 <style>
-  .calendar-week {
-    display: grid;
-    grid-template-columns: 50px repeat(7, 1fr);
-    height: 100%;
-    overflow: auto;
-  }
-
-  .calendar-week.portrait {
-    grid-template-columns: 40px repeat(7, 1fr);
-  }
-
-  .time-axis {
-    position: sticky;
-    left: 0;
-    top: 0;
-    z-index: 20;
-    background: var(--bg-secondary);
-    border-right: 1px solid var(--border);
-  }
-
-  .corner-cell {
-    height: 50px;
-    border-bottom: 1px solid var(--border);
-  }
-
-  .hour-label {
+  .schedule-view {
     display: flex;
-    align-items: flex-start;
-    justify-content: flex-end;
-    padding: 4px 8px;
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--text-secondary);
-    border-bottom: 1px solid transparent;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: auto;
+    background: var(--bg-primary);
   }
 
-  .hour-label.minor {
-    color: var(--text-tertiary);
+  .day-row {
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    border-bottom: 1px solid var(--border-light);
+    min-height: 80px;
   }
 
-  .portrait .hour-label {
-    font-size: 10px;
+  .day-row:last-child {
+    border-bottom: none;
   }
 
-  .day-column {
-    border-left: 1px solid var(--border-light);
-    position: relative;
-  }
-
-  .day-column.today {
-    background: color-mix(in srgb, var(--accent) 5%, transparent);
-  }
-
-  .day-header {
-    position: sticky;
-    top: 0;
-    z-index: 10;
+  .date-column {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    height: 50px;
+    padding-top: var(--spacing-md);
+    gap: 4px;
+    border-right: 1px solid var(--border-light);
     background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border);
-    font-size: 12px;
-  }
-
-  .portrait .day-header {
-    height: 40px;
-    font-size: 11px;
   }
 
   .day-name {
-    font-weight: 500;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-
-  .day-number {
-    font-size: 14px;
+    font-size: 11px;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--text-tertiary);
+    text-transform: uppercase;
   }
 
-  .day-column.today .day-number {
-    background: var(--accent);
-    color: white;
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
+  .day-number-wrapper {
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
+    border-radius: 50%;
   }
 
-  .day-timeline {
-    position: relative;
+  .day-number {
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--text-primary);
   }
 
-  .hour-grid {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
+  .day-row.today .day-number-wrapper {
+    background: var(--accent);
   }
 
-  .hour-line {
-    border-bottom: 1px solid var(--border-light);
-  }
-
-  .hour-line.minor {
-    border-bottom: 1px dashed var(--border-light);
-    opacity: 0.5;
-  }
-
-  .time-block {
-    position: absolute;
-    border-radius: var(--radius-sm);
-    padding: 4px 6px;
-    font-size: 11px;
+  .day-row.today .day-number {
     color: white;
-    overflow: hidden;
-    cursor: pointer;
-    transition: all 0.15s;
-    border: none;
-    text-align: left;
+  }
+
+  .day-row.today .day-name {
+    color: var(--accent);
+  }
+
+  .items-column {
+    padding: var(--spacing-sm);
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    box-shadow: var(--shadow-sm);
+    gap: 4px;
   }
 
-  .time-block:hover {
-    transform: scale(1.02);
-    z-index: 5;
-    box-shadow: var(--shadow-md);
+  .empty-slot {
+    height: 20px;
   }
 
-  .time-block.selected {
-    outline: 2px solid var(--accent);
-    outline-offset: 1px;
-    z-index: 10;
+  .schedule-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: 6px 8px;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    border: none;
+    text-align: left;
+    width: 100%;
+    cursor: pointer;
+    transition: background 0.1s;
   }
 
-  .now-marker {
-    position: absolute;
-    left: 0;
-    right: 0;
-    border-top: 2px solid var(--danger);
-    z-index: 6;
-    pointer-events: none;
+  .schedule-item:hover {
+    background: var(--bg-hover);
   }
 
-  .now-label {
-    position: absolute;
-    top: -8px;
-    right: 4px;
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    color: white;
-    background: var(--danger);
-    border-radius: 10px;
-    padding: 1px 6px;
+  .schedule-item.event {
+    cursor: default;
+  }
+
+  .time-col {
+    width: 65px;
+    flex-shrink: 0;
+    text-align: right;
+  }
+
+  .item-time {
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .item-time.all-day {
+    font-size: 10px;
+    color: var(--text-tertiary);
     text-transform: uppercase;
+    font-weight: 600;
   }
 
-  .block-task {
-    font-weight: 600;
+  .color-bar {
+    width: 4px;
+    height: 24px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  /* Distinguish events with a dot or different style if needed, but bar is fine */
+  .color-bar.event-bar {
+    border-radius: 2px;
+    width: 4px;
+  }
+
+  .content-col {
+    flex: 1;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+  }
+
+  .item-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-primary);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    line-height: 1.2;
   }
 
-  .block-duration {
-    font-size: 10px;
-    opacity: 0.9;
-    font-family: var(--font-mono);
+  .item-title.completed {
+    text-decoration: line-through;
+    color: var(--text-tertiary);
+  }
+
+  .check-icon {
+    color: var(--success);
+    font-size: 14px;
+    margin-left: auto;
   }
 </style>
