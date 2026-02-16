@@ -12,11 +12,117 @@ let currentProjectId = $state<number | null>(null);
 let timerChangeCounter = $state(0);
 let lastKnownDay = new Date().getDate();
 let autoPausedReason = $state<AutoPauseReason | null>(null);
+let breakReminderEnabled = $state(true);
+let breakReminderIntervalMinutes = $state(30);
+let breakReminderOpen = $state(false);
+let breakReminderMessage = $state("Quick break time. Stand up, stretch, and reset.");
+let breakReminderTimeoutId: number | null = null;
+let breakReminderInitialized = false;
+let lastBreakMessageIndex = -1;
+
+const BREAK_REMINDER_ENABLED_KEY = "breakReminderEnabled";
+const BREAK_REMINDER_INTERVAL_KEY = "breakReminderIntervalMinutes";
+const BREAK_REMINDER_MIN_MINUTES = 10;
+const BREAK_REMINDER_MAX_MINUTES = 60;
+const BREAK_REMINDER_DEFAULT_MINUTES = 30;
+const BREAK_REMINDER_SNOOZE_MINUTES = 10;
+const BREAK_REMINDER_MESSAGES = [
+  "Quick break time. Stand up, stretch, and reset.",
+  "You have been focused for a while. Grab water and breathe for a minute.",
+  "Eyes off the screen for a bit. Your next session will be sharper.",
+  "Small pause, big gain. Loosen your shoulders and take a short walk.",
+  "Momentum is great, but recovery matters too. Take a quick break.",
+  "Pause now so you can keep a steady pace later.",
+];
 
 function getStartOfToday(): number {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   return Math.floor(now.getTime() / 1000);
+}
+
+function clampBreakReminderMinutes(minutes: number): number {
+  return Math.min(
+    BREAK_REMINDER_MAX_MINUTES,
+    Math.max(BREAK_REMINDER_MIN_MINUTES, Math.round(minutes)),
+  );
+}
+
+function clearBreakReminderTimeout(): void {
+  if (breakReminderTimeoutId !== null) {
+    clearTimeout(breakReminderTimeoutId);
+    breakReminderTimeoutId = null;
+  }
+}
+
+function persistBreakReminderSettings(): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(BREAK_REMINDER_ENABLED_KEY, String(breakReminderEnabled));
+  localStorage.setItem(
+    BREAK_REMINDER_INTERVAL_KEY,
+    String(breakReminderIntervalMinutes),
+  );
+}
+
+function pickBreakReminderMessage(): string {
+  if (BREAK_REMINDER_MESSAGES.length === 1) {
+    return BREAK_REMINDER_MESSAGES[0];
+  }
+
+  let nextIndex = Math.floor(Math.random() * BREAK_REMINDER_MESSAGES.length);
+  while (nextIndex === lastBreakMessageIndex) {
+    nextIndex = Math.floor(Math.random() * BREAK_REMINDER_MESSAGES.length);
+  }
+
+  lastBreakMessageIndex = nextIndex;
+  return BREAK_REMINDER_MESSAGES[nextIndex];
+}
+
+function getContinuousElapsedSeconds(): number {
+  if (!activeTimer?.is_running) {
+    return 0;
+  }
+  return activeTimer.elapsed_seconds + (Date.now() / 1000 - activeTimer.started_at);
+}
+
+function scheduleBreakReminder(delayMs: number): void {
+  clearBreakReminderTimeout();
+
+  if (!activeTimer?.is_running || !breakReminderEnabled) {
+    return;
+  }
+
+  const safeDelayMs = Math.max(1000, Math.floor(delayMs));
+  breakReminderTimeoutId = window.setTimeout(() => {
+    breakReminderTimeoutId = null;
+
+    if (!activeTimer?.is_running || !breakReminderEnabled) {
+      return;
+    }
+
+    breakReminderMessage = pickBreakReminderMessage();
+    breakReminderOpen = true;
+  }, safeDelayMs);
+}
+
+function scheduleAlignedBreakReminder(): void {
+  if (!activeTimer?.is_running || !breakReminderEnabled) {
+    clearBreakReminderTimeout();
+    return;
+  }
+
+  const intervalMs = breakReminderIntervalMinutes * 60 * 1000;
+  const elapsedMs = getContinuousElapsedSeconds() * 1000;
+  let delayMs = intervalMs - (elapsedMs % intervalMs);
+  if (delayMs < 1000) {
+    delayMs = intervalMs;
+  }
+
+  scheduleBreakReminder(delayMs);
+}
+
+function scheduleBreakReminderFromNow(minutes: number): void {
+  scheduleBreakReminder(clampBreakReminderMinutes(minutes) * 60 * 1000);
 }
 
 export const timerStore = {
@@ -68,7 +174,80 @@ export const timerStore = {
     return autoPausedReason !== null && !activeTimer?.is_running;
   },
 
+  get breakReminderEnabled() {
+    return breakReminderEnabled;
+  },
+
+  get breakReminderIntervalMinutes() {
+    return breakReminderIntervalMinutes;
+  },
+
+  get breakReminderOpen() {
+    return breakReminderOpen;
+  },
+
+  get breakReminderMessage() {
+    return breakReminderMessage;
+  },
+
+  initBreakReminders() {
+    if (breakReminderInitialized || typeof window === "undefined") return;
+    breakReminderInitialized = true;
+
+    const savedEnabled = localStorage.getItem(BREAK_REMINDER_ENABLED_KEY);
+    const savedInterval = localStorage.getItem(BREAK_REMINDER_INTERVAL_KEY);
+
+    breakReminderEnabled = savedEnabled !== "false";
+
+    if (savedInterval !== null) {
+      const parsed = Number(savedInterval);
+      if (Number.isFinite(parsed)) {
+        breakReminderIntervalMinutes = clampBreakReminderMinutes(parsed);
+      }
+    } else {
+      breakReminderIntervalMinutes = BREAK_REMINDER_DEFAULT_MINUTES;
+    }
+  },
+
+  setBreakReminderEnabled(enabled: boolean) {
+    breakReminderEnabled = enabled;
+    breakReminderOpen = false;
+    if (enabled && activeTimer?.is_running) {
+      scheduleBreakReminderFromNow(breakReminderIntervalMinutes);
+    } else {
+      clearBreakReminderTimeout();
+    }
+    persistBreakReminderSettings();
+  },
+
+  setBreakReminderInterval(minutes: number) {
+    breakReminderIntervalMinutes = clampBreakReminderMinutes(minutes);
+    if (breakReminderEnabled && activeTimer?.is_running && !breakReminderOpen) {
+      scheduleBreakReminderFromNow(breakReminderIntervalMinutes);
+    }
+    persistBreakReminderSettings();
+  },
+
+  dismissBreakReminder() {
+    breakReminderOpen = false;
+    if (breakReminderEnabled && activeTimer?.is_running) {
+      scheduleBreakReminderFromNow(breakReminderIntervalMinutes);
+    } else {
+      clearBreakReminderTimeout();
+    }
+  },
+
+  snoozeBreakReminder(minutes: number = BREAK_REMINDER_SNOOZE_MINUTES) {
+    breakReminderOpen = false;
+    if (breakReminderEnabled && activeTimer?.is_running) {
+      scheduleBreakReminderFromNow(minutes);
+    } else {
+      clearBreakReminderTimeout();
+    }
+  },
+
   async loadActive() {
+    this.initBreakReminders();
     try {
       const timer = await db.timer.getActive();
       activeTimer = timer;
@@ -98,9 +277,15 @@ export const timerStore = {
             }
           }
           this.startInterval();
+          scheduleAlignedBreakReminder();
         } else {
           currentElapsed = timer.elapsed_seconds;
+          breakReminderOpen = false;
+          clearBreakReminderTimeout();
         }
+      } else {
+        breakReminderOpen = false;
+        clearBreakReminderTimeout();
       }
     } catch (e) {
       console.error("Failed to load active timer:", e);
@@ -108,10 +293,12 @@ export const timerStore = {
   },
 
   async start(taskId: number) {
+    this.initBreakReminders();
     try {
       const timer = await db.timer.start(taskId);
       activeTimer = timer;
       currentElapsed = 0;
+      breakReminderOpen = false;
 
       // Refresh daily total before starting
       dailyTotalBeforeActive = await db.timeEntries.getDailyTotalTime(getStartOfToday());
@@ -130,6 +317,7 @@ export const timerStore = {
       }
 
       this.startInterval();
+      scheduleBreakReminderFromNow(breakReminderIntervalMinutes);
       timerChangeCounter++;
       return timer;
     } catch (e) {
@@ -146,6 +334,8 @@ export const timerStore = {
         currentElapsed = this.elapsed;
       }
       this.stopInterval();
+      breakReminderOpen = false;
+      clearBreakReminderTimeout();
 
       // Refresh daily total after pause (entry might have been created)
       dailyTotalBeforeActive = await db.timeEntries.getDailyTotalTime(getStartOfToday());
@@ -158,6 +348,7 @@ export const timerStore = {
   },
 
   async resume() {
+    this.initBreakReminders();
     try {
       await db.timer.resume();
       if (activeTimer) {
@@ -169,6 +360,8 @@ export const timerStore = {
       currentElapsed = 0;
       autoPausedReason = null; // Clear auto-pause state
       this.startInterval();
+      breakReminderOpen = false;
+      scheduleBreakReminderFromNow(breakReminderIntervalMinutes);
       timerChangeCounter++;
     } catch (e) {
       console.error("Failed to resume timer:", e);
@@ -183,6 +376,8 @@ export const timerStore = {
       activeTimer = null;
       currentElapsed = 0;
       this.stopInterval();
+      breakReminderOpen = false;
+      clearBreakReminderTimeout();
 
       // Reload stores to get authoritative values from database
       await projectStore.loadAll();
@@ -212,6 +407,8 @@ export const timerStore = {
       activeTimer = null;
       currentElapsed = 0;
       this.stopInterval();
+      breakReminderOpen = false;
+      clearBreakReminderTimeout();
 
       // Reload stores to ensure consistency
       await projectStore.loadAll();
@@ -279,6 +476,8 @@ if (typeof window !== 'undefined') {
       }
 
       timerStore.stopInterval();
+      breakReminderOpen = false;
+      clearBreakReminderTimeout();
       timerStore.refreshDailyTotal();
       timerChangeCounter++;
     });
