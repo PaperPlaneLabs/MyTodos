@@ -69,9 +69,19 @@
         onclick={() => dock("left")}
         title="Dock Left"
       >
-        <svg width="12" height="12" viewBox="0 0 12 12"
-          ><path fill="currentColor" d="M1 1h4v10H1V1zm1 1v8h2V2H2z" /></svg
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
         >
+          <rect width="18" height="18" x="3" y="3" rx="2" />
+          <path d="M9 3v18" />
+        </svg>
       </button>
       <button
         class="win-btn maximize"
@@ -95,9 +105,19 @@
         onclick={() => dock("right")}
         title="Dock Right"
       >
-        <svg width="12" height="12" viewBox="0 0 12 12"
-          ><path fill="currentColor" d="M7 1h4v10H7V1zm1 1v8h2V2H8z" /></svg
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
         >
+          <rect width="18" height="18" x="3" y="3" rx="2" />
+          <path d="M15 3v18" />
+        </svg>
       </button>
       <button class="win-btn close" onclick={close} title="Close">
         <svg width="12" height="12" viewBox="0 0 12 12"
