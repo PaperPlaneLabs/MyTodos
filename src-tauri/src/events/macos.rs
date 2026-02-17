@@ -74,7 +74,7 @@ pub fn initialize_macos_listener(app_handle: AppHandle, db: DbConnection) {
                 );
 
                 // Run the loop
-                CFRunLoop::run();
+                CFRunLoop::run_current();
             } else {
                 eprintln!("Failed to register for macOS power events");
             }
