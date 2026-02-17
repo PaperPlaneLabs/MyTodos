@@ -1,5 +1,6 @@
 use super::{auto_pause_if_running, AutoPauseReason};
 use crate::db::DbConnection;
+use core_foundation::base::TCFType;
 use core_foundation::runloop::{kCFRunLoopCommonModes, CFRunLoop};
 use std::os::raw::c_void;
 use std::sync::{Arc, Mutex};
@@ -73,7 +74,7 @@ pub fn initialize_macos_listener(app_handle: AppHandle, db: DbConnection) {
                 );
 
                 // Run the loop
-                run_loop.run();
+                CFRunLoop::run();
             } else {
                 eprintln!("Failed to register for macOS power events");
             }
