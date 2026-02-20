@@ -20,12 +20,16 @@
         { id: "ocean", name: "Ocean", bg: "#001219", accent: "#0a9396" },
         { id: "nord", name: "Nord", bg: "#2e3440", accent: "#88c0d0" },
     ];
+    const breakReminderIntervals = Array.from({ length: 11 }, (_, index) => 10 + index * 5);
 
     let isAutoStartEnabled = $state(false);
     let loading = $state(true);
     let toggling = $state(false);
     let themeDropdownOpen = $state(false);
     let showResetConfirm = $state(false);
+    let showBreakIntervalConfirm = $state(false);
+    let pendingBreakInterval = $state<number | null>(null);
+    let breakIntervalSelectValue = $state("30");
 
     let appVersion = $state("");
     let updateStatus = $state<"idle" | "checking" | "up-to-date" | "available" | "downloading" | "error">("idle");
@@ -34,6 +38,8 @@
     let updateProgress = $state(0);
 
     onMount(async () => {
+        breakIntervalSelectValue = String(timerStore.breakReminderIntervalMinutes);
+
         try {
             appVersion = await getVersion();
         } catch (e) {
@@ -161,6 +167,37 @@
             db.window.center();
         }
     }
+
+    function updateBreakReminderInterval(event: Event) {
+        const target = event.currentTarget as HTMLSelectElement;
+        const nextInterval = Number(target.value);
+        if (!Number.isFinite(nextInterval)) {
+            breakIntervalSelectValue = String(timerStore.breakReminderIntervalMinutes);
+            return;
+        }
+
+        if (nextInterval === timerStore.breakReminderIntervalMinutes) {
+            breakIntervalSelectValue = String(timerStore.breakReminderIntervalMinutes);
+            return;
+        }
+
+        pendingBreakInterval = nextInterval;
+        showBreakIntervalConfirm = true;
+    }
+
+    function confirmBreakIntervalChange() {
+        if (pendingBreakInterval === null) return;
+        timerStore.setBreakReminderInterval(pendingBreakInterval);
+        breakIntervalSelectValue = String(pendingBreakInterval);
+        pendingBreakInterval = null;
+        showBreakIntervalConfirm = false;
+    }
+
+    function cancelBreakIntervalChange() {
+        pendingBreakInterval = null;
+        showBreakIntervalConfirm = false;
+        breakIntervalSelectValue = String(timerStore.breakReminderIntervalMinutes);
+    }
 </script>
 
 <div class="settings-view" transition:fade={{ duration: 200 }}>
@@ -231,8 +268,46 @@
                     <span class="toggle-knob"></span>
                 </button>
             </div>
-            
-             <div class="setting-item">
+
+            <div class="setting-item">
+                <div class="setting-info">
+                    <span class="setting-label">Break Reminders</span>
+                    <span class="setting-desc">Show a break prompt while a timer is running</span>
+                </div>
+                <button
+                    class="toggle-switch"
+                    class:active={timerStore.breakReminderEnabled}
+                    onclick={() => timerStore.setBreakReminderEnabled(!timerStore.breakReminderEnabled)}
+                    title={timerStore.breakReminderEnabled ? "Disable break reminders" : "Enable break reminders"}
+                >
+                    <span class="toggle-knob"></span>
+                </button>
+            </div>
+
+            <div class="setting-item">
+                <div class="setting-info">
+                    <span class="setting-label">Break Interval</span>
+                    <span class="setting-desc">
+                        {#if timerStore.breakReminderEnabled}
+                            Remind every {timerStore.breakReminderIntervalMinutes} minutes
+                        {:else}
+                            Reminders are currently disabled
+                        {/if}
+                    </span>
+                </div>
+                <select
+                    class="input break-interval-select"
+                    bind:value={breakIntervalSelectValue}
+                    onchange={updateBreakReminderInterval}
+                    disabled={!timerStore.breakReminderEnabled}
+                >
+                    {#each breakReminderIntervals as interval}
+                        <option value={interval}>{interval} minutes</option>
+                    {/each}
+                </select>
+            </div>
+             
+              <div class="setting-item">
                 <div class="setting-info">
                     <span class="setting-label">App Updates</span>
                     <span class="setting-desc" class:update-error={updateStatus === "error"} class:update-success={updateStatus === "up-to-date"}>
@@ -371,6 +446,24 @@
             <div style="display: flex; gap: 10px; justify-content: flex-end;">
                 <button class="btn btn-secondary" onclick={() => showResetConfirm = false}>Cancel</button>
                 <button class="btn btn-danger" onclick={handleClearData}>Yes, Delete Everything</button>
+            </div>
+        </div>
+    {/snippet}
+</Modal>
+
+<Modal
+    open={showBreakIntervalConfirm}
+    title="Set Break Interval?"
+    onClose={cancelBreakIntervalChange}
+>
+    {#snippet children()}
+        <div class="reset-confirm-content">
+            <p style="margin-bottom: 20px; color: var(--text-secondary); line-height: 1.5;">
+                Set break reminders to every {pendingBreakInterval ?? timerStore.breakReminderIntervalMinutes} minutes?
+            </p>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick={cancelBreakIntervalChange}>No</button>
+                <button class="btn btn-primary" onclick={confirmBreakIntervalChange}>Yes</button>
             </div>
         </div>
     {/snippet}
@@ -557,6 +650,34 @@
         background: var(--bg-primary);
         color: var(--text-primary);
         box-shadow: var(--shadow-sm);
+    }
+
+    .break-interval-select {
+        width: 140px;
+        font-size: 12px;
+        padding: 6px 10px;
+        color: var(--text-primary);
+        background-color: var(--bg-primary);
+        border: 1px solid var(--border);
+        color-scheme: light;
+    }
+
+    .break-interval-select option {
+        color: var(--text-primary);
+        background-color: var(--bg-primary);
+    }
+
+    :global([data-theme="dark"]) .break-interval-select,
+    :global([data-theme="retro"]) .break-interval-select,
+    :global([data-theme="ocean"]) .break-interval-select,
+    :global([data-theme="nord"]) .break-interval-select,
+    :global([data-theme="minecraft"]) .break-interval-select {
+        color-scheme: dark;
+    }
+
+    .break-interval-select:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
     }
 
     /* Theme Dropdown */
