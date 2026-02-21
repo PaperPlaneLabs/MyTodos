@@ -196,6 +196,8 @@ export const db = {
     setCollapsed: (collapsed: boolean, top: number) => invoke<void>("set_collapsed", { collapsed, top }),
     move: (x: number, y: number) => invoke<void>("move_window", { x, y }),
     startDragging: () => invoke<void>("start_window_drag"),
+    openBreakWindow: (message: string) => invoke<void>("open_break_window", { message }),
+    closeBreakWindow: () => invoke<void>("close_break_window"),
   },
 
   googleCalendar: {

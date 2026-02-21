@@ -2,7 +2,9 @@ use super::common::get_timestamp;
 use crate::db::{DbConnection, WindowState};
 use crate::error::{AppError, Result};
 use serde::{Deserialize, Serialize};
-use tauri::{LogicalPosition, LogicalSize, State, WebviewWindow};
+use tauri::{
+    AppHandle, LogicalPosition, LogicalSize, Manager, State, WebviewWindow, WebviewWindowBuilder,
+};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WindowOrientation {
@@ -227,6 +229,93 @@ pub fn get_window_state(db: State<DbConnection>) -> Result<Option<WindowState>> 
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
         Err(e) => Err(e.into()),
     }
+}
+
+#[tauri::command]
+pub fn open_break_window(app: AppHandle, message: String) -> Result<()> {
+    // If window already exists, bring it to focus
+    if let Some(existing) = app.get_webview_window("break") {
+        existing
+            .set_focus()
+            .map_err(|e| AppError::Other(e.to_string()))?;
+        return Ok(());
+    }
+
+    // Get the main window's current monitor for positioning
+    let main_window = app
+        .get_webview_window("main")
+        .ok_or_else(|| AppError::Other("Could not find main window".to_string()))?;
+
+    let monitor = main_window
+        .current_monitor()
+        .map_err(|e| AppError::Other(e.to_string()))?
+        .ok_or_else(|| AppError::Other("Could not find current monitor".to_string()))?;
+
+    let scale_factor = monitor.scale_factor();
+    let work_area = monitor.work_area();
+
+    let logical_work_x = (work_area.position.x as f64) / scale_factor;
+    let logical_work_y = (work_area.position.y as f64) / scale_factor;
+    let logical_work_width = (work_area.size.width as f64) / scale_factor;
+    let logical_work_height = (work_area.size.height as f64) / scale_factor;
+
+    let width: f64 = 420.0;
+    let height: f64 = 280.0;
+
+    let x = logical_work_x + (logical_work_width - width) / 2.0;
+    let y = logical_work_y + (logical_work_height - height) / 2.0;
+
+    // URL-encode the message for the query param
+    let encoded_message: String = message
+        .chars()
+        .flat_map(|c| match c {
+            'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '.' | '~' => {
+                vec![c]
+            }
+            ' ' => vec!['+'],
+            c => {
+                let mut buf = [0u8; 4];
+                let bytes = c.encode_utf8(&mut buf);
+                bytes
+                    .bytes()
+                    .flat_map(|b| {
+                        let hi = b >> 4;
+                        let lo = b & 0xf;
+                        let hex = b"0123456789ABCDEF";
+                        vec!['%', hex[hi as usize] as char, hex[lo as usize] as char]
+                    })
+                    .collect()
+            }
+        })
+        .collect();
+
+    let url = format!("/break?message={}", encoded_message);
+
+    let break_window = WebviewWindowBuilder::new(&app, "break", tauri::WebviewUrl::App(url.into()))
+        .title("Break Reminder")
+        .inner_size(width, height)
+        .position(x, y)
+        .resizable(false)
+        .decorations(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .focused(true)
+        .build()
+        .map_err(|e| AppError::Other(e.to_string()))?;
+
+    break_window
+        .set_focus()
+        .map_err(|e| AppError::Other(e.to_string()))?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn close_break_window(app: AppHandle) -> Result<()> {
+    if let Some(window) = app.get_webview_window("break") {
+        window.close().map_err(|e| AppError::Other(e.to_string()))?;
+    }
+    Ok(())
 }
 
 #[tauri::command]

@@ -108,6 +108,8 @@ pub fn run() {
             commands::create_calendar_event,
             commands::get_calendar_events_in_range,
             commands::get_window_orientation,
+            commands::open_break_window,
+            commands::close_break_window,
             commands::get_time_entries_with_tasks,
             commands::google_auth_start,
             commands::google_auth_status,

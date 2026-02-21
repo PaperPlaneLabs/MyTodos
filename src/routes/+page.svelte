@@ -29,8 +29,6 @@
   );
   let showResetModal = $state(false);
   let taskToReset = $state<number | null>(null);
-  const BREAK_REMINDER_SNOOZE_MINUTES = 10;
-
   // Deletion State
   let showDeleteModal = $state(false);
   let itemToDelete = $state<{ type: "project" | "task"; id: number } | null>(
@@ -221,18 +219,6 @@
 
   async function handleStopTimer() {
     await timerStore.stop();
-  }
-
-  async function handleTakeBreak() {
-    try {
-      if (timerStore.isRunning) {
-        await timerStore.pause();
-      } else {
-        timerStore.dismissBreakReminder();
-      }
-    } catch (e) {
-      console.error("Failed to pause timer for break:", e);
-    }
   }
 
   function openResetModal(taskId: number) {
@@ -1077,37 +1063,6 @@
 </Modal>
 
 <Modal
-  open={timerStore.breakReminderOpen}
-  title="Time for a quick break?"
-  onClose={() => timerStore.dismissBreakReminder()}
->
-  {#snippet children()}
-    <div class="break-reminder-content">
-      <p class="break-reminder-line">{timerStore.breakReminderMessage}</p>
-      <div class="break-reminder-actions">
-        <button type="button" class="btn btn-warning" onclick={handleTakeBreak}>
-          Take a break
-        </button>
-        <button
-          type="button"
-          class="btn btn-primary"
-          onclick={() => timerStore.dismissBreakReminder()}
-        >
-          Keep going
-        </button>
-        <button
-          type="button"
-          class="btn btn-secondary"
-          onclick={() => timerStore.snoozeBreakReminder(BREAK_REMINDER_SNOOZE_MINUTES)}
-        >
-          Remind me in 10 min
-        </button>
-      </div>
-    </div>
-  {/snippet}
-</Modal>
-
-<Modal
   open={showResetModal}
   title="⚠️ Reset Timer"
   onClose={() => (showResetModal = false)}
@@ -1864,24 +1819,6 @@
 
   .timer-controls {
     display: flex;
-    gap: var(--spacing-sm);
-  }
-
-  .break-reminder-content {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-md);
-  }
-
-  .break-reminder-line {
-    font-size: 13px;
-    line-height: 1.5;
-    color: var(--text-secondary);
-  }
-
-  .break-reminder-actions {
-    display: flex;
-    flex-direction: column;
     gap: var(--spacing-sm);
   }
 

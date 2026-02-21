@@ -1,6 +1,7 @@
 import { db, type ActiveTimer, type AutoPauseEvent, AutoPauseReason } from "$lib/services/db";
 import { taskStore } from "./tasks.svelte";
 import { projectStore } from "./projects.svelte";
+import { invoke } from "@tauri-apps/api/core";
 
 let activeTimer = $state<ActiveTimer | null>(null);
 let dailyTotalBeforeActive = $state(0);
@@ -100,8 +101,13 @@ function scheduleBreakReminder(delayMs: number): void {
       return;
     }
 
-    breakReminderMessage = pickBreakReminderMessage();
-    breakReminderOpen = true;
+    const msg = pickBreakReminderMessage();
+    breakReminderMessage = msg;
+    invoke("open_break_window", { message: msg }).catch((e) => {
+      // Fallback: show in-app modal if window creation fails
+      console.error("Failed to open break window:", e);
+      breakReminderOpen = true;
+    });
   }, safeDelayMs);
 }
 
@@ -461,7 +467,7 @@ export const timerStore = {
   },
 };
 
-// Listen for auto-pause events from the backend
+// Listen for auto-pause events from the backend and break window actions
 if (typeof window !== 'undefined') {
   (async () => {
     const { listen } = await import("@tauri-apps/api/event");
@@ -480,6 +486,17 @@ if (typeof window !== 'undefined') {
       clearBreakReminderTimeout();
       timerStore.refreshDailyTotal();
       timerChangeCounter++;
+    });
+
+    await listen<{ action: "take_break" | "dismiss" | "snooze" }>("break:action", (event) => {
+      const { action } = event.payload;
+      if (action === "take_break") {
+        timerStore.pause().catch((e) => console.error("Failed to pause for break:", e));
+      } else if (action === "dismiss") {
+        timerStore.dismissBreakReminder();
+      } else if (action === "snooze") {
+        timerStore.snoozeBreakReminder(BREAK_REMINDER_SNOOZE_MINUTES);
+      }
     });
   })();
 }
