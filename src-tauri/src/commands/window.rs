@@ -289,7 +289,7 @@ pub fn open_break_window(app: AppHandle, message: String) -> Result<()> {
         })
         .collect();
 
-    let url = format!("/break?message={}", encoded_message);
+    let url = format!("/break.html?message={}", encoded_message);
 
     let break_window = WebviewWindowBuilder::new(&app, "break", tauri::WebviewUrl::App(url.into()))
         .title("Break Reminder")

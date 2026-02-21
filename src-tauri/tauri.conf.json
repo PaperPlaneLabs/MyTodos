@@ -24,6 +24,7 @@
         "skipTaskbar": false
       }
     ],
+    "withGlobalTauri": true,
     "security": {
       "csp": null
     }
