@@ -33,6 +33,35 @@ pub fn run() {
         .plugin(tauri_plugin_process::init())
         .manage(db_conn.clone())
         .manage(google_state)
+        // ── break.html custom protocol ──────────────────────────────────────────
+        // Serves break.html via breakasset://localhost/ to avoid two problems:
+        //   1. WebviewUrl::App routes through Vite/SvelteKit dev server which
+        //      intercepts all paths via fallback:"index.html" → blank window.
+        //   2. WebviewUrl::CustomProtocol with file:// is blocked by WebView2 on Windows.
+        // In dev: reads from disk on every open (live edits to break.html work).
+        // In prod: embedded via include_bytes! (no filesystem read needed).
+        .register_uri_scheme_protocol("breakasset", |_app, _request| {
+            #[cfg(dev)]
+            let content: Vec<u8> = {
+                let manifest_dir = env!("CARGO_MANIFEST_DIR");
+                let path = std::path::Path::new(manifest_dir)
+                    .parent()
+                    .unwrap_or(std::path::Path::new(manifest_dir))
+                    .join("static")
+                    .join("break.html");
+                std::fs::read(&path).unwrap_or_else(|e| {
+                    eprintln!("[break:diag] failed to read break.html: {}", e);
+                    b"<h1>Error loading break.html</h1>".to_vec()
+                })
+            };
+            #[cfg(not(dev))]
+            let content: Vec<u8> = include_bytes!("../../static/break.html").to_vec();
+
+            tauri::http::Response::builder()
+                .header("Content-Type", "text/html; charset=utf-8")
+                .body(content)
+                .unwrap_or_else(|_| tauri::http::Response::new(vec![]))
+        })
         .setup(move |app| {
             let app_handle = app.handle().clone();
             let db_clone = db_conn.clone();

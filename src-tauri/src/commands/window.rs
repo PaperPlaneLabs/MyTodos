@@ -277,33 +277,13 @@ pub fn open_break_window(app: AppHandle, message: String, theme: Option<String>)
         message_json, theme_json
     );
 
-    // Resolve break.html path:
-    // - Dev: use CARGO_MANIFEST_DIR at compile time to locate static/break.html directly,
-    //   bypassing the SvelteKit dev server which intercepts all routes via fallback:"index.html".
-    // - Production: use the bundled resource directory (where build/break.html is copied).
-    #[cfg(dev)]
-    let break_file_path = {
-        let manifest_dir = env!("CARGO_MANIFEST_DIR"); // src-tauri/
-        let workspace_root = std::path::Path::new(manifest_dir)
-            .parent()
-            .unwrap_or(std::path::Path::new(manifest_dir));
-        workspace_root.join("static").join("break.html")
-    };
-    #[cfg(not(dev))]
-    let break_file_path = app
-        .path()
-        .resource_dir()
-        .map_err(|e| AppError::Other(format!("Failed to get resource dir: {}", e)))?
-        .join("_up_")
-        .join("break.html");
-
-    println!(
-        "[break:diag] resolving break.html at: {:?}",
-        break_file_path
-    );
+    // Use the custom breakasset:// protocol registered in lib.rs.
+    // This bypasses both the SvelteKit dev server (which intercepts all routes
+    // via fallback:"index.html") and WebView2's file:// security restriction.
+    println!("[break:diag] using breakasset:// custom protocol");
     let url = tauri::WebviewUrl::CustomProtocol(
-        url::Url::from_file_path(&break_file_path)
-            .map_err(|_| AppError::Other("Failed to build file URL for break.html".to_string()))?,
+        url::Url::parse("breakasset://localhost/")
+            .map_err(|e| AppError::Other(format!("Failed to parse breakasset URL: {}", e)))?,
     );
 
     println!(
