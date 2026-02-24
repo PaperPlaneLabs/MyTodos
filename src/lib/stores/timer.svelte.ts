@@ -103,7 +103,8 @@ function scheduleBreakReminder(delayMs: number): void {
 
     const msg = pickBreakReminderMessage();
     breakReminderMessage = msg;
-    invoke("open_break_window", { message: msg }).catch((e) => {
+    const currentTheme = localStorage.getItem("theme") ?? "light";
+    invoke("open_break_window", { message: msg, theme: currentTheme }).catch((e) => {
       // Fallback: show in-app modal if window creation fails
       console.error("Failed to open break window:", e);
       breakReminderOpen = true;

@@ -232,12 +232,14 @@ pub fn get_window_state(db: State<DbConnection>) -> Result<Option<WindowState>> 
 }
 
 #[tauri::command]
-pub fn open_break_window(app: AppHandle, message: String) -> Result<()> {
+pub fn open_break_window(app: AppHandle, message: String, theme: Option<String>) -> Result<()> {
     // If window already exists, bring it to focus
     if let Some(existing) = app.get_webview_window("break") {
+        println!("[break:diag] existing break window found, focusing");
         existing
             .set_focus()
             .map_err(|e| AppError::Other(e.to_string()))?;
+        println!("[break:diag] existing break window focused");
         return Ok(());
     }
 
@@ -265,47 +267,94 @@ pub fn open_break_window(app: AppHandle, message: String) -> Result<()> {
     let x = logical_work_x + (logical_work_width - width) / 2.0;
     let y = logical_work_y + (logical_work_height - height) / 2.0;
 
-    // URL-encode the message for the query param
-    let encoded_message: String = message
-        .chars()
-        .flat_map(|c| match c {
-            'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '.' | '~' => {
-                vec![c]
-            }
-            ' ' => vec!['+'],
-            c => {
-                let mut buf = [0u8; 4];
-                let bytes = c.encode_utf8(&mut buf);
-                bytes
-                    .bytes()
-                    .flat_map(|b| {
-                        let hi = b >> 4;
-                        let lo = b & 0xf;
-                        let hex = b"0123456789ABCDEF";
-                        vec!['%', hex[hi as usize] as char, hex[lo as usize] as char]
-                    })
-                    .collect()
-            }
-        })
-        .collect();
+    let message_json = serde_json::to_string(&message)
+        .map_err(|e| AppError::Other(format!("Failed to serialize break message: {}", e)))?;
+    let theme_str = theme.as_deref().unwrap_or("light");
+    let theme_json = serde_json::to_string(theme_str)
+        .map_err(|e| AppError::Other(format!("Failed to serialize theme: {}", e)))?;
+    let init_script = format!(
+        "window.__BREAK_MESSAGE__ = {}; window.__BREAK_THEME__ = {};",
+        message_json, theme_json
+    );
 
-    let url = format!("/break.html?message={}", encoded_message);
+    // Resolve break.html path:
+    // - Dev: use CARGO_MANIFEST_DIR at compile time to locate static/break.html directly,
+    //   bypassing the SvelteKit dev server which intercepts all routes via fallback:"index.html".
+    // - Production: use the bundled resource directory (where build/break.html is copied).
+    #[cfg(dev)]
+    let break_file_path = {
+        let manifest_dir = env!("CARGO_MANIFEST_DIR"); // src-tauri/
+        let workspace_root = std::path::Path::new(manifest_dir)
+            .parent()
+            .unwrap_or(std::path::Path::new(manifest_dir));
+        workspace_root.join("static").join("break.html")
+    };
+    #[cfg(not(dev))]
+    let break_file_path = app
+        .path()
+        .resource_dir()
+        .map_err(|e| AppError::Other(format!("Failed to get resource dir: {}", e)))?
+        .join("_up_")
+        .join("break.html");
 
-    let break_window = WebviewWindowBuilder::new(&app, "break", tauri::WebviewUrl::App(url.into()))
+    println!(
+        "[break:diag] resolving break.html at: {:?}",
+        break_file_path
+    );
+    let url = tauri::WebviewUrl::CustomProtocol(
+        url::Url::from_file_path(&break_file_path)
+            .map_err(|_| AppError::Other("Failed to build file URL for break.html".to_string()))?,
+    );
+
+    println!(
+        "[break:diag] open_break_window called, target_url={:?}",
+        url
+    );
+    println!("[break:diag] building break window");
+    let break_window = match WebviewWindowBuilder::new(&app, "break", url)
         .title("Break Reminder")
         .inner_size(width, height)
         .position(x, y)
         .resizable(false)
-        .decorations(false)
-        .always_on_top(true)
-        .skip_taskbar(true)
         .focused(true)
+        .initialization_script(&init_script)
+        .on_navigation(|url| {
+            println!("[break:diag] navigation -> {}", url);
+            true
+        })
+        .on_page_load(|_window, payload| {
+            println!(
+                "[break:diag] page_load {:?} -> {}",
+                payload.event(),
+                payload.url()
+            );
+        })
         .build()
-        .map_err(|e| AppError::Other(e.to_string()))?;
+    {
+        Ok(window) => {
+            println!("[break:diag] build success");
+            window
+        }
+        Err(e) => {
+            println!("[break:diag] build failed: {}", e);
+            return Err(AppError::Other(format!(
+                "Failed to build break window: {}",
+                e
+            )));
+        }
+    };
 
-    break_window
-        .set_focus()
-        .map_err(|e| AppError::Other(e.to_string()))?;
+    break_window.on_window_event(|event| {
+        println!("[break:diag] window_event -> {:?}", event);
+    });
+
+    println!("[break:diag] calling set_focus");
+    break_window.set_focus().map_err(|e| {
+        println!("[break:diag] set_focus failed: {}", e);
+        AppError::Other(e.to_string())
+    })?;
+
+    println!("[break:diag] break window created and focused");
 
     Ok(())
 }
@@ -315,6 +364,12 @@ pub fn close_break_window(app: AppHandle) -> Result<()> {
     if let Some(window) = app.get_webview_window("break") {
         window.close().map_err(|e| AppError::Other(e.to_string()))?;
     }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn log_break_diagnostic(message: String) -> Result<()> {
+    println!("[break:diag:js] {}", message);
     Ok(())
 }
 
