@@ -277,14 +277,12 @@ pub fn open_break_window(app: AppHandle, message: String, theme: Option<String>)
         message_json, theme_json
     );
 
-    // Use the custom breakasset:// protocol registered in lib.rs.
-    // This bypasses both the SvelteKit dev server (which intercepts all routes
-    // via fallback:"index.html") and WebView2's file:// security restriction.
-    println!("[break:diag] using breakasset:// custom protocol");
-    let url = tauri::WebviewUrl::CustomProtocol(
-        url::Url::parse("breakasset://localhost/")
-            .map_err(|e| AppError::Other(format!("Failed to parse breakasset URL: {}", e)))?,
-    );
+    // Use the SvelteKit /break route served by WebviewUrl::App.
+    // Dev:  http://localhost:1420/break  (SvelteKit knows this route → no fallback)
+    // Prod: build/break/index.html       (adapter-static generates this file)
+    // window.__TAURI__ is injected correctly because the origin matches the main window.
+    println!("[break:diag] using WebviewUrl::App(break)");
+    let url = tauri::WebviewUrl::App("break".into());
 
     println!(
         "[break:diag] open_break_window called, target_url={:?}",
