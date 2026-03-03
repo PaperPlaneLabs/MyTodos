@@ -232,7 +232,11 @@ pub fn get_window_state(db: State<DbConnection>) -> Result<Option<WindowState>> 
 }
 
 #[tauri::command]
-pub fn open_break_window(app: AppHandle, message: String, theme: Option<String>) -> Result<()> {
+pub async fn open_break_window(
+    app: AppHandle,
+    message: String,
+    theme: Option<String>,
+) -> Result<()> {
     // If window already exists, bring it to focus
     if let Some(existing) = app.get_webview_window("break") {
         println!("[break:diag] existing break window found, focusing");
@@ -277,23 +281,19 @@ pub fn open_break_window(app: AppHandle, message: String, theme: Option<String>)
         message_json, theme_json
     );
 
-    // Use the SvelteKit /break route served by WebviewUrl::App.
-    // Dev:  http://localhost:1420/break  (SvelteKit knows this route → no fallback)
-    // Prod: build/break/index.html       (adapter-static generates this file)
-    // window.__TAURI__ is injected correctly because the origin matches the main window.
-    println!("[break:diag] using WebviewUrl::App(break)");
-    let url = tauri::WebviewUrl::App("break".into());
+    // Load the same SPA (index.html) as the main window.
+    // The frontend checks the window label to decide what UI to render.
+    // This matches the proven Tauri multi-window pattern (bookcicle/tauri-window-testing).
+    println!("[break:diag] using Default::default() (index.html)");
 
-    println!(
-        "[break:diag] open_break_window called, target_url={:?}",
-        url
-    );
     println!("[break:diag] building break window");
-    let break_window = match WebviewWindowBuilder::new(&app, "break", url)
+    let break_window = match WebviewWindowBuilder::new(&app, "break", Default::default())
         .title("Break Reminder")
         .inner_size(width, height)
         .position(x, y)
         .resizable(false)
+        .decorations(true)
+        .visible(true)
         .focused(true)
         .initialization_script(&init_script)
         .on_navigation(|url| {

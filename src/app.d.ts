@@ -4,4 +4,9 @@
 interface Window {
     __BREAK_MESSAGE__?: string;
     __BREAK_THEME__?: string;
+    __TAURI_INTERNALS__?: {
+        metadata?: {
+            currentWindow?: { label: string };
+        };
+    };
 }
