@@ -23,7 +23,7 @@
     });
 
     // ── Tauri API helpers ─────────────────────────────────────────────────────
-    async function emitAndClose(action: "break" | "skip" | "snooze") {
+    async function emitAndClose(action: "take_break" | "dismiss" | "snooze") {
         if (sending) return;
         sending = true;
         try {
@@ -49,7 +49,7 @@
     <div class="actions">
         <button
             class="break-btn break-btn-primary"
-            onclick={() => emitAndClose("break")}
+            onclick={() => emitAndClose("take_break")}
             disabled={sending}
         >
             Take a break
@@ -57,7 +57,7 @@
 
         <button
             class="break-btn break-btn-secondary"
-            onclick={() => emitAndClose("skip")}
+            onclick={() => emitAndClose("dismiss")}
             disabled={sending}
         >
             Keep going

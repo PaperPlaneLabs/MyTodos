@@ -42,8 +42,6 @@
     let showBreakIntervalConfirm = $state(false);
     let pendingBreakInterval = $state<number | null>(null);
     let breakIntervalSelectValue = $state("30");
-    let breakTestOpening = $state(false);
-    let breakTestError = $state("");
 
     let appVersion = $state("");
     let updateStatus = $state<
@@ -227,24 +225,6 @@
             timerStore.breakReminderIntervalMinutes,
         );
     }
-
-    async function testBreakWindowNow() {
-        if (breakTestOpening) return;
-        breakTestOpening = true;
-        breakTestError = "";
-        try {
-            const currentTheme = localStorage.getItem("theme") ?? "light";
-            await db.window.openBreakWindow(
-                "Debug test: break window opened manually.",
-                currentTheme,
-            );
-        } catch (e) {
-            breakTestError = e instanceof Error ? e.message : String(e);
-            console.error("Failed to open test break window:", e);
-        } finally {
-            breakTestOpening = false;
-        }
-    }
 </script>
 
 <div class="settings-view" transition:fade={{ duration: 200 }}>
@@ -381,29 +361,6 @@
                         <option value={interval}>{interval} minutes</option>
                     {/each}
                 </select>
-            </div>
-
-            <div class="setting-item">
-                <div class="setting-info">
-                    <span class="setting-label">Test Break Window</span>
-                    <span
-                        class="setting-desc"
-                        class:update-error={breakTestError !== ""}
-                    >
-                        {#if breakTestError !== ""}
-                            {breakTestError}
-                        {:else}
-                            Open it immediately for debugging
-                        {/if}
-                    </span>
-                </div>
-                <button
-                    class="btn btn-secondary btn-sm"
-                    onclick={testBreakWindowNow}
-                    disabled={breakTestOpening}
-                >
-                    {breakTestOpening ? "Opening..." : "Open now"}
-                </button>
             </div>
 
             <div class="setting-item">

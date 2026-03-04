@@ -239,11 +239,9 @@ pub async fn open_break_window(
 ) -> Result<()> {
     // If window already exists, bring it to focus
     if let Some(existing) = app.get_webview_window("break") {
-        println!("[break:diag] existing break window found, focusing");
         existing
             .set_focus()
             .map_err(|e| AppError::Other(e.to_string()))?;
-        println!("[break:diag] existing break window focused");
         return Ok(());
     }
 
@@ -284,9 +282,7 @@ pub async fn open_break_window(
     // Load the same SPA (index.html) as the main window.
     // The frontend checks the window label to decide what UI to render.
     // This matches the proven Tauri multi-window pattern (bookcicle/tauri-window-testing).
-    println!("[break:diag] using Default::default() (index.html)");
 
-    println!("[break:diag] building break window");
     let break_window = match WebviewWindowBuilder::new(&app, "break", Default::default())
         .title("Break Reminder")
         .inner_size(width, height)
@@ -296,25 +292,12 @@ pub async fn open_break_window(
         .visible(true)
         .focused(true)
         .initialization_script(&init_script)
-        .on_navigation(|url| {
-            println!("[break:diag] navigation -> {}", url);
-            true
-        })
-        .on_page_load(|_window, payload| {
-            println!(
-                "[break:diag] page_load {:?} -> {}",
-                payload.event(),
-                payload.url()
-            );
-        })
+        .on_navigation(|_url| true)
+        .on_page_load(|_window, _payload| {})
         .build()
     {
-        Ok(window) => {
-            println!("[break:diag] build success");
-            window
-        }
+        Ok(window) => window,
         Err(e) => {
-            println!("[break:diag] build failed: {}", e);
             return Err(AppError::Other(format!(
                 "Failed to build break window: {}",
                 e
@@ -322,17 +305,11 @@ pub async fn open_break_window(
         }
     };
 
-    break_window.on_window_event(|event| {
-        println!("[break:diag] window_event -> {:?}", event);
-    });
+    break_window.on_window_event(|_event| {});
 
-    println!("[break:diag] calling set_focus");
-    break_window.set_focus().map_err(|e| {
-        println!("[break:diag] set_focus failed: {}", e);
-        AppError::Other(e.to_string())
-    })?;
-
-    println!("[break:diag] break window created and focused");
+    break_window
+        .set_focus()
+        .map_err(|e| AppError::Other(e.to_string()))?;
 
     Ok(())
 }
