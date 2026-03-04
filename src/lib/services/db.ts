@@ -184,6 +184,8 @@ export const db = {
       invoke<number>("get_daily_total_time", { startTimestamp }),
     getTimeStats: (includeActiveTimer: boolean = true) =>
       invoke<TimeStats>("get_time_stats", { includeActiveTimer }),
+    logBreakTime: (seconds: number) =>
+      invoke<void>("log_break_time", { durationSeconds: seconds }),
   },
 
   window: {

@@ -489,7 +489,7 @@ if (typeof window !== 'undefined') {
       timerChangeCounter++;
     });
 
-    await listen<{ action: "take_break" | "dismiss" | "snooze" }>("break:action", (event) => {
+    await listen<{ action: "take_break" | "dismiss" | "snooze" | "resume" }>("break:action", (event) => {
       const { action } = event.payload;
       if (action === "take_break") {
         timerStore.pause().catch((e) => console.error("Failed to pause for break:", e));
@@ -497,6 +497,8 @@ if (typeof window !== 'undefined') {
         timerStore.dismissBreakReminder();
       } else if (action === "snooze") {
         timerStore.snoozeBreakReminder(BREAK_REMINDER_SNOOZE_MINUTES);
+      } else if (action === "resume") {
+        timerStore.resume().catch((e) => console.error("Failed to resume after break:", e));
       }
     });
   })();

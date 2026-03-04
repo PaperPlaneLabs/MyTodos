@@ -5,6 +5,11 @@
     let message = $state("Time for a quick break?");
     let sending = $state(false);
 
+    let isBreaking = $state(false);
+    let breakElapsedSeconds = $state(0);
+    let breakIntervalId: number | null = null;
+    let breakStartTime = 0;
+
     onMount(() => {
         // Apply theme: prefer injected value > localStorage > default
         const theme =
@@ -20,21 +25,67 @@
         ) {
             message = window.__BREAK_MESSAGE__;
         }
+
+        return () => {
+            if (breakIntervalId !== null) {
+                clearInterval(breakIntervalId);
+            }
+        };
     });
 
     // ── Tauri API helpers ─────────────────────────────────────────────────────
-    async function emitAndClose(action: "take_break" | "dismiss" | "snooze") {
+    async function emitAndClose(
+        action: "take_break" | "dismiss" | "snooze" | "resume",
+    ) {
         if (sending) return;
         sending = true;
         try {
             const { invoke } = await import("@tauri-apps/api/core");
             const { emit } = await import("@tauri-apps/api/event");
+
+            // If we are resuming, log the break time first
+            if (action === "resume" && breakElapsedSeconds > 0) {
+                const { db } = await import("$lib/services/db");
+                await db.timeEntries.logBreakTime(breakElapsedSeconds);
+            }
+
             await emit("break:action", { action });
             await invoke("close_break_window");
         } catch (e) {
             console.error("[break] action failed:", e);
             sending = false;
         }
+    }
+
+    async function startBreak() {
+        if (sending) return;
+        sending = true;
+        try {
+            const { emit } = await import("@tauri-apps/api/event");
+            // Tell main window to pause the timer
+            await emit("break:action", { action: "take_break" });
+
+            isBreaking = true;
+            breakStartTime = Date.now();
+            breakElapsedSeconds = 0;
+
+            breakIntervalId = window.setInterval(() => {
+                breakElapsedSeconds = Math.floor(
+                    (Date.now() - breakStartTime) / 1000,
+                );
+            }, 1000);
+
+            sending = false;
+        } catch (e) {
+            console.error("[break] start break failed:", e);
+            sending = false;
+        }
+    }
+
+    function formatTime(seconds: number): string {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
     }
 </script>
 
@@ -47,29 +98,34 @@
     </p>
 
     <div class="actions">
-        <button
-            class="break-btn break-btn-primary"
-            onclick={() => emitAndClose("take_break")}
-            disabled={sending}
-        >
-            Take a break
-        </button>
+        {#if !isBreaking}
+            <button
+                class="break-btn break-btn-primary"
+                onclick={startBreak}
+                disabled={sending}
+            >
+                Take a break
+            </button>
 
-        <button
-            class="break-btn break-btn-secondary"
-            onclick={() => emitAndClose("dismiss")}
-            disabled={sending}
-        >
-            Keep going
-        </button>
-
-        <button
-            class="break-btn break-btn-ghost"
-            onclick={() => emitAndClose("snooze")}
-            disabled={sending}
-        >
-            Remind me in 10 min
-        </button>
+            <button
+                class="break-btn break-btn-ghost"
+                onclick={() => emitAndClose("snooze")}
+                disabled={sending}
+            >
+                Remind me in 10 min
+            </button>
+        {:else}
+            <div class="break-timer">
+                {formatTime(breakElapsedSeconds)}
+            </div>
+            <button
+                class="break-btn break-btn-primary"
+                onclick={() => emitAndClose("resume")}
+                disabled={sending}
+            >
+                Resume work
+            </button>
+        {/if}
     </div>
 </div>
 
@@ -146,15 +202,6 @@
         background-color: var(--accent-hover);
     }
 
-    .break-btn-secondary {
-        background-color: var(--bg-secondary);
-        color: var(--text-primary);
-        border: 1px solid var(--border);
-    }
-    .break-btn-secondary:hover:not(:disabled) {
-        background-color: var(--bg-tertiary);
-    }
-
     .break-btn-ghost {
         background-color: transparent;
         color: var(--text-tertiary);
@@ -162,5 +209,14 @@
     .break-btn-ghost:hover:not(:disabled) {
         color: var(--text-secondary);
         background-color: var(--bg-hover);
+    }
+
+    .break-timer {
+        font-size: 36px;
+        font-weight: 700;
+        color: var(--accent);
+        font-variant-numeric: tabular-nums;
+        margin: 12px 0 16px;
+        letter-spacing: -0.5px;
     }
 </style>

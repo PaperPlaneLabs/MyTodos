@@ -168,3 +168,70 @@ pub fn reset_timer(db: State<DbConnection>) -> Result<()> {
 
     Ok(())
 }
+
+#[tauri::command]
+pub fn log_break_time(db: State<DbConnection>, duration_seconds: i64) -> Result<()> {
+    if duration_seconds <= 0 {
+        return Ok(());
+    }
+
+    let conn = db.lock();
+    let now = get_timestamp();
+
+    // 1. Find or Create "Breaks" Project
+    let project_id: i64 =
+        match conn.query_row("SELECT id FROM projects WHERE name = 'Breaks'", [], |row| {
+            row.get(0)
+        }) {
+            Ok(id) => id,
+            Err(rusqlite::Error::QueryReturnedNoRows) => {
+                // Create "Breaks" project
+                // Getting highest position to put it at the end
+                let pos: i64 = conn
+                    .query_row(
+                        "SELECT COALESCE(MAX(position), -1) + 1 FROM projects",
+                        [],
+                        |row| row.get(0),
+                    )
+                    .unwrap_or(0);
+
+                conn.execute(
+                "INSERT INTO projects (name, description, color, position, created_at, updated_at) 
+                 VALUES ('Breaks', 'Automatically tracked break time', '#10b981', ?, ?, ?)",
+                (pos, now, now),
+            )?;
+                conn.last_insert_rowid()
+            }
+            Err(e) => return Err(e.into()),
+        };
+
+    // 2. Find or Create "Break" Task under the "Breaks" Project
+    let task_id: i64 = match conn.query_row(
+        "SELECT id FROM tasks WHERE project_id = ? AND title = 'Break'",
+        [project_id],
+        |row| row.get(0),
+    ) {
+        Ok(id) => id,
+        Err(rusqlite::Error::QueryReturnedNoRows) => {
+            conn.execute(
+                "INSERT INTO tasks (project_id, title, description, created_at, updated_at) 
+                 VALUES (?, 'Break', 'Auto-generated task for break time', ?, ?)",
+                (project_id, now, now),
+            )?;
+            conn.last_insert_rowid()
+        }
+        Err(e) => return Err(e.into()),
+    };
+
+    // 3. Insert the time entry
+    conn.execute(
+        "INSERT INTO time_entries (task_id, entry_type, duration_seconds, started_at, ended_at, created_at)
+         VALUES (?, 'manual', ?, ?, ?, ?)",
+        (task_id, duration_seconds, now - duration_seconds, now, now),
+    )?;
+
+    // 4. Update total times for the task and project
+    apply_task_and_parent_time_delta(&conn, task_id, duration_seconds)?;
+
+    Ok(())
+}
