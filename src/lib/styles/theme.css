@@ -10,38 +10,42 @@
   --text-tertiary: #9ca3af;
 
   --accent: #6366f1;
-  --accent-hover: #4f46e5;
-  --accent-light: #eef2ff;
-
   --success: #10b981;
-  --success-light: #d1fae5;
-
   --danger: #ef4444;
-  --danger-light: #fee2e2;
-
   --warning: #f59e0b;
-  --warning-light: #fef3c7;
 
   --border: #e5e7eb;
   --border-light: #f3f4f6;
 
-  --timer-active: #10b981;
-  --timer-paused: #f59e0b;
+  /* Formularic Theme Derivations (computed automatically for all themes) */
+  --theme-shade: #000000;
+  /* Used to mix hover gradients (black for light, white for dark) */
+  --theme-light-mix: transparent;
+  /* Used to mix translucent backgrounds */
 
-  /* Button hover states */
-  --danger-hover: #dc2626;
-  --warning-hover: #ea580c;
+  --accent-hover: color-mix(in srgb, var(--accent) 80%, var(--theme-shade));
+  --danger-hover: color-mix(in srgb, var(--danger) 80%, var(--theme-shade));
+  --warning-hover: color-mix(in srgb, var(--warning) 80%, var(--theme-shade));
+
+  --accent-light: color-mix(in srgb, var(--accent) 15%, var(--theme-light-mix));
+  --success-light: color-mix(in srgb, var(--success) 15%, var(--theme-light-mix));
+  --danger-light: color-mix(in srgb, var(--danger) 15%, var(--theme-light-mix));
+  --warning-light: color-mix(in srgb, var(--warning) 15%, var(--theme-light-mix));
+
+  /* Gradients */
+  --success-gradient-end: color-mix(in srgb, var(--success) 15%, transparent);
+  --warning-gradient-end: color-mix(in srgb, var(--warning) 15%, transparent);
+
+  /* Glow effects */
+  --success-glow: color-mix(in srgb, var(--success) 15%, transparent);
+  --warning-glow: color-mix(in srgb, var(--warning) 15%, transparent);
+  --danger-glow: color-mix(in srgb, var(--danger) 15%, transparent);
+
+  --timer-active: var(--success);
+  --timer-paused: var(--warning);
 
   /* Modal backdrop */
   --modal-backdrop: rgba(0, 0, 0, 0.5);
-
-  /* Gradients */
-  --success-gradient-end: rgba(16, 185, 129, 0.15);
-  --warning-gradient-end: rgba(245, 158, 11, 0.1);
-
-  /* Glow effects */
-  --success-glow: rgba(16, 185, 129, 0.1);
-  --warning-glow: rgba(245, 158, 11, 0.1);
 
   /* Spacing */
   --spacing-xs: 4px;
@@ -70,17 +74,20 @@
   --transition-slow: 300ms ease;
 
   /* Calendar */
-  --calendar-time-bar: #10b981;
-  --calendar-time-block: #6366f1;
-  --calendar-today-bg: color-mix(in srgb, #6366f1 10%, transparent);
-  --calendar-hover-bg: #f1f3f5;
-  --calendar-selected-border: #6366f1;
-  --calendar-grid-border: #e5e7eb;
-  --calendar-timeline-grid: #e5e7eb;
-  --calendar-timeline-current: #ef4444;
+  --calendar-time-bar: var(--success);
+  --calendar-time-block: var(--accent);
+  --calendar-today-bg: color-mix(in srgb, var(--accent) 15%, transparent);
+  --calendar-hover-bg: var(--bg-hover);
+  --calendar-selected-border: var(--accent);
+  --calendar-grid-border: var(--border);
+  --calendar-timeline-grid: var(--border);
+  --calendar-timeline-current: var(--danger);
 }
 
 [data-theme="dark"] {
+  --theme-shade: #ffffff;
+  --modal-backdrop: rgba(0, 0, 0, 0.75);
+
   --bg-primary: #1a1a1a;
   --bg-secondary: #2a2a2a;
   --bg-tertiary: #3a3a3a;
@@ -91,17 +98,9 @@
   --text-tertiary: #9ca3af;
 
   --accent: #818cf8;
-  --accent-hover: #6366f1;
-  --accent-light: #312e81;
-
   --success: #34d399;
-  --success-light: #064e3b;
-
   --danger: #f87171;
-  --danger-light: #7f1d1d;
-
   --warning: #fbbf24;
-  --warning-light: #78350f;
 
   --border: #374151;
   --border-light: #2a2a2a;
@@ -110,134 +109,95 @@
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
 
-  /* Button hover states - brighter for dark mode */
-  --danger-hover: #fca5a5;
-  --warning-hover: #fcd34d;
-
-  /* Modal backdrop - darker for better separation in dark mode */
-  --modal-backdrop: rgba(0, 0, 0, 0.75);
-
-  /* Gradients - adjusted for dark mode */
-  --success-gradient-end: rgba(52, 211, 153, 0.2);
-  --warning-gradient-end: rgba(251, 191, 36, 0.15);
-
-  /* Glow effects - stronger for dark mode */
-  --success-glow: rgba(52, 211, 153, 0.15);
-  --warning-glow: rgba(251, 191, 36, 0.15);
-
-  /* Calendar - darker for dark mode */
-  --calendar-today-bg: color-mix(in srgb, #818cf8 15%, transparent);
-  --calendar-hover-bg: #333333;
-  --calendar-grid-border: #374151;
-  --calendar-timeline-grid: #374151;
+  --calendar-hover-bg: var(--bg-hover);
 }
 
 [data-theme="minecraft"] {
-  --bg-primary: #3d2b1f;
-  --bg-secondary: #4a3528;
-  --bg-tertiary: #5c4333;
-  --bg-hover: #543d2f;
+  --theme-shade: #ffffff;
+  --modal-backdrop: rgba(0, 0, 0, 0.75);
+
+  --bg-primary: #2d231e;
+  --bg-secondary: #3d2f28;
+  --bg-tertiary: #4a3a32;
+  --bg-hover: #45362e;
 
   --text-primary: #f5f5f5;
   --text-secondary: #d4d4d4;
   --text-tertiary: #a1a1a1;
 
-  --accent: #3c8527;
-  --accent-hover: #4da633;
-  --accent-light: #255118;
+  --accent: #55FF55;
+  --success: #55FF55;
+  --danger: #FF5555;
+  --warning: #FFAA00;
 
-  --success: #3c8527;
-  --success-light: #1e3a12;
-
-  --danger: #af1616;
-  --danger-light: #5a0b0b;
-
-  --warning: #e19517;
-  --warning-light: #704b0b;
-
-  --border: #2e1f15;
-  --border-light: #3d2b1f;
+  --border: #1e1713;
+  --border-light: #2d231e;
 
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.6);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.7);
 
   --font-sans: "Courier New", Courier, monospace;
-
-  /* Calendar - Minecraft theme */
-  --calendar-time-bar: #3c8527;
-  --calendar-time-block: #5c4333;
-  --calendar-today-bg: color-mix(in srgb, #3c8527 15%, transparent);
 }
 
 [data-theme="retro"] {
-  --bg-primary: #0c0c0c;
-  --bg-secondary: #1a1a1a;
-  --bg-tertiary: #2a2a2a;
-  --bg-hover: #333333;
+  --theme-shade: #ffffff;
+  --modal-backdrop: rgba(0, 0, 0, 0.85);
+
+  --bg-primary: #050505;
+  --bg-secondary: #111111;
+  --bg-tertiary: #1a1a1a;
+  --bg-hover: #1f1f1f;
 
   --text-primary: #ffb000;
   --text-secondary: #cc8e00;
   --text-tertiary: #996b00;
 
   --accent: #ffb000;
-  --accent-hover: #ffc233;
-  --accent-light: #332300;
-
   --success: #00ff41;
-  --success-light: #00330d;
-
-  --danger: #ff0000;
-  --danger-light: #330000;
-
+  --danger: #ff003c;
   --warning: #ffb000;
-  --warning-light: #332300;
 
   --border: #332200;
   --border-light: #1a1100;
 
-  --font-sans: "Consolas", "Monaco", monospace;
-  --shadow-md: 0 0 10px rgba(255, 176, 0, 0.2);
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 0 10px color-mix(in srgb, var(--accent) 30%, transparent);
+  --shadow-lg: 0 0 15px color-mix(in srgb, var(--accent) 50%, transparent);
 
-  /* Calendar - Retro theme */
-  --calendar-time-bar: #00ff41;
-  --calendar-time-block: #ffb000;
-  --calendar-today-bg: color-mix(in srgb, #ffb000 15%, transparent);
+  --font-sans: "Consolas", "Monaco", monospace;
 }
 
 [data-theme="ocean"] {
+  --theme-shade: #ffffff;
+  --modal-backdrop: rgba(0, 18, 25, 0.75);
+
   --bg-primary: #001219;
   --bg-secondary: #001f2e;
-  --bg-tertiary: #005f73;
-  --bg-hover: #0a9396;
+  --bg-tertiary: #003046;
+  --bg-hover: #00273a;
 
   --text-primary: #e9d8a6;
   --text-secondary: #94d2bd;
-  --text-tertiary: #ee9b00;
+  --text-tertiary: #6b9e8f;
 
   --accent: #0a9396;
-  --accent-hover: #94d2bd;
-  --accent-light: #001f2e;
-
   --success: #94d2bd;
-  --success-light: #005f73;
-
   --danger: #ae2012;
-  --danger-light: #9b2226;
-
   --warning: #ee9b00;
-  --warning-light: #ca6702;
 
-  --border: #005f73;
+  --border: #003046;
   --border-light: #001f2e;
 
-  /* Calendar - Ocean theme */
-  --calendar-time-bar: #94d2bd;
-  --calendar-time-block: #0a9396;
-  --calendar-today-bg: color-mix(in srgb, #0a9396 15%, transparent);
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
 }
 
 [data-theme="nord"] {
+  --theme-shade: #ffffff;
+  --modal-backdrop: rgba(46, 52, 64, 0.75);
+
   --bg-primary: #2e3440;
   --bg-secondary: #3b4252;
   --bg-tertiary: #434c5e;
@@ -248,24 +208,14 @@
   --text-tertiary: #d8dee9;
 
   --accent: #88c0d0;
-  --accent-hover: #81a1c1;
-  --accent-light: #5e81ac;
-
   --success: #a3be8c;
-  --success-light: #8fbcbb;
-
   --danger: #bf616a;
-  --danger-light: #d08770;
-
   --warning: #ebcb8b;
-  --warning-light: #b48ead;
 
   --border: #4c566a;
   --border-light: #3b4252;
 
-  /* Calendar - Nord theme */
-  --calendar-time-bar: #a3be8c;
-  --calendar-time-block: #88c0d0;
-  --calendar-today-bg: color-mix(in srgb, #88c0d0 15%, transparent);
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
 }
-
