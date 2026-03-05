@@ -432,7 +432,14 @@
     const type = uiStore.contextMenuType;
 
     if (type === "project") {
+      const project = projectStore.projects.find((p) => p.id === id);
       return [
+        {
+          type: "colorPicker" as const,
+          label: "Color",
+          currentColor: project?.color ?? "#6366f1",
+          onSelect: (color: string) => projectStore.updateColor(id, color),
+        },
         {
           label: "Edit Project",
           icon: "✏️",
@@ -521,10 +528,6 @@
                   onclick={() => projectStore.setSelected(null)}
                   onkeydown={(e) => handleKeySelect(e, null)}
                 >
-                  <div
-                    class="project-color"
-                    style="background-color: var(--text-tertiary)"
-                  ></div>
                   <div class="project-info">
                     <div class="project-header">
                       <div class="project-name">Tasks</div>
@@ -558,6 +561,7 @@
                     class:timer-paused={timerStore.active &&
                       timerStore.currentProjectId === project.id &&
                       !timerStore.isRunning}
+                    style="border-left-color: {project.color};"
                     role="button"
                     tabindex="0"
                     onclick={() =>
@@ -567,9 +571,13 @@
                       handleContextMenu(e, "project", project.id)}
                   >
                     <div
-                      class="project-color"
-                      style="background-color: {project.color}"
-                    ></div>
+                      class="drag-handle"
+                      aria-label="Drag to reorder"
+                      onpointerdown={(e) =>
+                        handlePointerDown(e, "project", project.id, index)}
+                    >
+                      ⋮⋮
+                    </div>
                     <div class="project-info">
                       <div class="project-header">
                         <div class="project-name">{project.name}</div>
@@ -589,14 +597,6 @@
                           {/if}
                         </div>
                       </div>
-                    </div>
-                    <div
-                      class="drag-handle"
-                      aria-label="Drag to reorder"
-                      onpointerdown={(e) =>
-                        handlePointerDown(e, "project", project.id, index)}
-                    >
-                      ⋮⋮
                     </div>
                   </div>
                 </div>
@@ -1366,9 +1366,14 @@
     color: var(--text-tertiary);
     opacity: 0;
     font-size: 14px;
-    padding: 0 4px;
-    margin-right: -4px;
+    padding: 0 2px;
     transition: opacity 0.2s;
+    flex-shrink: 0;
+  }
+
+  .drag-handle {
+    margin-left: -4px;
+    margin-right: 0;
   }
 
   .project-item:hover .drag-handle,
@@ -1388,6 +1393,7 @@
     padding: var(--spacing-sm) var(--spacing-md);
     background-color: var(--bg-secondary);
     border: 1px solid var(--border);
+    border-left-width: 3px;
     border-radius: var(--radius-md);
     transition: all var(--transition-fast);
     cursor: grab;
@@ -1410,17 +1416,7 @@
     border-color: var(--accent);
   }
 
-  .project-color {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    transition: transform var(--transition-fast);
-  }
-
-  .project-item:hover .project-color {
-    transform: scale(1.3);
-  }
+  /* project-color dot removed; color indicator no longer shown */
 
   .project-info {
     flex: 1;

@@ -82,7 +82,9 @@
   }}
 >
   <div class="day-header-row">
-    <span class="day-number">{day.date.getDate()}</span>
+    <span class="day-number" class:today-num={day.isToday}
+      >{day.date.getDate()}</span
+    >
     {#if day.isCurrentMonth}
       <button
         class="add-task-btn"
@@ -96,8 +98,8 @@
     <div class="day-content">
       {#if calendarStore.viewMode === "month"}
         <div class="count-badge">
+          <span class="count-dot"></span>
           <span class="count">{totalCount}</span>
-          <span class="count-label">{totalCount === 1 ? "item" : "items"}</span>
         </div>
       {:else}
         {#each day.events.slice(0, eventLimit) as event}
@@ -154,12 +156,13 @@
   }
 
   .day-cell.today {
-    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    background: color-mix(in srgb, var(--accent) 6%, transparent);
   }
 
   .day-cell.selected {
     border-color: var(--accent);
     border-width: 2px;
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
   }
 
   .day-cell.other-month {
@@ -175,6 +178,19 @@
     font-size: var(--text-sm);
     font-weight: 500;
     color: var(--text-primary);
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .day-number.today-num {
+    background: var(--accent);
+    color: white;
+    font-weight: 700;
   }
 
   .day-header-row {
@@ -279,29 +295,30 @@
   }
 
   .count-badge {
-    display: flex;
-    flex-direction: column;
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
-    padding: var(--spacing-xs);
-    background: var(--bg-secondary);
-    border-radius: var(--radius-md);
-    border: 1px solid var(--border);
+    gap: 4px;
+    padding: 3px 8px 3px 6px;
+    background: color-mix(in srgb, var(--accent) 18%, transparent);
+    border-radius: 20px;
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
     margin-top: var(--spacing-xs);
+    align-self: flex-start;
+  }
+
+  .count-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
   }
 
   .count {
-    font-size: 16px;
+    font-size: 13px;
     font-weight: 700;
     color: var(--accent);
     line-height: 1;
-  }
-
-  .count-label {
-    font-size: 10px;
-    color: var(--text-tertiary);
-    text-transform: uppercase;
-    font-weight: 600;
   }
 
   @media (max-width: 480px) {
@@ -310,11 +327,16 @@
     }
 
     .count {
-      font-size: 14px;
+      font-size: 12px;
     }
 
-    .count-label {
-      font-size: 8px;
+    .count-badge {
+      padding: 2px 6px 2px 4px;
+    }
+
+    .count-dot {
+      width: 5px;
+      height: 5px;
     }
 
     .task-chip,
