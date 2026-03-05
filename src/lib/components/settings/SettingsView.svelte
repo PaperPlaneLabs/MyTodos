@@ -29,15 +29,21 @@
         { id: "ocean", name: "Ocean", bg: "#001219", accent: "#0a9396" },
         { id: "nord", name: "Nord", bg: "#2e3440", accent: "#88c0d0" },
     ];
-    const breakReminderIntervals = Array.from(
-        { length: 11 },
-        (_, index) => 10 + index * 5,
-    );
+    const breakReminderOptions: { value: number; label: string }[] = [
+        { value: 0, label: "Not Tracked" },
+        { value: 15, label: "15 minutes" },
+        { value: 20, label: "20 minutes" },
+        { value: 25, label: "25 minutes" },
+        { value: 30, label: "30 minutes" },
+        { value: 45, label: "45 minutes" },
+        { value: 60, label: "60 minutes" },
+    ];
 
     let isAutoStartEnabled = $state(false);
     let loading = $state(true);
     let toggling = $state(false);
     let themeDropdownOpen = $state(false);
+    let breakIntervalDropdownOpen = $state(false);
     let showResetConfirm = $state(false);
     let showBreakIntervalConfirm = $state(false);
     let pendingBreakInterval = $state<number | null>(null);
@@ -192,7 +198,7 @@
     function updateBreakReminderInterval(event: Event) {
         const target = event.currentTarget as HTMLSelectElement;
         const nextInterval = Number(target.value);
-        if (!Number.isFinite(nextInterval)) {
+        if (!Number.isFinite(nextInterval) || nextInterval < 0) {
             breakIntervalSelectValue = String(
                 timerStore.breakReminderIntervalMinutes,
             );
@@ -203,6 +209,13 @@
             breakIntervalSelectValue = String(
                 timerStore.breakReminderIntervalMinutes,
             );
+            return;
+        }
+
+        // "Not Tracked" (0) applies immediately — no confirm needed
+        if (nextInterval === 0) {
+            timerStore.setBreakReminderInterval(0);
+            breakIntervalSelectValue = "0";
             return;
         }
 
@@ -343,7 +356,9 @@
                 <div class="setting-info">
                     <span class="setting-label">Break Interval</span>
                     <span class="setting-desc">
-                        {#if timerStore.breakReminderEnabled}
+                        {#if timerStore.breakReminderIntervalMinutes === 0}
+                            Break time is not tracked
+                        {:else if timerStore.breakReminderEnabled}
                             Remind every {timerStore.breakReminderIntervalMinutes}
                             minutes
                         {:else}
@@ -351,17 +366,66 @@
                         {/if}
                     </span>
                 </div>
-                <select
-                    class="input break-interval-select"
-                    bind:value={breakIntervalSelectValue}
-                    onchange={updateBreakReminderInterval}
-                    disabled={!timerStore.breakReminderEnabled}
-                >
-                    {#each breakReminderIntervals as interval}
-                        <option value={interval}>{interval} minutes</option>
-                    {/each}
-                </select>
+                <div class="break-interval-dropdown-container">
+                    <button
+                        class="break-interval-trigger"
+                        onclick={() =>
+                            (breakIntervalDropdownOpen =
+                                !breakIntervalDropdownOpen)}
+                    >
+                        <span class="break-interval-current">
+                            {breakReminderOptions.find(
+                                (o) =>
+                                    String(o.value) ===
+                                    breakIntervalSelectValue,
+                            )?.label ?? "Select..."}
+                        </span>
+                        <span class="chevron">▼</span>
+                    </button>
+                    {#if breakIntervalDropdownOpen}
+                        <div
+                            class="break-interval-menu"
+                            transition:slide={{ duration: 150 }}
+                        >
+                            {#each breakReminderOptions as opt}
+                                <button
+                                    class="break-interval-option"
+                                    class:selected={String(opt.value) ===
+                                        breakIntervalSelectValue}
+                                    onclick={() => {
+                                        breakIntervalDropdownOpen = false;
+                                        const prev = Number(
+                                            breakIntervalSelectValue,
+                                        );
+                                        if (opt.value === prev) return;
+                                        if (opt.value === 0) {
+                                            timerStore.setBreakReminderInterval(
+                                                0,
+                                            );
+                                            breakIntervalSelectValue = "0";
+                                        } else {
+                                            pendingBreakInterval = opt.value;
+                                            breakIntervalSelectValue = String(
+                                                opt.value,
+                                            );
+                                            showBreakIntervalConfirm = true;
+                                        }
+                                    }}
+                                >
+                                    {opt.label}
+                                </button>
+                            {/each}
+                        </div>
+                    {/if}
+                </div>
             </div>
+
+            {#if breakIntervalDropdownOpen}
+                <div
+                    class="backdrop"
+                    onclick={() => (breakIntervalDropdownOpen = false)}
+                ></div>
+            {/if}
 
             <div class="setting-item">
                 <div class="setting-info">
@@ -800,32 +864,74 @@
         box-shadow: var(--shadow-sm);
     }
 
-    .break-interval-select {
-        width: 140px;
-        font-size: 12px;
-        padding: 6px 10px;
-        color: var(--text-primary);
-        background-color: var(--bg-primary);
+    /* Break Interval Custom Dropdown */
+    .break-interval-dropdown-container {
+        position: relative;
+        flex-shrink: 0;
+    }
+
+    .break-interval-trigger {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 12px;
+        background: var(--bg-primary);
         border: 1px solid var(--border);
-        color-scheme: light;
-    }
-
-    .break-interval-select option {
+        border-radius: var(--radius-md);
+        cursor: pointer;
+        min-width: 140px;
+        justify-content: space-between;
         color: var(--text-primary);
-        background-color: var(--bg-primary);
+        font-size: 13px;
+        transition: all var(--transition-fast);
     }
 
-    :global([data-theme="dark"]) .break-interval-select,
-    :global([data-theme="retro"]) .break-interval-select,
-    :global([data-theme="ocean"]) .break-interval-select,
-    :global([data-theme="nord"]) .break-interval-select,
-    :global([data-theme="minecraft"]) .break-interval-select {
-        color-scheme: dark;
+    .break-interval-trigger:hover {
+        border-color: var(--accent);
     }
 
-    .break-interval-select:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
+    .break-interval-current {
+        font-weight: 500;
+    }
+
+    .break-interval-menu {
+        position: absolute;
+        top: 100%;
+        right: 0;
+        margin-top: 4px;
+        background: var(--bg-primary);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        box-shadow: var(--shadow-lg);
+        width: 160px;
+        z-index: 1000;
+        padding: 4px;
+        overflow: hidden;
+    }
+
+    .break-interval-option {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        padding: 6px 10px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        border-radius: var(--radius-sm);
+        color: var(--text-primary);
+        font-size: 12px;
+        transition: all var(--transition-fast);
+        text-align: left;
+    }
+
+    .break-interval-option:hover {
+        background: var(--bg-hover);
+    }
+
+    .break-interval-option.selected {
+        background: var(--accent-light);
+        color: var(--accent);
+        font-weight: 600;
     }
 
     /* Theme Dropdown */

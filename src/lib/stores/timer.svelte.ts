@@ -23,7 +23,7 @@ let lastBreakMessageIndex = -1;
 
 const BREAK_REMINDER_ENABLED_KEY = "breakReminderEnabled";
 const BREAK_REMINDER_INTERVAL_KEY = "breakReminderIntervalMinutes";
-const BREAK_REMINDER_MIN_MINUTES = 10;
+const BREAK_REMINDER_MIN_MINUTES = 0;
 const BREAK_REMINDER_MAX_MINUTES = 60;
 const BREAK_REMINDER_DEFAULT_MINUTES = 30;
 const BREAK_REMINDER_SNOOZE_MINUTES = 10;
@@ -43,9 +43,10 @@ function getStartOfToday(): number {
 }
 
 function clampBreakReminderMinutes(minutes: number): number {
+  if (minutes === 0) return 0; // 0 means "not tracked"
   return Math.min(
     BREAK_REMINDER_MAX_MINUTES,
-    Math.max(BREAK_REMINDER_MIN_MINUTES, Math.round(minutes)),
+    Math.max(15, Math.round(minutes)),
   );
 }
 
@@ -208,8 +209,12 @@ export const timerStore = {
 
     if (savedInterval !== null) {
       const parsed = Number(savedInterval);
-      if (Number.isFinite(parsed)) {
+      if (Number.isFinite(parsed) && parsed >= 0) {
         breakReminderIntervalMinutes = clampBreakReminderMinutes(parsed);
+        // interval=0 means "not tracked" — treat as disabled
+        if (breakReminderIntervalMinutes === 0) {
+          breakReminderEnabled = false;
+        }
       }
     } else {
       breakReminderIntervalMinutes = BREAK_REMINDER_DEFAULT_MINUTES;
@@ -229,7 +234,11 @@ export const timerStore = {
 
   setBreakReminderInterval(minutes: number) {
     breakReminderIntervalMinutes = clampBreakReminderMinutes(minutes);
-    if (breakReminderEnabled && activeTimer?.is_running && !breakReminderOpen) {
+    // 0 means "Not Tracked" — disable reminders
+    if (breakReminderIntervalMinutes === 0) {
+      breakReminderEnabled = false;
+      clearBreakReminderTimeout();
+    } else if (breakReminderEnabled && activeTimer?.is_running && !breakReminderOpen) {
       scheduleBreakReminderFromNow(breakReminderIntervalMinutes);
     }
     persistBreakReminderSettings();
