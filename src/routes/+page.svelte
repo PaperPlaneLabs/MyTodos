@@ -432,7 +432,14 @@
     const type = uiStore.contextMenuType;
 
     if (type === "project") {
+      const project = projectStore.projects.find((p) => p.id === id);
       return [
+        {
+          type: "colorPicker" as const,
+          label: "Color",
+          currentColor: project?.color ?? "#6366f1",
+          onSelect: (color: string) => projectStore.updateColor(id, color),
+        },
         {
           label: "Edit Project",
           icon: "✏️",
@@ -554,6 +561,7 @@
                     class:timer-paused={timerStore.active &&
                       timerStore.currentProjectId === project.id &&
                       !timerStore.isRunning}
+                    style="border-left-color: {project.color};"
                     role="button"
                     tabindex="0"
                     onclick={() =>
@@ -1385,6 +1393,7 @@
     padding: var(--spacing-sm) var(--spacing-md);
     background-color: var(--bg-secondary);
     border: 1px solid var(--border);
+    border-left-width: 3px;
     border-radius: var(--radius-md);
     transition: all var(--transition-fast);
     cursor: grab;

@@ -108,4 +108,16 @@ export const projectStore = {
       p.id === projectId ? { ...p, total_time_seconds: timeSeconds } : p
     );
   },
+
+  async updateColor(id: number, color: string) {
+    // Optimistic update — immediately reflect in UI
+    projects = projects.map((p) => (p.id === id ? { ...p, color } : p));
+    try {
+      await db.projects.update(id, undefined, undefined, color);
+    } catch (e) {
+      // Rollback on error by reloading
+      console.error("Failed to update project color:", e);
+      await this.loadAll();
+    }
+  },
 };
