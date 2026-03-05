@@ -1,5 +1,6 @@
 <script lang="ts">
     import { onMount } from "svelte";
+    import { fade, scale } from "svelte/transition";
 
     // ── State ─────────────────────────────────────────────────────────────────
     let message = $state("Time for a quick break?");
@@ -9,6 +10,8 @@
     let breakElapsedSeconds = $state(0);
     let breakIntervalId: number | null = null;
     let breakStartTime = 0;
+
+    let mounted = $state(false);
 
     onMount(() => {
         // Apply theme: prefer injected value > localStorage > default
@@ -25,6 +28,11 @@
         ) {
             message = window.__BREAK_MESSAGE__;
         }
+
+        // Trigger entrance animation
+        requestAnimationFrame(() => {
+            mounted = true;
+        });
 
         return () => {
             if (breakIntervalId !== null) {
@@ -62,7 +70,6 @@
         sending = true;
         try {
             const { emit } = await import("@tauri-apps/api/event");
-            // Tell main window to pause the timer
             await emit("break:action", { action: "take_break" });
 
             isBreaking = true;
@@ -82,6 +89,15 @@
         }
     }
 
+    async function dragWindow() {
+        try {
+            const { invoke } = await import("@tauri-apps/api/core");
+            await invoke("start_window_drag");
+        } catch {
+            // ignore
+        }
+    }
+
     function formatTime(seconds: number): string {
         const m = Math.floor(seconds / 60);
         const s = seconds % 60;
@@ -89,134 +105,368 @@
     }
 </script>
 
-<div class="break-window">
-    <div class="break-icon">☕</div>
+<div class="shell" class:mounted>
+    <!-- Drag region / custom title bar -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div class="drag-bar" onmousedown={dragWindow} role="presentation">
+        <div class="drag-dots">
+            <span></span><span></span><span></span>
+        </div>
+        <button
+            class="close-btn"
+            onclick={() => emitAndClose("dismiss")}
+            title="Dismiss"
+            aria-label="Dismiss break reminder"
+        >
+            <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <path
+                    d="M1 1l8 8M9 1l-8 8"
+                    stroke="currentColor"
+                    stroke-width="1.5"
+                    stroke-linecap="round"
+                />
+            </svg>
+        </button>
+    </div>
 
-    <h1 class="break-title">{message}</h1>
-    <p class="break-subtitle">
-        Short breaks boost focus. Step away from the screen for a few minutes.
-    </p>
-
-    <div class="actions">
+    <!-- Content -->
+    <div class="content">
         {#if !isBreaking}
-            <button
-                class="break-btn break-btn-primary"
-                onclick={startBreak}
-                disabled={sending}
-            >
-                Take a break
-            </button>
-
-            <button
-                class="break-btn break-btn-ghost"
-                onclick={() => emitAndClose("snooze")}
-                disabled={sending}
-            >
-                Remind me in 10 min
-            </button>
-        {:else}
-            <div class="break-timer">
-                {formatTime(breakElapsedSeconds)}
+            <div class="icon-ring" in:scale={{ duration: 400, delay: 100 }}>
+                <span class="icon">☕</span>
             </div>
-            <button
-                class="break-btn break-btn-primary"
-                onclick={() => emitAndClose("resume")}
-                disabled={sending}
-            >
-                Resume work
-            </button>
+
+            <div class="text-block">
+                <h1 class="title">{message}</h1>
+                <p class="subtitle">
+                    Short breaks keep your mind sharp.<br />
+                    Step away for a few minutes.
+                </p>
+            </div>
+
+            <div class="actions" in:fade={{ duration: 200, delay: 200 }}>
+                <button
+                    class="btn btn-primary"
+                    onclick={startBreak}
+                    disabled={sending}
+                >
+                    <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2.5"
+                        ><path
+                            d="M12 2v6m0 8v6M4.93 4.93l4.24 4.24m5.66 5.66 4.24 4.24M2 12h6m8 0h6M4.93 19.07l4.24-4.24m5.66-5.66 4.24-4.24"
+                        /></svg
+                    >
+                    Take a break
+                </button>
+                <button
+                    class="btn btn-ghost"
+                    onclick={() => emitAndClose("snooze")}
+                    disabled={sending}
+                >
+                    Remind me in 10 min
+                </button>
+            </div>
+        {:else}
+            <div class="breaking-state" in:fade={{ duration: 300 }}>
+                <div class="pulse-ring">
+                    <div class="pulse-dot"></div>
+                </div>
+                <div class="timer-display">
+                    {formatTime(breakElapsedSeconds)}
+                </div>
+                <p class="timer-label">Break in progress</p>
+                <button
+                    class="btn btn-primary"
+                    onclick={() => emitAndClose("resume")}
+                    disabled={sending}
+                >
+                    <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"><path d="M8 5v14l11-7z" /></svg
+                    >
+                    Resume work
+                </button>
+            </div>
         {/if}
     </div>
 </div>
 
 <style>
-    .break-window {
+    :global(*) {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+    }
+
+    :global(body) {
+        background: transparent;
+        overflow: hidden;
+    }
+
+    /* ── Shell ────────────────────────────────────────────────────────────── */
+    .shell {
+        width: 100vw;
+        height: 100vh;
+        display: flex;
+        flex-direction: column;
+        background-color: var(--bg-primary);
+        color: var(--text-primary);
+        font-family: var(--font-sans, system-ui, sans-serif);
+        border-radius: 12px;
+        border: 1px solid var(--border);
+        overflow: hidden;
+        opacity: 0;
+        transform: scale(0.96) translateY(6px);
+        transition:
+            opacity 0.25s ease,
+            transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .shell.mounted {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+
+    /* ── Drag bar ─────────────────────────────────────────────────────────── */
+    .drag-bar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 10px 8px 12px;
+        cursor: grab;
+        background-color: var(--bg-secondary);
+        border-bottom: 1px solid var(--border-light, var(--border));
+        flex-shrink: 0;
+        user-select: none;
+    }
+
+    .drag-bar:active {
+        cursor: grabbing;
+    }
+
+    .drag-dots {
+        display: flex;
+        gap: 4px;
+        align-items: center;
+    }
+
+    .drag-dots span {
+        display: block;
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background-color: var(--text-tertiary, #aaa);
+        opacity: 0.4;
+    }
+
+    /* Close button — styled like macOS traffic lights */
+    .close-btn {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        border: none;
+        background-color: var(--bg-tertiary);
+        color: var(--text-tertiary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition:
+            background-color 0.15s,
+            color 0.15s;
+        flex-shrink: 0;
+    }
+
+    .close-btn:hover {
+        background-color: #ef4444;
+        color: #fff;
+    }
+
+    /* ── Content ──────────────────────────────────────────────────────────── */
+    .content {
+        flex: 1;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        height: 100vh;
-        padding: 32px 24px;
-        gap: 12px;
-        background-color: var(--bg-primary);
-        color: var(--text-primary);
-        font-family: var(--font-sans);
+        padding: 24px 28px 28px;
+        gap: 16px;
         text-align: center;
-        box-sizing: border-box;
     }
 
-    .break-icon {
-        font-size: 40px;
+    /* ── Icon ring ────────────────────────────────────────────────────────── */
+    .icon-ring {
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: var(
+            --accent-light,
+            color-mix(in srgb, var(--accent) 12%, transparent)
+        );
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .icon {
+        font-size: 30px;
         line-height: 1;
-        margin-bottom: 4px;
     }
 
-    .break-title {
-        font-size: 18px;
+    /* ── Text ─────────────────────────────────────────────────────────────── */
+    .text-block {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .title {
+        font-size: 16px;
         font-weight: 700;
         color: var(--text-primary);
-        margin: 0;
         line-height: 1.3;
+        letter-spacing: -0.2px;
     }
 
-    .break-subtitle {
-        font-size: 13px;
+    .subtitle {
+        font-size: 12px;
         color: var(--text-secondary);
-        margin: 0 0 8px;
-        max-width: 320px;
-        line-height: 1.5;
+        line-height: 1.6;
+        opacity: 0.85;
     }
 
+    /* ── Actions ──────────────────────────────────────────────────────────── */
     .actions {
         display: flex;
         flex-direction: column;
         gap: 8px;
         width: 100%;
-        max-width: 240px;
     }
 
-    .break-btn {
+    .btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
         width: 100%;
         padding: 9px 16px;
         font-size: 13px;
-        font-weight: 500;
+        font-weight: 600;
         border-radius: 8px;
         border: none;
         cursor: pointer;
-        transition:
-            background-color 150ms ease,
-            opacity 150ms ease;
         font-family: inherit;
+        transition:
+            background-color 0.15s,
+            opacity 0.15s,
+            transform 0.1s;
     }
 
-    .break-btn:disabled {
-        opacity: 0.6;
+    .btn:active:not(:disabled) {
+        transform: scale(0.98);
+    }
+
+    .btn:disabled {
+        opacity: 0.5;
         cursor: not-allowed;
     }
 
-    .break-btn-primary {
+    .btn-primary {
         background-color: var(--accent);
         color: #fff;
     }
-    .break-btn-primary:hover:not(:disabled) {
-        background-color: var(--accent-hover);
+
+    .btn-primary:hover:not(:disabled) {
+        background-color: var(--accent-hover, var(--accent));
+        filter: brightness(1.08);
     }
 
-    .break-btn-ghost {
+    .btn-ghost {
         background-color: transparent;
         color: var(--text-tertiary);
-    }
-    .break-btn-ghost:hover:not(:disabled) {
-        color: var(--text-secondary);
-        background-color: var(--bg-hover);
+        font-weight: 500;
     }
 
-    .break-timer {
-        font-size: 36px;
+    .btn-ghost:hover:not(:disabled) {
+        background-color: var(--bg-hover);
+        color: var(--text-secondary);
+    }
+
+    /* ── Breaking state ───────────────────────────────────────────────────── */
+    .breaking-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        width: 100%;
+    }
+
+    .pulse-ring {
+        position: relative;
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .pulse-ring::before,
+    .pulse-ring::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        border: 2px solid var(--accent);
+        animation: pulse-ring 2s ease-out infinite;
+        opacity: 0;
+    }
+
+    .pulse-ring::after {
+        animation-delay: 1s;
+    }
+
+    .pulse-dot {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background-color: var(--accent);
+        position: relative;
+        z-index: 1;
+    }
+
+    @keyframes pulse-ring {
+        0% {
+            transform: scale(0.6);
+            opacity: 0.7;
+        }
+        100% {
+            transform: scale(1.6);
+            opacity: 0;
+        }
+    }
+
+    .timer-display {
+        font-size: 38px;
         font-weight: 700;
         color: var(--accent);
         font-variant-numeric: tabular-nums;
-        margin: 12px 0 16px;
-        letter-spacing: -0.5px;
+        letter-spacing: -1px;
+        line-height: 1;
+    }
+
+    .timer-label {
+        font-size: 11px;
+        color: var(--text-tertiary);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 600;
     }
 </style>
