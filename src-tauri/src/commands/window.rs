@@ -232,7 +232,11 @@ pub fn get_window_state(db: State<DbConnection>) -> Result<Option<WindowState>> 
 }
 
 #[tauri::command]
-pub fn open_break_window(app: AppHandle, message: String) -> Result<()> {
+pub async fn open_break_window(
+    app: AppHandle,
+    message: String,
+    theme: Option<String>,
+) -> Result<()> {
     // If window already exists, bring it to focus
     if let Some(existing) = app.get_webview_window("break") {
         existing
@@ -265,43 +269,43 @@ pub fn open_break_window(app: AppHandle, message: String) -> Result<()> {
     let x = logical_work_x + (logical_work_width - width) / 2.0;
     let y = logical_work_y + (logical_work_height - height) / 2.0;
 
-    // URL-encode the message for the query param
-    let encoded_message: String = message
-        .chars()
-        .flat_map(|c| match c {
-            'A'..='Z' | 'a'..='z' | '0'..='9' | '-' | '_' | '.' | '~' => {
-                vec![c]
-            }
-            ' ' => vec!['+'],
-            c => {
-                let mut buf = [0u8; 4];
-                let bytes = c.encode_utf8(&mut buf);
-                bytes
-                    .bytes()
-                    .flat_map(|b| {
-                        let hi = b >> 4;
-                        let lo = b & 0xf;
-                        let hex = b"0123456789ABCDEF";
-                        vec!['%', hex[hi as usize] as char, hex[lo as usize] as char]
-                    })
-                    .collect()
-            }
-        })
-        .collect();
+    let message_json = serde_json::to_string(&message)
+        .map_err(|e| AppError::Other(format!("Failed to serialize break message: {}", e)))?;
+    let theme_str = theme.as_deref().unwrap_or("light");
+    let theme_json = serde_json::to_string(theme_str)
+        .map_err(|e| AppError::Other(format!("Failed to serialize theme: {}", e)))?;
+    let init_script = format!(
+        "window.__BREAK_MESSAGE__ = {}; window.__BREAK_THEME__ = {};",
+        message_json, theme_json
+    );
 
-    let url = format!("/break.html?message={}", encoded_message);
+    // Load the same SPA (index.html) as the main window.
+    // The frontend checks the window label to decide what UI to render.
+    // This matches the proven Tauri multi-window pattern (bookcicle/tauri-window-testing).
 
-    let break_window = WebviewWindowBuilder::new(&app, "break", tauri::WebviewUrl::App(url.into()))
+    let break_window = match WebviewWindowBuilder::new(&app, "break", Default::default())
         .title("Break Reminder")
         .inner_size(width, height)
         .position(x, y)
         .resizable(false)
-        .decorations(false)
-        .always_on_top(true)
-        .skip_taskbar(true)
+        .decorations(true)
+        .visible(true)
         .focused(true)
+        .initialization_script(&init_script)
+        .on_navigation(|_url| true)
+        .on_page_load(|_window, _payload| {})
         .build()
-        .map_err(|e| AppError::Other(e.to_string()))?;
+    {
+        Ok(window) => window,
+        Err(e) => {
+            return Err(AppError::Other(format!(
+                "Failed to build break window: {}",
+                e
+            )));
+        }
+    };
+
+    break_window.on_window_event(|_event| {});
 
     break_window
         .set_focus()
@@ -315,6 +319,12 @@ pub fn close_break_window(app: AppHandle) -> Result<()> {
     if let Some(window) = app.get_webview_window("break") {
         window.close().map_err(|e| AppError::Other(e.to_string()))?;
     }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn log_break_diagnostic(message: String) -> Result<()> {
+    println!("[break:diag:js] {}", message);
     Ok(())
 }
 

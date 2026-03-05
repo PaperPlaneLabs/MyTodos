@@ -1,7 +1,11 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import { fade, fly, slide } from "svelte/transition";
-    import { uiStore, type Theme, type WindowOrientation } from "$lib/stores/ui.svelte";
+    import {
+        uiStore,
+        type Theme,
+        type WindowOrientation,
+    } from "$lib/stores/ui.svelte";
     import { googleCalendarStore } from "$lib/stores/google-calendar.svelte";
     import { projectStore } from "$lib/stores/projects.svelte";
     import { taskStore } from "$lib/stores/tasks.svelte";
@@ -15,12 +19,20 @@
     const themes: { id: Theme; name: string; bg: string; accent: string }[] = [
         { id: "light", name: "Light", bg: "#ffffff", accent: "#6366f1" },
         { id: "dark", name: "Dark", bg: "#1a1a1a", accent: "#818cf8" },
-        { id: "minecraft", name: "Minecraft", bg: "#3d2b1f", accent: "#3c8527" },
+        {
+            id: "minecraft",
+            name: "Minecraft",
+            bg: "#3d2b1f",
+            accent: "#3c8527",
+        },
         { id: "retro", name: "Retro", bg: "#0c0c0c", accent: "#ffb000" },
         { id: "ocean", name: "Ocean", bg: "#001219", accent: "#0a9396" },
         { id: "nord", name: "Nord", bg: "#2e3440", accent: "#88c0d0" },
     ];
-    const breakReminderIntervals = Array.from({ length: 11 }, (_, index) => 10 + index * 5);
+    const breakReminderIntervals = Array.from(
+        { length: 11 },
+        (_, index) => 10 + index * 5,
+    );
 
     let isAutoStartEnabled = $state(false);
     let loading = $state(true);
@@ -32,13 +44,22 @@
     let breakIntervalSelectValue = $state("30");
 
     let appVersion = $state("");
-    let updateStatus = $state<"idle" | "checking" | "up-to-date" | "available" | "downloading" | "error">("idle");
+    let updateStatus = $state<
+        | "idle"
+        | "checking"
+        | "up-to-date"
+        | "available"
+        | "downloading"
+        | "error"
+    >("idle");
     let updateVersion = $state("");
     let updateError = $state("");
     let updateProgress = $state(0);
 
     onMount(async () => {
-        breakIntervalSelectValue = String(timerStore.breakReminderIntervalMinutes);
+        breakIntervalSelectValue = String(
+            timerStore.breakReminderIntervalMinutes,
+        );
 
         try {
             appVersion = await getVersion();
@@ -172,12 +193,16 @@
         const target = event.currentTarget as HTMLSelectElement;
         const nextInterval = Number(target.value);
         if (!Number.isFinite(nextInterval)) {
-            breakIntervalSelectValue = String(timerStore.breakReminderIntervalMinutes);
+            breakIntervalSelectValue = String(
+                timerStore.breakReminderIntervalMinutes,
+            );
             return;
         }
 
         if (nextInterval === timerStore.breakReminderIntervalMinutes) {
-            breakIntervalSelectValue = String(timerStore.breakReminderIntervalMinutes);
+            breakIntervalSelectValue = String(
+                timerStore.breakReminderIntervalMinutes,
+            );
             return;
         }
 
@@ -196,14 +221,23 @@
     function cancelBreakIntervalChange() {
         pendingBreakInterval = null;
         showBreakIntervalConfirm = false;
-        breakIntervalSelectValue = String(timerStore.breakReminderIntervalMinutes);
+        breakIntervalSelectValue = String(
+            timerStore.breakReminderIntervalMinutes,
+        );
     }
 </script>
 
 <div class="settings-view" transition:fade={{ duration: 200 }}>
     <header class="settings-header">
         <button class="back-btn" onclick={() => uiStore.closeSettingsView()}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+            >
                 <path d="m15 18-6-6 6-6" />
             </svg>
             <span>Back</span>
@@ -213,13 +247,18 @@
 
     <div class="settings-content">
         <!-- GENERAL SECTION -->
-        <section class="settings-section" transition:fly={{ y: 20, duration: 300, delay: 100 }}>
+        <section
+            class="settings-section"
+            transition:fly={{ y: 20, duration: 300, delay: 100 }}
+        >
             <h3><span class="section-icon">⚙️</span> General</h3>
-            
+
             <div class="setting-item">
                 <div class="setting-info">
                     <span class="setting-label">Start at login</span>
-                    <span class="setting-desc">Automatically launch MyTodos when you log in</span>
+                    <span class="setting-desc"
+                        >Automatically launch MyTodos when you log in</span
+                    >
                 </div>
                 <button
                     class="toggle-switch"
@@ -227,7 +266,9 @@
                     class:loading={loading || toggling}
                     onclick={toggleAutoStart}
                     disabled={loading || toggling}
-                    title={isAutoStartEnabled ? "Disable autostart" : "Enable autostart"}
+                    title={isAutoStartEnabled
+                        ? "Disable autostart"
+                        : "Enable autostart"}
                 >
                     <span class="toggle-knob"></span>
                 </button>
@@ -239,31 +280,38 @@
                     <span class="setting-desc">Position and snap window</span>
                 </div>
                 <div class="segmented-control">
-                    <button 
-                        class:active={uiStore.windowOrientation === 'left'} 
-                        onclick={() => handleWindowOrientation('left')}
-                    >Left</button>
-                    <button 
-                        class:active={uiStore.windowOrientation === 'center'} 
-                        onclick={() => handleWindowOrientation('center')}
-                    >FreeForm</button>
-                    <button 
-                        class:active={uiStore.windowOrientation === 'right'} 
-                        onclick={() => handleWindowOrientation('right')}
-                    >Right</button>
+                    <button
+                        class:active={uiStore.windowOrientation === "left"}
+                        onclick={() => handleWindowOrientation("left")}
+                        >Left</button
+                    >
+                    <button
+                        class:active={uiStore.windowOrientation === "center"}
+                        onclick={() => handleWindowOrientation("center")}
+                        >FreeForm</button
+                    >
+                    <button
+                        class:active={uiStore.windowOrientation === "right"}
+                        onclick={() => handleWindowOrientation("right")}
+                        >Right</button
+                    >
                 </div>
             </div>
 
-             <div class="setting-item">
+            <div class="setting-item">
                 <div class="setting-info">
                     <span class="setting-label">Compact Mode</span>
-                    <span class="setting-desc">Reduce spacing for a denser layout</span>
+                    <span class="setting-desc"
+                        >Reduce spacing for a denser layout</span
+                    >
                 </div>
                 <button
                     class="toggle-switch"
                     class:active={uiStore.compactMode}
                     onclick={() => uiStore.setCompactMode(!uiStore.compactMode)}
-                    title={uiStore.compactMode ? "Disable compact mode" : "Enable compact mode"}
+                    title={uiStore.compactMode
+                        ? "Disable compact mode"
+                        : "Enable compact mode"}
                 >
                     <span class="toggle-knob"></span>
                 </button>
@@ -272,13 +320,20 @@
             <div class="setting-item">
                 <div class="setting-info">
                     <span class="setting-label">Break Reminders</span>
-                    <span class="setting-desc">Show a break prompt while a timer is running</span>
+                    <span class="setting-desc"
+                        >Show a break prompt while a timer is running</span
+                    >
                 </div>
                 <button
                     class="toggle-switch"
                     class:active={timerStore.breakReminderEnabled}
-                    onclick={() => timerStore.setBreakReminderEnabled(!timerStore.breakReminderEnabled)}
-                    title={timerStore.breakReminderEnabled ? "Disable break reminders" : "Enable break reminders"}
+                    onclick={() =>
+                        timerStore.setBreakReminderEnabled(
+                            !timerStore.breakReminderEnabled,
+                        )}
+                    title={timerStore.breakReminderEnabled
+                        ? "Disable break reminders"
+                        : "Enable break reminders"}
                 >
                     <span class="toggle-knob"></span>
                 </button>
@@ -289,7 +344,8 @@
                     <span class="setting-label">Break Interval</span>
                     <span class="setting-desc">
                         {#if timerStore.breakReminderEnabled}
-                            Remind every {timerStore.breakReminderIntervalMinutes} minutes
+                            Remind every {timerStore.breakReminderIntervalMinutes}
+                            minutes
                         {:else}
                             Reminders are currently disabled
                         {/if}
@@ -306,11 +362,15 @@
                     {/each}
                 </select>
             </div>
-             
-              <div class="setting-item">
+
+            <div class="setting-item">
                 <div class="setting-info">
                     <span class="setting-label">App Updates</span>
-                    <span class="setting-desc" class:update-error={updateStatus === "error"} class:update-success={updateStatus === "up-to-date"}>
+                    <span
+                        class="setting-desc"
+                        class:update-error={updateStatus === "error"}
+                        class:update-success={updateStatus === "up-to-date"}
+                    >
                         {#if updateStatus === "checking"}
                             Checking...
                         {:else if updateStatus === "up-to-date"}
@@ -327,15 +387,25 @@
                     </span>
                 </div>
                 {#if updateStatus === "available"}
-                    <button class="btn btn-primary btn-sm" onclick={downloadAndInstallUpdate}>Update</button>
+                    <button
+                        class="btn btn-primary btn-sm"
+                        onclick={downloadAndInstallUpdate}>Update</button
+                    >
                 {:else if updateStatus === "downloading"}
-                     <div class="update-progress-inline">
+                    <div class="update-progress-inline">
                         <div class="progress-bar-sm">
-                            <div class="progress-fill-sm" style="width: {updateProgress}%"></div>
+                            <div
+                                class="progress-fill-sm"
+                                style="width: {updateProgress}%"
+                            ></div>
                         </div>
                     </div>
                 {:else}
-                    <button class="btn btn-secondary btn-sm" onclick={checkForUpdates} disabled={updateStatus === "checking"}>
+                    <button
+                        class="btn btn-secondary btn-sm"
+                        onclick={checkForUpdates}
+                        disabled={updateStatus === "checking"}
+                    >
                         Check
                     </button>
                 {/if}
@@ -343,109 +413,174 @@
         </section>
 
         <!-- APPEARANCE SECTION -->
-        <section class="settings-section" transition:fly={{ y: 20, duration: 300, delay: 150 }}>
+        <section
+            class="settings-section"
+            transition:fly={{ y: 20, duration: 300, delay: 150 }}
+        >
             <h3><span class="section-icon">🎨</span> Appearance</h3>
-            
+
             <div class="setting-item">
                 <div class="setting-info">
                     <span class="setting-label">Theme</span>
                     <span class="setting-desc">Customize application look</span>
                 </div>
-                
+
                 <div class="theme-dropdown-container">
-                    <button class="theme-dropdown-trigger" onclick={toggleThemeDropdown}>
+                    <button
+                        class="theme-dropdown-trigger"
+                        onclick={toggleThemeDropdown}
+                    >
                         {#if uiStore.theme}
-                            {@const current = themes.find(t => t.id === uiStore.theme)}
-                            <span class="theme-name-current">{current?.name || 'Select Theme'}</span>
-                            <div class="preview-dot" style="--preview-bg: {current?.bg}; --preview-accent: {current?.accent}"></div>
+                            {@const current = themes.find(
+                                (t) => t.id === uiStore.theme,
+                            )}
+                            <span class="theme-name-current"
+                                >{current?.name || "Select Theme"}</span
+                            >
+                            <div
+                                class="preview-dot"
+                                style="--preview-bg: {current?.bg}; --preview-accent: {current?.accent}"
+                            ></div>
                         {/if}
                         <span class="chevron">▼</span>
                     </button>
 
                     {#if themeDropdownOpen}
-                        <div class="theme-dropdown-menu" transition:slide={{ duration: 150 }}>
+                        <div
+                            class="theme-dropdown-menu"
+                            transition:slide={{ duration: 150 }}
+                        >
                             {#each themes as t}
-                                <button class="theme-option" class:selected={uiStore.theme === t.id} onclick={() => selectTheme(t.id)}>
+                                <button
+                                    class="theme-option"
+                                    class:selected={uiStore.theme === t.id}
+                                    onclick={() => selectTheme(t.id)}
+                                >
                                     <span class="theme-name">{t.name}</span>
-                                    <div class="preview-dot" style="--preview-bg: {t.bg}; --preview-accent: {t.accent}"></div>
+                                    <div
+                                        class="preview-dot"
+                                        style="--preview-bg: {t.bg}; --preview-accent: {t.accent}"
+                                    ></div>
                                 </button>
                             {/each}
                         </div>
                     {/if}
                 </div>
             </div>
-            
+
             {#if themeDropdownOpen}
-                <div class="backdrop" onclick={() => themeDropdownOpen = false}></div>
+                <div
+                    class="backdrop"
+                    onclick={() => (themeDropdownOpen = false)}
+                ></div>
             {/if}
         </section>
 
         <!-- INTEGRATIONS SECTION -->
-        <section class="settings-section" transition:fly={{ y: 20, duration: 300, delay: 200 }}>
+        <section
+            class="settings-section"
+            transition:fly={{ y: 20, duration: 300, delay: 200 }}
+        >
             <h3><span class="section-icon">🔗</span> Integrations</h3>
-            
+
             <div class="setting-item">
                 <div class="setting-info">
                     <span class="setting-label">Google Calendar</span>
                     <span class="setting-desc">
-                         {#if !googleCalendarStore.connected}
+                        {#if !googleCalendarStore.connected}
                             Sync tasks as events
                         {:else}
                             <span class="gcal-connected">Connected</span>
                         {/if}
                     </span>
                 </div>
-                 {#if !googleCalendarStore.connected}
-                    <button class="btn btn-primary btn-sm" onclick={() => googleCalendarStore.connect()} disabled={googleCalendarStore.connecting}>
-                         {googleCalendarStore.connecting ? "..." : "Connect"}
+                {#if !googleCalendarStore.connected}
+                    <button
+                        class="btn btn-primary btn-sm"
+                        onclick={() => googleCalendarStore.connect()}
+                        disabled={googleCalendarStore.connecting}
+                    >
+                        {googleCalendarStore.connecting ? "..." : "Connect"}
                     </button>
-                 {:else}
+                {:else}
                     <div style="display:flex; gap: 8px;">
-                         <button class="btn btn-secondary btn-sm" onclick={() => googleCalendarStore.syncAll()} disabled={googleCalendarStore.syncing}>
+                        <button
+                            class="btn btn-secondary btn-sm"
+                            onclick={() => googleCalendarStore.syncAll()}
+                            disabled={googleCalendarStore.syncing}
+                        >
                             {googleCalendarStore.syncing ? "..." : "Sync"}
                         </button>
-                        <button class="btn btn-secondary btn-sm" onclick={() => googleCalendarStore.disconnect()}>
+                        <button
+                            class="btn btn-secondary btn-sm"
+                            onclick={() => googleCalendarStore.disconnect()}
+                        >
                             Disconnect
                         </button>
                     </div>
-                 {/if}
+                {/if}
             </div>
-             {#if googleCalendarStore.error}
+            {#if googleCalendarStore.error}
                 <div class="gcal-error">{googleCalendarStore.error}</div>
             {/if}
         </section>
 
         <!-- DATA MANAGEMENT SECTION -->
-        <section class="settings-section danger-zone" transition:fly={{ y: 20, duration: 300, delay: 250 }}>
+        <section
+            class="settings-section danger-zone"
+            transition:fly={{ y: 20, duration: 300, delay: 250 }}
+        >
             <h3><span class="section-icon">⚠️</span> Data Management</h3>
-            
+
             <div class="setting-item">
                 <div class="setting-info">
-                    <span class="setting-label text-danger">Reset Application</span>
-                    <span class="setting-desc">Permanently delete all projects and tasks</span>
+                    <span class="setting-label text-danger"
+                        >Reset Application</span
+                    >
+                    <span class="setting-desc"
+                        >Permanently delete all projects and tasks</span
+                    >
                 </div>
-                <button class="btn btn-danger btn-sm" onclick={() => showResetConfirm = true}>
+                <button
+                    class="btn btn-danger btn-sm"
+                    onclick={() => (showResetConfirm = true)}
+                >
                     Reset Data
                 </button>
             </div>
         </section>
 
         <!-- ABOUT SECTION -->
-        <section class="settings-section about" transition:fly={{ y: 20, duration: 300, delay: 300 }}>
-             <p class="version">MyTodos v{appVersion}</p>
+        <section
+            class="settings-section about"
+            transition:fly={{ y: 20, duration: 300, delay: 300 }}
+        >
+            <p class="version">MyTodos v{appVersion}</p>
         </section>
     </div>
 </div>
 
-<Modal open={showResetConfirm} title="⚠️ Irreversible Action" onClose={() => showResetConfirm = false}>
+<Modal
+    open={showResetConfirm}
+    title="⚠️ Irreversible Action"
+    onClose={() => (showResetConfirm = false)}
+>
     {#snippet children()}
         <div class="reset-confirm-content">
-            <p style="margin-bottom: 20px; color: var(--text-secondary); line-height: 1.5;">
-                Are you absolutely sure you want to delete all data? This action cannot be undone.
+            <p
+                style="margin-bottom: 20px; color: var(--text-secondary); line-height: 1.5;"
+            >
+                Are you absolutely sure you want to delete all data? This action
+                cannot be undone.
             </p>
             <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                <button class="btn btn-secondary" onclick={() => showResetConfirm = false}>Cancel</button>
-                <button class="btn btn-danger" onclick={handleClearData}>Yes, Delete Everything</button>
+                <button
+                    class="btn btn-secondary"
+                    onclick={() => (showResetConfirm = false)}>Cancel</button
+                >
+                <button class="btn btn-danger" onclick={handleClearData}
+                    >Yes, Delete Everything</button
+                >
             </div>
         </div>
     {/snippet}
@@ -458,12 +593,21 @@
 >
     {#snippet children()}
         <div class="reset-confirm-content">
-            <p style="margin-bottom: 20px; color: var(--text-secondary); line-height: 1.5;">
-                Set break reminders to every {pendingBreakInterval ?? timerStore.breakReminderIntervalMinutes} minutes?
+            <p
+                style="margin-bottom: 20px; color: var(--text-secondary); line-height: 1.5;"
+            >
+                Set break reminders to every {pendingBreakInterval ??
+                    timerStore.breakReminderIntervalMinutes} minutes?
             </p>
             <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                <button class="btn btn-secondary" onclick={cancelBreakIntervalChange}>No</button>
-                <button class="btn btn-primary" onclick={confirmBreakIntervalChange}>Yes</button>
+                <button
+                    class="btn btn-secondary"
+                    onclick={cancelBreakIntervalChange}>No</button
+                >
+                <button
+                    class="btn btn-primary"
+                    onclick={confirmBreakIntervalChange}>Yes</button
+                >
             </div>
         </div>
     {/snippet}
@@ -530,7 +674,11 @@
 
     .settings-section.danger-zone {
         border-color: var(--danger-light);
-        background-color: color-mix(in srgb, var(--danger-light) 10%, var(--bg-secondary));
+        background-color: color-mix(
+            in srgb,
+            var(--danger-light) 10%,
+            var(--bg-secondary)
+        );
     }
 
     .settings-section h3 {
@@ -556,7 +704,7 @@
         padding: var(--spacing-sm) 0;
         border-bottom: 1px solid var(--border-light);
     }
-    
+
     .setting-item:last-child {
         border-bottom: none;
     }
@@ -573,7 +721,7 @@
         font-weight: 500;
         color: var(--text-primary);
     }
-    
+
     .setting-label.text-danger {
         color: var(--danger);
     }
@@ -757,7 +905,11 @@
         width: 10px;
         height: 10px;
         border-radius: 50%;
-        background: linear-gradient(135deg, var(--preview-bg) 50%, var(--preview-accent) 50%);
+        background: linear-gradient(
+            135deg,
+            var(--preview-bg) 50%,
+            var(--preview-accent) 50%
+        );
         border: 1px solid var(--border);
     }
 
@@ -786,10 +938,17 @@
     }
 
     /* Update status */
-    .update-error { color: var(--danger); }
-    .update-success { color: var(--success); }
+    .update-error {
+        color: var(--danger);
+    }
+    .update-success {
+        color: var(--success);
+    }
 
-    .update-progress-inline { width: 60px; flex-shrink: 0; }
+    .update-progress-inline {
+        width: 60px;
+        flex-shrink: 0;
+    }
     .progress-bar-sm {
         height: 3px;
         background: var(--bg-tertiary);

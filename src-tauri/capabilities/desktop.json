@@ -6,9 +6,13 @@
     "linux"
   ],
   "windows": [
-    "main"
+    "main",
+    "break"
   ],
   "permissions": [
-    "updater:default"
+    "updater:default",
+    "core:webview:allow-create-webview-window",
+    "core:webview:default",
+    "core:window:default"
   ]
 }

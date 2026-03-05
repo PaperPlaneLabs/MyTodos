@@ -13,7 +13,7 @@ let currentProjectId = $state<number | null>(null);
 let timerChangeCounter = $state(0);
 let lastKnownDay = new Date().getDate();
 let autoPausedReason = $state<AutoPauseReason | null>(null);
-let breakReminderEnabled = $state(true);
+let breakReminderEnabled = $state(false); // Disabled for now - can be re-enabled later
 let breakReminderIntervalMinutes = $state(30);
 let breakReminderOpen = $state(false);
 let breakReminderMessage = $state("Quick break time. Stand up, stretch, and reset.");
@@ -103,7 +103,8 @@ function scheduleBreakReminder(delayMs: number): void {
 
     const msg = pickBreakReminderMessage();
     breakReminderMessage = msg;
-    invoke("open_break_window", { message: msg }).catch((e) => {
+    const currentTheme = localStorage.getItem("theme") ?? "light";
+    invoke("open_break_window", { message: msg, theme: currentTheme }).catch((e) => {
       // Fallback: show in-app modal if window creation fails
       console.error("Failed to open break window:", e);
       breakReminderOpen = true;
@@ -488,7 +489,7 @@ if (typeof window !== 'undefined') {
       timerChangeCounter++;
     });
 
-    await listen<{ action: "take_break" | "dismiss" | "snooze" }>("break:action", (event) => {
+    await listen<{ action: "take_break" | "dismiss" | "snooze" | "resume" }>("break:action", (event) => {
       const { action } = event.payload;
       if (action === "take_break") {
         timerStore.pause().catch((e) => console.error("Failed to pause for break:", e));
@@ -496,6 +497,8 @@ if (typeof window !== 'undefined') {
         timerStore.dismissBreakReminder();
       } else if (action === "snooze") {
         timerStore.snoozeBreakReminder(BREAK_REMINDER_SNOOZE_MINUTES);
+      } else if (action === "resume") {
+        timerStore.resume().catch((e) => console.error("Failed to resume after break:", e));
       }
     });
   })();

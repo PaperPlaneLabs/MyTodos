@@ -110,6 +110,8 @@ pub fn run() {
             commands::get_window_orientation,
             commands::open_break_window,
             commands::close_break_window,
+            commands::log_break_diagnostic,
+            commands::log_break_time,
             commands::get_time_entries_with_tasks,
             commands::google_auth_start,
             commands::google_auth_status,
