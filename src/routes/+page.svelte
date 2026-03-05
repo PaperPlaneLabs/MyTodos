@@ -521,10 +521,6 @@
                   onclick={() => projectStore.setSelected(null)}
                   onkeydown={(e) => handleKeySelect(e, null)}
                 >
-                  <div
-                    class="project-color"
-                    style="background-color: var(--text-tertiary)"
-                  ></div>
                   <div class="project-info">
                     <div class="project-header">
                       <div class="project-name">Tasks</div>
@@ -567,9 +563,13 @@
                       handleContextMenu(e, "project", project.id)}
                   >
                     <div
-                      class="project-color"
-                      style="background-color: {project.color}"
-                    ></div>
+                      class="drag-handle"
+                      aria-label="Drag to reorder"
+                      onpointerdown={(e) =>
+                        handlePointerDown(e, "project", project.id, index)}
+                    >
+                      ⋮⋮
+                    </div>
                     <div class="project-info">
                       <div class="project-header">
                         <div class="project-name">{project.name}</div>
@@ -589,14 +589,6 @@
                           {/if}
                         </div>
                       </div>
-                    </div>
-                    <div
-                      class="drag-handle"
-                      aria-label="Drag to reorder"
-                      onpointerdown={(e) =>
-                        handlePointerDown(e, "project", project.id, index)}
-                    >
-                      ⋮⋮
                     </div>
                   </div>
                 </div>
@@ -1366,9 +1358,14 @@
     color: var(--text-tertiary);
     opacity: 0;
     font-size: 14px;
-    padding: 0 4px;
-    margin-right: -4px;
+    padding: 0 2px;
     transition: opacity 0.2s;
+    flex-shrink: 0;
+  }
+
+  .drag-handle {
+    margin-left: -4px;
+    margin-right: 0;
   }
 
   .project-item:hover .drag-handle,
@@ -1410,17 +1407,7 @@
     border-color: var(--accent);
   }
 
-  .project-color {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    transition: transform var(--transition-fast);
-  }
-
-  .project-item:hover .project-color {
-    transform: scale(1.3);
-  }
+  /* project-color dot removed; color indicator no longer shown */
 
   .project-info {
     flex: 1;
