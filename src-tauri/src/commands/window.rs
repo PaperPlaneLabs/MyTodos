@@ -264,7 +264,7 @@ pub async fn open_break_window(
     let logical_work_height = (work_area.size.height as f64) / scale_factor;
 
     let width: f64 = 420.0;
-    let height: f64 = 280.0;
+    let height: f64 = 340.0;
 
     let x = logical_work_x + (logical_work_width - width) / 2.0;
     let y = logical_work_y + (logical_work_height - height) / 2.0;
