@@ -141,9 +141,34 @@ pub fn delete_time_entry(db: State<DbConnection>, id: i64) -> Result<()> {
 #[tauri::command]
 pub fn get_daily_total_time(db: State<DbConnection>, start_timestamp: i64) -> Result<i64> {
     let conn = db.lock();
+    // end_timestamp = start_timestamp + 86400 (one full day)
+    let end_timestamp = start_timestamp + 86400;
+
+    // For timer entries (with started_at + ended_at): clip the session to [start, end] and
+    // sum only the overlapping seconds, so a session that spans midnight doesn't inflate today.
+    // For manual entries (no started_at): include only if created today, trust duration_seconds.
     let total: i64 = conn.query_row(
-        "SELECT COALESCE(SUM(duration_seconds), 0) FROM time_entries WHERE created_at >= ?",
-        [start_timestamp],
+        "SELECT COALESCE(SUM(
+            CASE
+                WHEN started_at IS NOT NULL AND ended_at IS NOT NULL
+                THEN MAX(0, MIN(ended_at, ?) - MAX(started_at, ?))
+                ELSE CASE WHEN created_at >= ? AND created_at < ? THEN duration_seconds ELSE 0 END
+            END
+        ), 0)
+        FROM time_entries
+        WHERE
+            (started_at IS NOT NULL AND ended_at IS NOT NULL AND started_at < ? AND ended_at > ?)
+            OR (started_at IS NULL AND created_at >= ? AND created_at < ?)",
+        [
+            end_timestamp,
+            start_timestamp,
+            start_timestamp,
+            end_timestamp,
+            end_timestamp,
+            start_timestamp,
+            start_timestamp,
+            end_timestamp,
+        ],
         |row| row.get(0),
     )?;
 

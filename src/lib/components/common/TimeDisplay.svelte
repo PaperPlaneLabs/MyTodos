@@ -1,11 +1,24 @@
 <script lang="ts">
-  import { formatSecondsToTime, formatSecondsToHHMMSS } from "$lib/services/time-parser";
+  import {
+    formatSecondsToTime,
+    formatSecondsToHHMMSS,
+    formatSecondsToHM,
+  } from "$lib/services/time-parser";
 
-  let { seconds = 0, format = "short" }: { seconds: number; format?: "short" | "hms" } = $props();
+  let {
+    seconds = 0,
+    format = "short",
+  }: { seconds: number; format?: "short" | "hms" | "hm" } = $props();
 </script>
 
 <span class="time-display">
-  {format === "short" ? formatSecondsToTime(seconds) : formatSecondsToHHMMSS(seconds)}
+  {#if format === "short"}
+    {formatSecondsToTime(seconds)}
+  {:else if format === "hms"}
+    {formatSecondsToHHMMSS(seconds)}
+  {:else if format === "hm"}
+    {formatSecondsToHM(seconds)}
+  {/if}
 </span>
 
 <style>

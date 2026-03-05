@@ -189,10 +189,10 @@
     <div
       class="timer-badge"
       class:running={timerStore.isRunning}
-      title="Daily total time"
+      title="Today's work time"
     >
       <span class="timer-icon"></span>
-      <TimeDisplay seconds={Math.floor(timerStore.dailyTotal)} format="hms" />
+      <TimeDisplay seconds={Math.floor(timerStore.dailyTotal)} format="hm" />
     </div>
 
     <button
