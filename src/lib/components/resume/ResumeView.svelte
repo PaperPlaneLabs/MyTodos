@@ -42,14 +42,16 @@
         sending = true;
         try {
             const { db } = await import("$lib/services/db");
+            const { emit } = await import("@tauri-apps/api/event");
             
             // Log the time away as a break
             if (awayTimeSeconds > 0) {
                 await db.timeEntries.logBreakTime(awayTimeSeconds);
             }
             
-            // Resuming means starting the timer again for the specific task and closing the window
-            await db.timer.start(taskId);
+            // Emitting to main window to cleanly handle local store update + DB update
+            await emit("break:action", { action: "resume" });
+            
             await db.window.closeResume();
         } catch (e) {
             console.error("[resume] Error resuming task:", e);
