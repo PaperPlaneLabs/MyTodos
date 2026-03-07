@@ -577,6 +577,8 @@
                   >
                     <div
                       class="drag-handle"
+                      role="button"
+                      tabindex="0"
                       aria-label="Drag to reorder"
                       onpointerdown={(e) =>
                         handlePointerDown(e, "project", project.id, index)}
@@ -647,6 +649,8 @@
                   >
                     <div
                       class="task-item"
+                      role="button"
+                      tabindex="0"
                       class:task-timer-active={timerStore.active?.task_id ===
                         task.id && timerStore.isRunning}
                       class:task-timer-paused={timerStore.active?.task_id ===
@@ -666,6 +670,8 @@
                     >
                       <div
                         class="drag-handle-task"
+                        role="button"
+                        tabindex="0"
                         onpointerdown={(e) => {
                           e.stopPropagation();
                           handlePointerDown(e, "task", task.id, index);

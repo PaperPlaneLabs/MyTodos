@@ -3,8 +3,8 @@ use crate::events::system_events::{auto_pause_if_running, AutoPauseReason};
 use crate::events::SHUTTING_DOWN;
 use std::sync::atomic::Ordering;
 use tauri::AppHandle;
-use windows::core::{HSTRING, PCWSTR};
-use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, WPARAM};
+use windows::core::{HSTRING, PCWSTR, GUID};
+use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, WPARAM, HANDLE};
 use windows::Win32::Graphics::Gdi::HBRUSH;
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::RemoteDesktop::{
@@ -14,11 +14,21 @@ use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW, RegisterClassW,
     SetWindowLongPtrW, TranslateMessage, CREATESTRUCTW, CS_HREDRAW, CS_VREDRAW, GWLP_USERDATA, MSG,
     WM_CREATE, WM_ENDSESSION, WM_POWERBROADCAST, WM_QUERYENDSESSION, WM_WTSSESSION_CHANGE,
-    WNDCLASSW, WTS_SESSION_LOCK,
+    WNDCLASSW, WTS_SESSION_LOCK, DEVICE_NOTIFY_WINDOW_HANDLE,
+};
+use windows::Win32::System::Power::{
+    RegisterPowerSettingNotification, POWERBROADCAST_SETTING,
 };
 
 // Power event constants if missing from the crate version
 const PBT_APMSUSPEND: u32 = 0x0004;
+const PBT_POWERSETTINGCHANGE: u32 = 0x8013;
+const GUID_CONSOLE_DISPLAY_STATE: GUID = GUID::from_values(
+    0x6fe69556,
+    0x704a,
+    0x47a0,
+    [0x8f, 0x24, 0xc2, 0x8d, 0x93, 0x6f, 0xda, 0x47],
+);
 
 /// Initialize Windows power and session event listener
 pub fn initialize_windows_listener(app_handle: AppHandle, db: DbConnection) {
@@ -75,6 +85,14 @@ pub fn initialize_windows_listener(app_handle: AppHandle, db: DbConnection) {
                 );
             }
 
+            // Register for Display State changes (screen off/on)
+            if let Err(e) = RegisterPowerSettingNotification(HANDLE(hwnd.0), &GUID_CONSOLE_DISPLAY_STATE, DEVICE_NOTIFY_WINDOW_HANDLE) {
+                eprintln!(
+                    "Windows event listener: Failed to register for power setting notifications: {:?}",
+                    e
+                );
+            }
+
             println!("Windows event listener: Hidden window created, entering message loop");
 
             let mut msg = MSG::default();
@@ -103,21 +121,23 @@ unsafe extern "system" fn wnd_proc(
             const WTS_SESSION_UNLOCK: u32 = 0x8;
             if reason_code == WTS_SESSION_LOCK {
                 println!("Windows Event: System Locked (WTS_SESSION_LOCK)");
+                crate::events::system_events::IS_LOCKED.store(true, Ordering::SeqCst);
                 let state_ptr =
                     windows::Win32::UI::WindowsAndMessaging::GetWindowLongPtrW(hwnd, GWLP_USERDATA)
                         as *mut ListenerState;
                 if !state_ptr.is_null() {
                     let state = unsafe { &*state_ptr };
-                    crate::events::system_events::handle_screen_locked(&state.app_handle, &state.db);
+                    crate::events::system_events::handle_away_started(&state.app_handle, &state.db);
                 }
             } else if reason_code == WTS_SESSION_UNLOCK {
                 println!("Windows Event: System Unlocked (WTS_SESSION_UNLOCK)");
+                crate::events::system_events::IS_LOCKED.store(false, Ordering::SeqCst);
                 let state_ptr =
                     windows::Win32::UI::WindowsAndMessaging::GetWindowLongPtrW(hwnd, GWLP_USERDATA)
                         as *mut ListenerState;
                 if !state_ptr.is_null() {
                     let state = unsafe { &*state_ptr };
-                    crate::events::system_events::handle_screen_unlocked(&state.app_handle, &state.db);
+                    crate::events::system_events::handle_away_ended(&state.app_handle, &state.db);
                 }
             } else {
                 // Other session changes are ignored but logged for debug
@@ -134,6 +154,31 @@ unsafe extern "system" fn wnd_proc(
                 if !state_ptr.is_null() {
                     let state = unsafe { &*state_ptr };
                     auto_pause_if_running(&state.app_handle, &state.db, AutoPauseReason::SystemSleep);
+                }
+            } else if wparam.0 as u32 == PBT_POWERSETTINGCHANGE {
+                let setting = lparam.0 as *const POWERBROADCAST_SETTING;
+                if !setting.is_null() {
+                    let setting_ref = unsafe { &*setting };
+                    if setting_ref.PowerSetting == GUID_CONSOLE_DISPLAY_STATE && setting_ref.DataLength >= 4 {
+                        let display_state = unsafe { *(setting_ref.Data.as_ptr() as *const u32) };
+                        let state_ptr =
+                            windows::Win32::UI::WindowsAndMessaging::GetWindowLongPtrW(hwnd, GWLP_USERDATA)
+                                as *mut ListenerState;
+                        if !state_ptr.is_null() {
+                            let state = unsafe { &*state_ptr };
+                            if display_state == 0 {
+                                println!("Windows Event: Display Off");
+                                crate::events::system_events::handle_away_started(&state.app_handle, &state.db);
+                            } else if display_state == 1 {
+                                println!("Windows Event: Display On");
+                                if !crate::events::system_events::IS_LOCKED.load(Ordering::SeqCst) {
+                                    crate::events::system_events::handle_away_ended(&state.app_handle, &state.db);
+                                } else {
+                                    println!("Windows Event: Display On (Ignored, system is locked)");
+                                }
+                            }
+                        }
+                    }
                 }
             }
             LRESULT(1)

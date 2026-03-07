@@ -1,0 +1,29 @@
+    Checking my-todos v0.1.40 (F:\personal_projects\MyTodos\src-tauri)
+error[E0425]: cannot find type `AppHandle` in this scope
+  --> src\events\windows.rs:33:48
+   |
+33 | pub fn initialize_windows_listener(app_handle: AppHandle, db: DbConnection) {
+   |                                                ^^^^^^^^^ not found in this scope
+   |
+help: consider importing one of these structs
+   |
+ 1 + use crate::events::AppHandle;
+   |
+ 1 + use tauri::AppHandle;
+   |
+
+error[E0425]: cannot find type `AppHandle` in this scope
+   --> src\events\windows.rs:107:17
+    |
+107 |     app_handle: AppHandle,
+    |                 ^^^^^^^^^ not found in this scope
+    |
+help: consider importing one of these structs
+    |
+  1 + use crate::events::AppHandle;
+    |
+  1 + use tauri::AppHandle;
+    |
+
+For more information about this error, try `rustc --explain E0425`.
+error: could not compile `my-todos` (lib) due to 2 previous errors

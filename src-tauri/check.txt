@@ -1,0 +1,13 @@
+    Checking my-todos v0.1.40 (F:\personal_projects\MyTodos\src-tauri)
+error[E0432]: unresolved imports `windows::Win32::System::Power::GUID_CONSOLE_DISPLAY_STATE`, `windows::Win32::System::Power::PBT_POWERSETTINGCHANGE`
+  --> src\events\windows.rs:20:39
+   |
+20 |     RegisterPowerSettingNotification, GUID_CONSOLE_DISPLAY_STATE, PBT_POWERSETTINGCHANGE, POWERBROADCAST_SETTING,
+   |                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^^^^^^
+   |                                       |                           |
+   |                                       |                           no `PBT_POWERSETTINGCHANGE` in `Win32::System::Power`
+   |                                       |                           help: a similar name exists in the module: `SET_POWER_SETTING_VALUE`
+   |                                       no `GUID_CONSOLE_DISPLAY_STATE` in `Win32::System::Power`
+
+For more information about this error, try `rustc --explain E0432`.
+error: could not compile `my-todos` (lib) due to 1 previous error

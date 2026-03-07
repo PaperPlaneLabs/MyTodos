@@ -151,25 +151,28 @@ pub fn auto_pause_if_running(app_handle: &AppHandle, db: &DbConnection, reason: 
 }
 
 pub static SCREEN_LOCK_TIME: AtomicI64 = AtomicI64::new(0);
+pub static IS_LOCKED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
-/// Handle system screen lock event
-pub fn handle_screen_locked(app_handle: &AppHandle, db: &DbConnection) {
+/// Handle system away started event (screen lock or display off)
+pub fn handle_away_started(app_handle: &AppHandle, db: &DbConnection) {
     let now = get_timestamp();
-    SCREEN_LOCK_TIME.store(now, Ordering::SeqCst);
-    println!("[System Events] Screen locked at {}", now);
+    // Only store if not already tracking away time
+    if SCREEN_LOCK_TIME.compare_exchange(0, now, Ordering::SeqCst, Ordering::SeqCst).is_ok() {
+        println!("[System Events] User away started at {}", now);
 
-    // Auto-pause if running
-    auto_pause_if_running(app_handle, db, AutoPauseReason::ScreenLock);
+        // Auto-pause if running
+        auto_pause_if_running(app_handle, db, AutoPauseReason::ScreenLock);
+    }
 }
 
-/// Handle system screen unlock event
-pub fn handle_screen_unlocked(app_handle: &AppHandle, db: &DbConnection) {
+/// Handle system away ended event (screen unlock or display on)
+pub fn handle_away_ended(app_handle: &AppHandle, db: &DbConnection) {
     let now = get_timestamp();
     let lock_time = SCREEN_LOCK_TIME.swap(0, Ordering::SeqCst);
 
     if lock_time > 0 {
         let away_seconds = now - lock_time;
-        println!("[System Events] Screen unlocked. Away for {} seconds", away_seconds);
+        println!("[System Events] User returned. Away for {} seconds", away_seconds);
 
         // Define a reasonable minimum break time to show the resume window
         if away_seconds > 10 {
