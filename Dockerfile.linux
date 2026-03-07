@@ -33,7 +33,8 @@ ENV TAURI_SIGNING_PRIVATE_KEY_PASSWORD=${TAURI_SIGNING_PRIVATE_KEY_PASSWORD}
 COPY . .
 
 # Install dependencies and build
-RUN npm install
+# Remove package-lock.json to avoid npm bug #4828 with cross-platform optional dependencies
+RUN rm -f package-lock.json && npm install
 RUN npm run tauri build
 
 # Output extraction (include .sig files for auto-updater)
