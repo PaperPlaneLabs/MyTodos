@@ -70,7 +70,7 @@ pub fn initialize_linux_listener(app_handle: AppHandle, db: DbConnection) {
                     let mut stream = session_proxy.receive_locked_hint_changed().await;
                     println!("Successfully subscribed to Linux LockedHint changes");
                     while let Some(change) = stream.next().await {
-                        if let Ok(is_locked) = change.get::<bool>().await {
+                        if let Ok(is_locked) = change.get().await {
                             if is_locked {
                                 println!("Linux screen lock detected");
                                 let app = app_handle.lock().await;
