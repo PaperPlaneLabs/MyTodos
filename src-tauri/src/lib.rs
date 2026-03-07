@@ -96,7 +96,6 @@ pub fn run() {
 
             // Handle window close → hide to tray instead of quitting
             if let Some(window) = app.get_webview_window("main") {
-                let shutdown_db = db_clone.clone();
                 let shutdown_handle = app_handle.clone();
 
                 window.on_window_event(move |event| {

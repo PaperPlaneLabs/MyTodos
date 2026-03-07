@@ -128,9 +128,12 @@ pub fn auto_pause_if_running(app_handle: &AppHandle, db: &DbConnection, reason: 
                     };
 
                     if let Err(e) = app_handle.emit("timer:auto-paused", event) {
-                        eprintln!("Failed to emit auto-pause event: {}", e);
+                        eprintln!("[Auto-Pause] Failed to emit event to frontend: {}", e);
                     } else {
-                        println!("Timer auto-paused due to {:?}", reason);
+                        println!(
+                            "[Auto-Pause] Timer successfully paused. Reason: {:?}",
+                            reason
+                        );
                     }
                 }
                 Err(e) => eprintln!("Failed to auto-pause timer: {}", e),
