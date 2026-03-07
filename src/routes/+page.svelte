@@ -13,6 +13,7 @@
   import ContextMenu from "$lib/components/common/ContextMenu.svelte";
   import UpdateNotification from "$lib/components/common/UpdateNotification.svelte";
   import BreakView from "$lib/components/common/BreakView.svelte";
+  import ResumeView from "$lib/components/resume/ResumeView.svelte";
   import { projectStore } from "$lib/stores/projects.svelte";
   import { taskStore } from "$lib/stores/tasks.svelte";
   import { timerStore } from "$lib/stores/timer.svelte";
@@ -22,6 +23,8 @@
   // ── Multi-window: check if this is the break reminder window ──────────
   const isBreakWindow =
     window.__TAURI_INTERNALS__?.metadata?.currentWindow?.label === "break";
+  const isResumeWindow = 
+    window.__TAURI_INTERNALS__?.metadata?.currentWindow?.label === "resume";
   let projectName = $state("");
   let taskTitle = $state("");
   let taskDeadline = $state<string | null>(null);
@@ -471,19 +474,21 @@
 </script>
 
 <svelte:window
-  onpointermove={!isBreakWindow ? handlePointerMove : undefined}
-  onpointerup={!isBreakWindow ? handlePointerUp : undefined}
-  onpointercancel={!isBreakWindow ? cancelDrag : undefined}
-  onkeydown={!isBreakWindow
+  onpointermove={(!isBreakWindow && !isResumeWindow) ? handlePointerMove : undefined}
+  onpointerup={(!isBreakWindow && !isResumeWindow) ? handlePointerUp : undefined}
+  onpointercancel={(!isBreakWindow && !isResumeWindow) ? cancelDrag : undefined}
+  onkeydown={(!isBreakWindow && !isResumeWindow)
     ? (e) => {
         if (e.key === "Escape") cancelDrag();
       }
     : undefined}
-  onclick={!isBreakWindow ? () => uiStore.closeContextMenu() : undefined}
+  onclick={(!isBreakWindow && !isResumeWindow) ? () => uiStore.closeContextMenu() : undefined}
 />
 
 {#if isBreakWindow}
   <BreakView />
+{:else if isResumeWindow}
+  <ResumeView />
 {:else}
   <div class="app-container" class:app-collapsed={uiStore.isCollapsed}>
     <CollapseHandle />

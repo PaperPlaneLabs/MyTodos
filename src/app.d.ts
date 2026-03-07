@@ -4,6 +4,12 @@
 interface Window {
     __BREAK_MESSAGE__?: string;
     __BREAK_THEME__?: string;
+    __RESUME_DATA__?: {
+        taskId: number | null;
+        taskTitle: string;
+        awayTimeSeconds: number;
+        theme: string;
+    };
     __TAURI_INTERNALS__?: {
         metadata?: {
             currentWindow?: { label: string };

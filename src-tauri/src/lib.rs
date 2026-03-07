@@ -180,6 +180,9 @@ pub fn run() {
             commands::google_auth_status,
             commands::google_auth_disconnect,
             commands::google_sync_all_tasks,
+            commands::open_resume_window,
+            commands::close_resume_window,
+            commands::focus_main_window,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

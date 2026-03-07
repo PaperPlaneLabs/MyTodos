@@ -193,11 +193,13 @@ export const db = {
     minimize: () => invoke<void>("minimize_window"),
     toggleMaximize: () => invoke<void>("toggle_maximize"),
     close: () => invoke<void>("close_window"),
+    closeResume: () => invoke<void>("close_resume_window"),
     dock: (side: "left" | "right") => invoke<void>("dock_window", { side }),
     center: () => invoke<void>("center_window"),
     setCollapsed: (collapsed: boolean, top: number) => invoke<void>("set_collapsed", { collapsed, top }),
     move: (x: number, y: number) => invoke<void>("move_window", { x, y }),
     startDragging: () => invoke<void>("start_window_drag"),
+    focusMain: () => invoke<void>("focus_main_window"),
   },
 
   googleCalendar: {

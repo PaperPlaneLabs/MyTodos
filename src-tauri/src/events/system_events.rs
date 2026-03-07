@@ -1,5 +1,6 @@
 use crate::db::{ActiveTimer, DbConnection};
 use serde::{Deserialize, Serialize};
+use std::sync::atomic::{AtomicI64, Ordering};
 use tauri::{AppHandle, Emitter};
 
 /// Reasons for auto-pausing the timer
@@ -146,5 +147,54 @@ pub fn auto_pause_if_running(app_handle: &AppHandle, db: &DbConnection, reason: 
             // No active timer - no action needed
         }
         Err(e) => eprintln!("Failed to check active timer: {}", e),
+    }
+}
+
+pub static SCREEN_LOCK_TIME: AtomicI64 = AtomicI64::new(0);
+
+/// Handle system screen lock event
+pub fn handle_screen_locked(app_handle: &AppHandle, db: &DbConnection) {
+    let now = get_timestamp();
+    SCREEN_LOCK_TIME.store(now, Ordering::SeqCst);
+    println!("[System Events] Screen locked at {}", now);
+
+    // Auto-pause if running
+    auto_pause_if_running(app_handle, db, AutoPauseReason::ScreenLock);
+}
+
+/// Handle system screen unlock event
+pub fn handle_screen_unlocked(app_handle: &AppHandle, db: &DbConnection) {
+    let now = get_timestamp();
+    let lock_time = SCREEN_LOCK_TIME.swap(0, Ordering::SeqCst);
+
+    if lock_time > 0 {
+        let away_seconds = now - lock_time;
+        println!("[System Events] Screen unlocked. Away for {} seconds", away_seconds);
+
+        // Define a reasonable minimum break time to show the resume window
+        if away_seconds > 10 {
+            let (task_id, task_title) = match get_active_timer_internal(db) {
+                Ok(Some(timer)) => (
+                    Some(timer.task_id),
+                    timer.task_title.unwrap_or_else(|| "".to_string()),
+                ),
+                _ => (None, "".to_string()),
+            };
+
+            let app_handle_clone = app_handle.clone();
+            tauri::async_runtime::spawn(async move {
+                if let Err(e) = crate::commands::window::open_resume_window(
+                    app_handle_clone,
+                    task_id,
+                    task_title,
+                    away_seconds,
+                    None,
+                )
+                .await
+                {
+                    eprintln!("Failed to open resume window: {}", e);
+                }
+            });
+        }
     }
 }

@@ -100,6 +100,7 @@ unsafe extern "system" fn wnd_proc(
     match msg {
         WM_WTSSESSION_CHANGE => {
             let reason_code = wparam.0 as u32;
+            const WTS_SESSION_UNLOCK: u32 = 0x8;
             if reason_code == WTS_SESSION_LOCK {
                 println!("Windows Event: System Locked (WTS_SESSION_LOCK)");
                 let state_ptr =
@@ -107,10 +108,19 @@ unsafe extern "system" fn wnd_proc(
                         as *mut ListenerState;
                 if !state_ptr.is_null() {
                     let state = unsafe { &*state_ptr };
-                    auto_pause_if_running(&state.app_handle, &state.db, AutoPauseReason::ScreenLock);
+                    crate::events::system_events::handle_screen_locked(&state.app_handle, &state.db);
+                }
+            } else if reason_code == WTS_SESSION_UNLOCK {
+                println!("Windows Event: System Unlocked (WTS_SESSION_UNLOCK)");
+                let state_ptr =
+                    windows::Win32::UI::WindowsAndMessaging::GetWindowLongPtrW(hwnd, GWLP_USERDATA)
+                        as *mut ListenerState;
+                if !state_ptr.is_null() {
+                    let state = unsafe { &*state_ptr };
+                    crate::events::system_events::handle_screen_unlocked(&state.app_handle, &state.db);
                 }
             } else {
-                // Other session changes (unlock, etc) are ignored but logged for debug
+                // Other session changes are ignored but logged for debug
                 println!("Windows Event: Session change code: {}", reason_code);
             }
             LRESULT(0)

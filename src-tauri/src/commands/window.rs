@@ -369,3 +369,112 @@ pub fn get_window_orientation(window: WebviewWindow) -> Result<WindowOrientation
         height: (window_size.height as f64) / scale_factor,
     })
 }
+
+#[tauri::command]
+pub async fn open_resume_window(
+    app: AppHandle,
+    task_id: Option<i64>,
+    task_title: String,
+    away_time_seconds: i64,
+    theme: Option<String>,
+) -> Result<()> {
+    if let Some(existing) = app.get_webview_window("resume") {
+        existing
+            .set_focus()
+            .map_err(|e| AppError::Other(e.to_string()))?;
+        return Ok(());
+    }
+
+    let main_window = app
+        .get_webview_window("main")
+        .ok_or_else(|| AppError::Other("Could not find main window".to_string()))?;
+
+    let monitor = main_window
+        .current_monitor()
+        .map_err(|e| AppError::Other(e.to_string()))?
+        .ok_or_else(|| AppError::Other("Could not find current monitor".to_string()))?;
+
+    let scale_factor = monitor.scale_factor();
+    let work_area = monitor.work_area();
+
+    let logical_work_x = (work_area.position.x as f64) / scale_factor;
+    let logical_work_y = (work_area.position.y as f64) / scale_factor;
+    let logical_work_width = (work_area.size.width as f64) / scale_factor;
+    let logical_work_height = (work_area.size.height as f64) / scale_factor;
+
+    let width: f64 = 420.0;
+    let height: f64 = 340.0;
+
+    let x = logical_work_x + (logical_work_width - width) / 2.0;
+    let y = logical_work_y + (logical_work_height - height) / 2.0;
+
+    let task_id_json = serde_json::to_string(&task_id)
+        .map_err(|e| AppError::Other(format!("Failed to serialize task_id: {}", e)))?;
+    let task_title_json = serde_json::to_string(&task_title)
+        .map_err(|e| AppError::Other(format!("Failed to serialize task_title: {}", e)))?;
+    let away_time_json = serde_json::to_string(&away_time_seconds)
+        .map_err(|e| AppError::Other(format!("Failed to serialize away_time: {}", e)))?;
+    let theme_str = theme.as_deref().unwrap_or("light");
+    let theme_json = serde_json::to_string(theme_str)
+        .map_err(|e| AppError::Other(format!("Failed to serialize theme: {}", e)))?;
+
+    let init_script = format!(
+        "window.__RESUME_DATA__ = {{ \
+            taskId: {}, \
+            taskTitle: {}, \
+            awayTimeSeconds: {}, \
+            theme: {} \
+        }};",
+        task_id_json, task_title_json, away_time_json, theme_json
+    );
+
+    let resume_window = match WebviewWindowBuilder::new(&app, "resume", Default::default())
+        .title("Resume Work")
+        .inner_size(width, height)
+        .position(x, y)
+        .resizable(false)
+        .decorations(false)
+        .always_on_top(true)
+        .shadow(true)
+        .visible(true)
+        .focused(true)
+        .initialization_script(&init_script)
+        .on_navigation(|_url| true)
+        .on_page_load(|_window, _payload| {})
+        .build()
+    {
+        Ok(window) => window,
+        Err(e) => {
+            return Err(AppError::Other(format!(
+                "Failed to build resume window: {}",
+                e
+            )));
+        }
+    };
+
+    resume_window.on_window_event(|_event| {});
+
+    resume_window
+        .set_focus()
+        .map_err(|e| AppError::Other(e.to_string()))?;
+
+    Ok(())
+}
+
+#[tauri::command]
+pub fn close_resume_window(app: AppHandle) -> Result<()> {
+    if let Some(window) = app.get_webview_window("resume") {
+        window.close().map_err(|e| AppError::Other(e.to_string()))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+pub fn focus_main_window(app: AppHandle) -> Result<()> {
+    if let Some(window) = app.get_webview_window("main") {
+        window.set_focus().map_err(|e| AppError::Other(e.to_string()))?;
+        window.unminimize().map_err(|e| AppError::Other(e.to_string()))?;
+    }
+    Ok(())
+}
+
