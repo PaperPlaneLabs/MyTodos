@@ -106,14 +106,23 @@ pub fn run() {
             // Handle window close → hide to tray instead of quitting
             if let Some(window) = app.get_webview_window("main") {
                 let shutdown_handle = app_handle.clone();
+                let shutdown_db = db_clone.clone();
 
                 window.on_window_event(move |event| {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                        if !events::is_shutting_down() {
+                        use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_SHUTTINGDOWN};
+                        let is_os_shutting_down = unsafe { GetSystemMetrics(SM_SHUTTINGDOWN) } != 0;
+                        
+                        // If system is shutting down, or we previously detected it, allow the close.
+                        if !events::is_shutting_down() && !is_os_shutting_down {
                             api.prevent_close();
                             if let Some(w) = shutdown_handle.get_webview_window("main") {
                                 let _ = w.hide();
                             }
+                        } else {
+                            println!("Shutdown or App Quit detected, pausing timers...");
+                            events::SHUTTING_DOWN.store(true, std::sync::atomic::Ordering::SeqCst);
+                            events::auto_pause_if_running(&shutdown_handle, &shutdown_db, events::AutoPauseReason::Shutdown);
                         }
                     }
                 });
