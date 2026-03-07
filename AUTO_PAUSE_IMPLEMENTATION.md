@@ -10,46 +10,37 @@ Successfully implemented auto-pause functionality that automatically pauses the 
 - Created `src-tauri/src/events/` module with:
   - `mod.rs` - Module exports and platform-specific initialization
   - `system_events.rs` - Core auto-pause logic and event types
-- Added shutdown detection via window close event in `lib.rs`
+- Added shutdown detection via `WM_QUERYENDSESSION` and `WM_ENDSESSION` on Windows
 - Implemented `auto_pause_if_running()` helper function
+- Added global `SHUTTING_DOWN` flag to prevent blocking system shutdown
 
 ### ✅ Phase 2: Windows Support (COMPLETED)
 - Created `src-tauri/src/events/windows.rs`
-- **Note**: Simplified implementation for initial release
-  - Currently relies on window close event for shutdown detection
-  - Full WM_POWERBROADCAST sleep detection requires complex window creation
-  - Marked as future enhancement in code comments
+- Implements full `WNDCLASSW` message loop in background thread
+- Handles `WM_POWERBROADCAST` (PBT_APMSUSPEND) for sleep detection
+- Handles `WM_WTSSESSION_CHANGE` (WTS_SESSION_LOCK) for lock detection
+- Handles `WM_QUERYENDSESSION` / `WM_ENDSESSION` for shutdown detection
 
 ### ✅ Phase 3: macOS Support (COMPLETED)
 - Created `src-tauri/src/events/macos.rs`
-- Implements IOKit-based system power notifications
-- Handles `kIOMessageSystemWillSleep` for sleep detection
-- Uses background thread with Core Foundation run loop
+- Implements IOKit-based system power notifications for sleep detection
+- Implements Distributed Notification Center observer for screen lock detection
+  - Listens for `com.apple.screenIsLocked` and `com.apple.screenIsUnlocked`
 
 ### ✅ Phase 4: Linux Support (COMPLETED)
 - Created `src-tauri/src/events/linux.rs`
 - Uses `zbus` to monitor systemd D-Bus
-- Listens for `PrepareForSleep` signal from login1.Manager
-- Fully async with tokio
+- Listens for `PrepareForSleep` signal for suspend detection
+- Monitors `LockedHint` property for screen lock detection
 
 ### ✅ Phase 5: Frontend Integration (COMPLETED)
-- Added TypeScript types in `src/lib/services/db.ts`:
-  - `AutoPauseReason` enum
-  - `AutoPauseEvent` interface
-- Updated `src/lib/stores/timer.svelte.ts`:
-  - Added `autoPausedReason` state variable
-  - Added `isAutoPaused` getter
-  - Implemented event listener for `timer:auto-paused` events
-  - Clear auto-pause state on manual resume
-- Added UI indicator in `src/routes/+page.svelte`:
-  - Auto-pause banner showing reason (sleep/lock/shutdown)
-  - Styled with warning colors for visibility
-  - Responsive to theme (light/dark mode)
+- Added TypeScript types in `src/lib/services/db.ts`
+- Updated `src/lib/stores/timer.svelte.ts` with auto-pause state
+- Added UI indicator in `src/routes/+page.svelte`
 
-### ⚠️ Phase 6: Screen Lock Detection (NOT IMPLEMENTED)
-- Marked as optional enhancement
-- Not included in initial implementation
-- Can be added in future versions
+### ✅ Phase 6: Screen Lock Detection (COMPLETED)
+- Implemented cross-platform support for screen lock events
+- Timer automatically pauses when screen is locked
 
 ## Files Created
 

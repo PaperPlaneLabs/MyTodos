@@ -1,5 +1,13 @@
 pub mod system_events;
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
+pub static SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
+
+pub fn is_shutting_down() -> bool {
+    SHUTTING_DOWN.load(Ordering::SeqCst)
+}
+
 #[cfg(target_os = "windows")]
 pub mod windows;
 

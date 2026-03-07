@@ -1,5 +1,7 @@
 use crate::db::DbConnection;
 use crate::events::system_events::{auto_pause_if_running, AutoPauseReason};
+use crate::events::SHUTTING_DOWN;
+use std::sync::atomic::Ordering;
 use tauri::AppHandle;
 use windows::core::{HSTRING, PCWSTR};
 use windows::Win32::Foundation::{HINSTANCE, HWND, LPARAM, LRESULT, WPARAM};
@@ -11,7 +13,8 @@ use windows::Win32::System::RemoteDesktop::{
 use windows::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, DefWindowProcW, DispatchMessageW, GetMessageW, RegisterClassW,
     SetWindowLongPtrW, TranslateMessage, CREATESTRUCTW, CS_HREDRAW, CS_VREDRAW, GWLP_USERDATA, MSG,
-    WM_CREATE, WM_POWERBROADCAST, WM_WTSSESSION_CHANGE, WNDCLASSW, WTS_SESSION_LOCK,
+    WM_CREATE, WM_ENDSESSION, WM_POWERBROADCAST, WM_QUERYENDSESSION, WM_WTSSESSION_CHANGE,
+    WNDCLASSW, WTS_SESSION_LOCK,
 };
 
 // Power event constants if missing from the crate version
@@ -103,12 +106,8 @@ unsafe extern "system" fn wnd_proc(
                     windows::Win32::UI::WindowsAndMessaging::GetWindowLongPtrW(hwnd, GWLP_USERDATA)
                         as *mut ListenerState;
                 if !state_ptr.is_null() {
-                    let state = &*state_ptr;
-                    auto_pause_if_running(
-                        &state.app_handle,
-                        &state.db,
-                        AutoPauseReason::ScreenLock,
-                    );
+                    let state = unsafe { &*state_ptr };
+                    auto_pause_if_running(&state.app_handle, &state.db, AutoPauseReason::ScreenLock);
                 }
             } else {
                 // Other session changes (unlock, etc) are ignored but logged for debug
@@ -123,13 +122,22 @@ unsafe extern "system" fn wnd_proc(
                     windows::Win32::UI::WindowsAndMessaging::GetWindowLongPtrW(hwnd, GWLP_USERDATA)
                         as *mut ListenerState;
                 if !state_ptr.is_null() {
-                    let state = &*state_ptr;
-                    auto_pause_if_running(
-                        &state.app_handle,
-                        &state.db,
-                        AutoPauseReason::SystemSleep,
-                    );
+                    let state = unsafe { &*state_ptr };
+                    auto_pause_if_running(&state.app_handle, &state.db, AutoPauseReason::SystemSleep);
                 }
+            }
+            LRESULT(1)
+        }
+        WM_QUERYENDSESSION | WM_ENDSESSION => {
+            println!("Windows Event: System Shutdown Detected ({})", msg);
+            SHUTTING_DOWN.store(true, Ordering::SeqCst);
+
+            let state_ptr =
+                windows::Win32::UI::WindowsAndMessaging::GetWindowLongPtrW(hwnd, GWLP_USERDATA)
+                    as *mut ListenerState;
+            if !state_ptr.is_null() {
+                let state = unsafe { &*state_ptr };
+                auto_pause_if_running(&state.app_handle, &state.db, AutoPauseReason::Shutdown);
             }
             LRESULT(1)
         }

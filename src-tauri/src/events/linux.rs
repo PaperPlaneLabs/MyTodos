@@ -4,7 +4,17 @@ use futures_util::stream::StreamExt;
 use std::sync::Arc;
 use tauri::AppHandle;
 use tokio::sync::Mutex;
-use zbus::Connection;
+use zbus::{proxy, Connection};
+
+#[proxy(
+    interface = "org.freedesktop.login1.Session",
+    default_service = "org.freedesktop.login1",
+    default_path = "/org/freedesktop/login1/session/auto"
+)]
+trait Session {
+    #[zbus(property)]
+    fn locked_hint(&self) -> zbus::Result<bool>;
+}
 
 /// Initialize Linux systemd D-Bus listener
 pub fn initialize_linux_listener(app_handle: AppHandle, db: DbConnection) {
@@ -16,49 +26,68 @@ pub fn initialize_linux_listener(app_handle: AppHandle, db: DbConnection) {
 
         match Connection::system().await {
             Ok(connection) => {
-                // Subscribe to PrepareForSleep signal from systemd
-                // Create a proxy to the login manager
-                match zbus::Proxy::new(
-                    &connection,
-                    "org.freedesktop.login1",
-                    "/org/freedesktop/login1",
-                    "org.freedesktop.login1.Manager",
-                )
-                .await
-                {
-                    Ok(proxy) => {
-                        match proxy.receive_signal("PrepareForSleep").await {
-                            Ok(mut stream) => {
-                                println!(
-                                    "Successfully subscribed to systemd PrepareForSleep signal"
-                                );
+                // 1. Listen for PrepareForSleep (Suspend/Sleep)
+                let app_handle_sleep = app_handle.clone();
+                let db_sleep = db.clone();
+                let connection_sleep = connection.clone();
 
-                                while let Some(msg) = stream.next().await {
-                                    // PrepareForSleep signal has a boolean argument:
-                                    // true = about to sleep, false = waking up
-                                    let body = msg.body();
-                                    if let Ok(is_sleeping) = body.deserialize::<bool>() {
-                                        if is_sleeping {
-                                            println!("Linux system suspend detected");
-
-                                            let app = app_handle.lock().await;
-                                            let db = db.lock().await;
-                                            auto_pause_if_running(
-                                                &app,
-                                                &db,
-                                                AutoPauseReason::SystemSleep,
-                                            );
-                                        }
+                tokio::spawn(async move {
+                    if let Ok(proxy) = zbus::Proxy::new(
+                        &connection_sleep,
+                        "org.freedesktop.login1",
+                        "/org/freedesktop/login1",
+                        "org.freedesktop.login1.Manager",
+                    )
+                    .await
+                    {
+                        if let Ok(mut stream) = proxy.receive_signal("PrepareForSleep").await {
+                            while let Some(msg) = stream.next().await {
+                                if let Ok(is_sleeping) = msg.body().deserialize::<bool>() {
+                                    if is_sleeping {
+                                        println!("Linux system suspend detected");
+                                        let app = app_handle_sleep.lock().await;
+                                        let db = db_sleep.lock().await;
+                                        auto_pause_if_running(
+                                            &app,
+                                            &db,
+                                            AutoPauseReason::SystemSleep,
+                                        );
                                     }
                                 }
                             }
-                            Err(e) => {
-                                eprintln!("Failed to subscribe to PrepareForSleep signal: {}", e);
-                            }
                         }
                     }
-                    Err(e) => {
-                        eprintln!("Failed to create login1 proxy: {}", e);
+                });
+
+                // 2. Listen for LockedHint (Screen Lock)
+                // We use "/org/freedesktop/login1/session/self" to refer to the current session
+                if let Ok(session_proxy) = SessionProxy::builder(&connection)
+                    .path("/org/freedesktop/login1/session/self")
+                    .unwrap()
+                    .build()
+                    .await
+                {
+                    match session_proxy.receive_locked_hint_changed().await {
+                        Ok(mut stream) => {
+                            println!("Successfully subscribed to Linux LockedHint changes");
+                            while let Some(change) = stream.next().await {
+                                if let Ok(is_locked) = change.get().await {
+                                    if is_locked {
+                                        println!("Linux screen lock detected");
+                                        let app = app_handle.lock().await;
+                                        let db = db.lock().await;
+                                        auto_pause_if_running(
+                                            &app,
+                                            &db,
+                                            AutoPauseReason::ScreenLock,
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to subscribe to LockedHint changes: {}", e);
+                        }
                     }
                 }
             }
