@@ -1031,6 +1031,7 @@
     open={uiStore.showTaskModal}
     title={uiStore.editingTaskId ? "Edit Task" : "New Task"}
     onClose={() => uiStore.closeTaskModal()}
+    allowOverflow={true}
   >
     {#snippet children()}
       <form

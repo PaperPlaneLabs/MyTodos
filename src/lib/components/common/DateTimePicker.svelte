@@ -15,6 +15,8 @@
 
   let showPicker = $state(false);
   let originalHeight = $state<number | null>(null);
+  let pickerTriggerElement = $state<HTMLElement | null>(null);
+  let opensUpwards = $state(false);
 
   // Custom Time State
   let customHours = $state("12");
@@ -173,12 +175,21 @@
         const physicalSize = await appWindow.innerSize();
         const logicalSize = physicalSize.toLogical(factor);
         
-        if (logicalSize.height < 680) {
+        if (logicalSize.height < 820) {
           originalHeight = logicalSize.height;
-          await appWindow.setSize(new LogicalSize(logicalSize.width, 680));
+          await appWindow.setSize(new LogicalSize(logicalSize.width, 820));
         }
       } catch (e) {
         console.warn("Could not resize window:", e);
+      }
+
+      // Check for flip-up logic
+      await tick();
+      if (pickerTriggerElement) {
+        const rect = pickerTriggerElement.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - rect.bottom;
+        // Popover is around 400px tall with padding/gap
+        opensUpwards = spaceBelow < 420;
       }
     } else {
       closePicker();
@@ -237,6 +248,7 @@
     class:has-value={!!date}
     {disabled}
     onclick={togglePicker}
+    bind:this={pickerTriggerElement}
   >
     <span class="icon">📅</span>
     <span class="value">{displayString}</span>
@@ -245,7 +257,11 @@
   {#if showPicker}
     <div class="calendar-view-backdrop" aria-label="Close picker" role="button" tabindex="0" onclick={closePicker} onkeydown={(e) => e.key === 'Escape' && closePicker()}></div>
     
-    <div class="picker-popover" transition:fade={{ duration: 150 }}>
+    <div 
+      class="picker-popover" 
+      class:opens-upwards={opensUpwards}
+      transition:fade={{ duration: 150 }}
+    >
       <!-- Header / Nav -->
       <div class="popover-header">
         <button type="button" class="nav-btn" aria-label="Previous month" onclick={prevMonth}>
@@ -385,6 +401,12 @@
     display: flex;
     flex-direction: column;
     gap: var(--spacing-md);
+  }
+
+  .picker-popover.opens-upwards {
+    top: auto;
+    bottom: calc(100% + var(--spacing-xs));
+    box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.3);
   }
 
   /* Header */
