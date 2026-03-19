@@ -214,6 +214,11 @@
     align-items: center;
     justify-content: center;
     transition: all var(--transition-fast);
+    opacity: 0;
+  }
+
+  .day-cell:hover .add-task-btn {
+    opacity: 1;
   }
 
   .add-task-btn:hover {
