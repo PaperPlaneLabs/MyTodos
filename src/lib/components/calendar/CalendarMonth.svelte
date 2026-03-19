@@ -45,8 +45,9 @@
   }
 
   .weekday {
-    padding: var(--spacing-sm);
-    text-align: center;
+    padding: var(--spacing-xs);
+    padding-left: calc(var(--spacing-xs) + 4px); /* Extra optical adjustment so text aligns with the centered number inside the 24px circle */
+    text-align: left;
     font-size: 12px;
     font-weight: 600;
     color: var(--text-secondary);
@@ -65,7 +66,6 @@
   }
 
   .portrait .weekday {
-    padding: var(--spacing-xs);
     font-size: 11px;
   }
 
@@ -75,7 +75,6 @@
     }
 
     .weekday {
-      padding: var(--spacing-xs);
       font-size: 11px;
     }
   }
