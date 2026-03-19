@@ -9,6 +9,7 @@
   import SettingsView from "$lib/components/settings/SettingsView.svelte";
   import CalendarTabView from "$lib/components/calendar/CalendarTabView.svelte";
   import Modal from "$lib/components/common/Modal.svelte";
+  import DateTimePicker from "$lib/components/common/DateTimePicker.svelte";
   import TimeDisplay from "$lib/components/common/TimeDisplay.svelte";
   import ContextMenu from "$lib/components/common/ContextMenu.svelte";
   import UpdateNotification from "$lib/components/common/UpdateNotification.svelte";
@@ -819,6 +820,8 @@
                         >
                           <div
                             class="task-item completed-task-item"
+                            role="button"
+                            tabindex="0"
                             oncontextmenu={(e) =>
                               handleContextMenu(e, "task", task.id)}
                             onpointerdown={(e) => {
@@ -838,6 +841,8 @@
                           >
                             <div
                               class="drag-handle-task"
+                              role="button"
+                              tabindex="0"
                               onpointerdown={(e) => {
                                 e.stopPropagation();
                                 handlePointerDown(
@@ -1003,7 +1008,6 @@
               type="text"
               bind:value={projectName}
               placeholder="My Project"
-              autofocus
             />
           </div>
           <div
@@ -1052,7 +1056,6 @@
               type="text"
               bind:value={taskTitle}
               placeholder="Task title"
-              autofocus
             />
           </div>
 
@@ -1075,35 +1078,7 @@
               <label for="task-deadline" class="text-sm text-secondary"
                 >Deadline (optional)</label
               >
-              <div class="deadline-input">
-                <input
-                  id="task-deadline"
-                  class="input"
-                  type="date"
-                  bind:value={taskDeadline}
-                  placeholder="No deadline"
-                />
-                <input
-                  type="time"
-                  class="input"
-                  bind:value={taskTime}
-                  step="300"
-                  style="width: 110px;"
-                  disabled={!taskDeadline}
-                />
-                {#if taskDeadline}
-                  <button
-                    type="button"
-                    class="btn btn-ghost"
-                    onclick={() => {
-                      taskDeadline = null;
-                      taskTime = "";
-                    }}
-                  >
-                    ✕
-                  </button>
-                {/if}
-              </div>
+              <DateTimePicker bind:date={taskDeadline} bind:time={taskTime} />
             {/if}
           </div>
 
@@ -1293,7 +1268,6 @@
   }
 
   /* Date and Time Input Theme Support */
-  input[type="date"],
   input[type="time"] {
     appearance: none;
     -webkit-appearance: none;
@@ -1301,21 +1275,15 @@
   }
 
   /* Force dark color scheme for native pickers in dark themes */
-  :global([data-theme="dark"]) input[type="date"],
   :global([data-theme="dark"]) input[type="time"],
-  :global([data-theme="retro"]) input[type="date"],
   :global([data-theme="retro"]) input[type="time"],
-  :global([data-theme="ocean"]) input[type="date"],
   :global([data-theme="ocean"]) input[type="time"],
-  :global([data-theme="nord"]) input[type="date"],
   :global([data-theme="nord"]) input[type="time"],
-  :global([data-theme="minecraft"]) input[type="date"],
   :global([data-theme="minecraft"]) input[type="time"] {
     color-scheme: dark;
   }
 
   /* Style the picker indicator icon */
-  input[type="date"]::-webkit-calendar-picker-indicator,
   input[type="time"]::-webkit-calendar-picker-indicator {
     cursor: pointer;
     opacity: 0.5;
@@ -1325,30 +1293,19 @@
 
   /* Invert icon for dark themes if color-scheme doesn't handle it fully */
   :global([data-theme="dark"])
-    input[type="date"]::-webkit-calendar-picker-indicator,
-  :global([data-theme="dark"])
     input[type="time"]::-webkit-calendar-picker-indicator,
-  :global([data-theme="retro"])
-    input[type="date"]::-webkit-calendar-picker-indicator,
   :global([data-theme="retro"])
     input[type="time"]::-webkit-calendar-picker-indicator,
   :global([data-theme="ocean"])
-    input[type="date"]::-webkit-calendar-picker-indicator,
-  :global([data-theme="ocean"])
     input[type="time"]::-webkit-calendar-picker-indicator,
   :global([data-theme="nord"])
-    input[type="date"]::-webkit-calendar-picker-indicator,
-  :global([data-theme="nord"])
     input[type="time"]::-webkit-calendar-picker-indicator,
-  :global([data-theme="minecraft"])
-    input[type="date"]::-webkit-calendar-picker-indicator,
   :global([data-theme="minecraft"])
     input[type="time"]::-webkit-calendar-picker-indicator {
     filter: invert(1);
     opacity: 0.7;
   }
 
-  input[type="date"]::-webkit-calendar-picker-indicator:hover,
   input[type="time"]::-webkit-calendar-picker-indicator:hover {
     opacity: 1;
     transform: scale(1.1);
