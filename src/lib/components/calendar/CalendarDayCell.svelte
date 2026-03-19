@@ -188,6 +188,7 @@
 <style>
   .day-cell {
     min-height: 100px;
+    min-width: 0; /* Prevents long task contents from expanding grid columns */
     padding: var(--spacing-xs);
     border: 1px solid var(--border-light);
     background: var(--bg-primary);

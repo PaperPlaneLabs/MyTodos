@@ -30,12 +30,13 @@
 <style>
   .calendar-month {
     flex: 1;
-    overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   .weekday-header {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     border-bottom: 1px solid var(--border);
     position: sticky;
     top: 0;
@@ -55,7 +56,7 @@
 
   .days-grid {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     grid-auto-rows: minmax(100px, auto);
   }
 
