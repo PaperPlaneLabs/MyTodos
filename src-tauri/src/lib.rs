@@ -26,6 +26,15 @@ pub fn run() {
     {
         let conn = db_conn.lock();
         initialize_schema(&conn).expect("Failed to initialize database schema");
+
+        // Cleanup old completed tasks (older than 30 days)
+        let thirty_days_ago = chrono::Utc::now().timestamp() - (30 * 24 * 60 * 60);
+        if let Err(e) = conn.execute(
+            "DELETE FROM tasks WHERE completed = 1 AND updated_at < ?",
+            [thirty_days_ago],
+        ) {
+            eprintln!("Failed to cleanup old tasks: {}", e);
+        }
     }
 
     let google_state = google::create_google_state();

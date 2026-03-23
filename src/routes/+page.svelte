@@ -109,6 +109,13 @@
     return new Date(deadline) < new Date();
   }
 
+  function getDaysRemaining(updatedAt: number): string {
+    const daysPassed = Math.floor((Date.now() / 1000 - updatedAt) / (24 * 60 * 60));
+    const remaining = 30 - daysPassed;
+    if (remaining <= 0) return "Deleting soon";
+    return `${remaining}d left`;
+  }
+
   $effect(() => {
     // Sync projectName ONLY when the modal opens or a different project is selected
     if (
@@ -893,6 +900,9 @@
                                     />
                                   </div>
                                 {/if}
+                                <div class="task-days-remaining text-xs text-tertiary" style="margin-left: auto;" title="Completed tasks are auto-deleted after 30 days">
+                                  {getDaysRemaining(task.updated_at)}
+                                </div>
                               </div>
                             </div>
                             <div class="task-controls">
