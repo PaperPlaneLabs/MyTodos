@@ -1,4 +1,4 @@
-- [ ] Create a decomposition map for `src/routes/+page.svelte`
+- [x] Create a decomposition map for `src/routes/+page.svelte`
 - [x] Extract project list UI from `src/routes/+page.svelte`
 - [x] Extract task list and task action UI from `src/routes/+page.svelte`
 - [x] Extract timer widget and modal host logic from `src/routes/+page.svelte`
@@ -9,9 +9,9 @@
 - [x] Extract auto-pause event handling from `src/lib/stores/timer.svelte.ts`
 - [x] Extract timer interval and derived display logic from `src/lib/stores/timer.svelte.ts`
 - [x] Keep one stable exported `timerStore` facade after the split
-- [ ] Create a Rust timer service module under `src-tauri/src`
-- [ ] Move timer business rules out of `src-tauri/src/commands/timer.rs`
-- [ ] Update system event handling to depend on the timer service instead of command-level helpers
-- [ ] Split startup concerns out of `src-tauri/src/lib.rs`
-- [ ] Add or document a consistent local/CI quality gate sequence
-- [ ] Run verification after each major extraction phase
+- [x] Create a Rust timer service module under `src-tauri/src`
+- [x] Move timer business rules out of `src-tauri/src/commands/timer.rs`
+- [x] Update system event handling to depend on the timer service instead of command-level helpers
+- [x] Split startup concerns out of `src-tauri/src/lib.rs`
+- [x] Add or document a consistent local/CI quality gate sequence
+- [x] Run verification after each major extraction phase

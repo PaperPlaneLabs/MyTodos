@@ -472,9 +472,12 @@ pub fn close_resume_window(app: AppHandle) -> Result<()> {
 #[tauri::command]
 pub fn focus_main_window(app: AppHandle) -> Result<()> {
     if let Some(window) = app.get_webview_window("main") {
-        window.set_focus().map_err(|e| AppError::Other(e.to_string()))?;
-        window.unminimize().map_err(|e| AppError::Other(e.to_string()))?;
+        window
+            .set_focus()
+            .map_err(|e| AppError::Other(e.to_string()))?;
+        window
+            .unminimize()
+            .map_err(|e| AppError::Other(e.to_string()))?;
     }
     Ok(())
 }
-

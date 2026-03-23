@@ -60,6 +60,12 @@ Target outcome:
   - `cargo clippy --all-targets -- -D warnings`
 - Treat existing warnings as debt to burn down rather than background noise.
 
+Recommended sequence:
+1. `npm run check`
+2. `npm run test`
+3. `cargo test`
+4. `cargo clippy --all-targets -- -D warnings`
+
 Target outcome:
 - Refactors are protected by consistent automated feedback.
 

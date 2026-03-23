@@ -1,4 +1,5 @@
 use crate::db::{ActiveTimer, DbConnection};
+use crate::services::timer_service;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicI64, Ordering};
 use tauri::{AppHandle, Emitter};
@@ -23,12 +24,12 @@ fn get_timestamp() -> i64 {
 }
 
 fn get_active_timer_internal(db: &DbConnection) -> crate::error::Result<Option<ActiveTimer>> {
-    crate::commands::get_active_timer_internal(db)
+    timer_service::get_active_timer(db)
 }
 
 fn pause_timer_internal(db: &DbConnection, timer: &ActiveTimer) -> crate::error::Result<()> {
     let conn = db.lock();
-    crate::commands::pause_running_timer_at(&conn, timer, get_timestamp())
+    timer_service::pause_running_timer_at(&conn, timer, get_timestamp())
 }
 
 /// Auto-pause the timer if it's currently running

@@ -695,7 +695,7 @@ fn test_recover_stale_timer_pauses_at_last_heartbeat() {
         .unwrap();
     }
 
-    let recovered = my_todos_lib::commands::recover_stale_active_timer(&db).unwrap();
+    let recovered = my_todos_lib::services::timer_service::recover_stale_active_timer(&db).unwrap();
     assert!(recovered);
 
     let timer = get_active_timer_impl(&db).unwrap().unwrap();
@@ -738,7 +738,7 @@ fn test_recover_stale_timer_keeps_recent_running_timer_active() {
         .unwrap();
     }
 
-    let recovered = my_todos_lib::commands::recover_stale_active_timer(&db).unwrap();
+    let recovered = my_todos_lib::services::timer_service::recover_stale_active_timer(&db).unwrap();
     assert!(!recovered);
 
     let timer = get_active_timer_impl(&db).unwrap().unwrap();
