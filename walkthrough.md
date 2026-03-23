@@ -14,3 +14,4 @@
 
 ## Notes
 - The `svelte-check` warnings are pre-existing accessibility warnings in [AppHeader.svelte](/f:/personal_projects/MyTodos/src/lib/components/layout/AppHeader.svelte) and [SettingsView.svelte](/f:/personal_projects/MyTodos/src/lib/components/settings/SettingsView.svelte).
+- This fix preserves elapsed continuity for pause/resume during the current app session. If you also want the same paused elapsed value restored after closing and reopening the app, that would need a backend persistence change because `pause_timer` currently writes the segment to `time_entries` and resets `active_timer.elapsed_seconds` to `0`.
