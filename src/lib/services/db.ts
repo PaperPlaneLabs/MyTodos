@@ -51,6 +51,7 @@ export interface ActiveTimer {
   started_at: number;
   elapsed_seconds: number;
   is_running: boolean;
+  last_heartbeat_at?: number;
   task_title?: string;
   project_id?: number;
 }

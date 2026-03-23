@@ -15,3 +15,5 @@ dist/
 ~/.tauri/myapp.key
 google_env.json
 _*.ps1
+implementation_plan.md
+task.md

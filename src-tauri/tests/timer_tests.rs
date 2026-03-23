@@ -14,7 +14,7 @@ fn get_timestamp() -> i64 {
 fn get_active_timer_impl(db: &DbConnection) -> Result<Option<ActiveTimer>> {
     let conn = db.lock();
     let result = conn.query_row(
-        "SELECT t.task_id, t.started_at, t.elapsed_seconds, t.is_running, tasks.title, t.project_id
+        "SELECT t.task_id, t.started_at, t.elapsed_seconds, t.is_running, t.last_heartbeat_at, tasks.title, t.project_id
          FROM active_timer t
          LEFT JOIN tasks ON t.task_id = tasks.id
          WHERE t.id = 1",
@@ -25,8 +25,9 @@ fn get_active_timer_impl(db: &DbConnection) -> Result<Option<ActiveTimer>> {
                 started_at: row.get(1)?,
                 elapsed_seconds: row.get(2)?,
                 is_running: row.get(3)?,
-                task_title: row.get(4)?,
-                project_id: row.get(5)?,
+                last_heartbeat_at: row.get(4)?,
+                task_title: row.get(5)?,
+                project_id: row.get(6)?,
             })
         },
     );
@@ -58,9 +59,9 @@ fn start_timer_impl(db: &DbConnection, task_id: i64) -> Result<ActiveTimer> {
     let now = get_timestamp();
 
     conn.execute(
-        "INSERT INTO active_timer (id, task_id, started_at, elapsed_seconds, is_running, project_id)
-         VALUES (1, ?, ?, 0, 1, ?)",
-        (task_id, now, task_info.1),
+        "INSERT INTO active_timer (id, task_id, started_at, elapsed_seconds, is_running, last_heartbeat_at, project_id)
+         VALUES (1, ?, ?, 0, 1, ?, ?)",
+        (task_id, now, now, task_info.1),
     )?;
 
     Ok(ActiveTimer {
@@ -68,6 +69,7 @@ fn start_timer_impl(db: &DbConnection, task_id: i64) -> Result<ActiveTimer> {
         started_at: now,
         elapsed_seconds: 0,
         is_running: true,
+        last_heartbeat_at: Some(now),
         task_title: task_info.0,
         project_id: task_info.1,
     })
@@ -140,8 +142,8 @@ fn resume_timer_impl(db: &DbConnection) -> Result<()> {
     let now = get_timestamp();
 
     conn.execute(
-        "UPDATE active_timer SET is_running = 1, started_at = ? WHERE id = 1",
-        [now],
+        "UPDATE active_timer SET is_running = 1, started_at = ?, last_heartbeat_at = ? WHERE id = 1",
+        [now, now],
     )?;
 
     Ok(())
@@ -672,4 +674,76 @@ fn test_timer_lifecycle_full_sequence() {
 
     let final_time = get_task_time(&db, task_id);
     assert!(final_time > time_after_pause);
+}
+
+#[test]
+fn test_recover_stale_timer_pauses_at_last_heartbeat() {
+    let db = setup_test_db();
+    let project_id = create_test_project(&db, "Test Project");
+    let task_id = create_test_task(&db, Some(project_id), None, "Test Task");
+    let now = get_timestamp();
+    let started_at = now - 600;
+    let last_heartbeat_at = now - 300;
+
+    {
+        let conn = db.lock();
+        conn.execute(
+            "INSERT INTO active_timer (id, task_id, started_at, elapsed_seconds, is_running, last_heartbeat_at, project_id)
+             VALUES (1, ?, ?, 0, 1, ?, ?)",
+            (task_id, started_at, last_heartbeat_at, project_id),
+        )
+        .unwrap();
+    }
+
+    let recovered = my_todos_lib::services::timer_service::recover_stale_active_timer(&db).unwrap();
+    assert!(recovered);
+
+    let timer = get_active_timer_impl(&db).unwrap().unwrap();
+    assert!(!timer.is_running);
+    assert_eq!(timer.started_at, last_heartbeat_at);
+    assert_eq!(timer.last_heartbeat_at, Some(last_heartbeat_at));
+
+    let expected_duration = last_heartbeat_at - started_at;
+    assert_eq!(get_task_time(&db, task_id), expected_duration);
+    assert_eq!(get_project_time(&db, project_id), expected_duration);
+
+    let conn = db.lock();
+    let (duration, ended_at): (i64, i64) = conn
+        .query_row(
+            "SELECT duration_seconds, ended_at FROM time_entries WHERE task_id = ? ORDER BY id DESC LIMIT 1",
+            [task_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .unwrap();
+    assert_eq!(duration, expected_duration);
+    assert_eq!(ended_at, last_heartbeat_at);
+}
+
+#[test]
+fn test_recover_stale_timer_keeps_recent_running_timer_active() {
+    let db = setup_test_db();
+    let project_id = create_test_project(&db, "Test Project");
+    let task_id = create_test_task(&db, Some(project_id), None, "Test Task");
+    let now = get_timestamp();
+    let started_at = now - 20;
+    let last_heartbeat_at = now - 10;
+
+    {
+        let conn = db.lock();
+        conn.execute(
+            "INSERT INTO active_timer (id, task_id, started_at, elapsed_seconds, is_running, last_heartbeat_at, project_id)
+             VALUES (1, ?, ?, 0, 1, ?, ?)",
+            (task_id, started_at, last_heartbeat_at, project_id),
+        )
+        .unwrap();
+    }
+
+    let recovered = my_todos_lib::services::timer_service::recover_stale_active_timer(&db).unwrap();
+    assert!(!recovered);
+
+    let timer = get_active_timer_impl(&db).unwrap().unwrap();
+    assert!(timer.is_running);
+    assert_eq!(timer.started_at, started_at);
+    assert_eq!(timer.last_heartbeat_at, Some(last_heartbeat_at));
+    assert_eq!(count_time_entries(&db, task_id), 0);
 }

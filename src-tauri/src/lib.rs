@@ -1,15 +1,13 @@
+pub mod app;
 pub mod commands;
 pub mod db;
 pub mod error;
 pub mod events;
 pub mod google;
+pub mod services;
 
 use db::{initialize_connection, initialize_schema, DbConnection};
-use tauri::{
-    menu::{Menu, MenuItem},
-    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager,
-};
+use tauri::Manager;
 use tauri_plugin_autostart::MacosLauncher::LaunchAgent;
 
 #[tauri::command]
@@ -22,36 +20,25 @@ fn initialize_database(db: tauri::State<DbConnection>) -> Result<(), String> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let db_conn = initialize_connection().expect("Failed to initialize database connection");
-
-    {
-        let conn = db_conn.lock();
-        initialize_schema(&conn).expect("Failed to initialize database schema");
-
-        // Cleanup old completed tasks (older than 30 days)
-        let thirty_days_ago = chrono::Utc::now().timestamp() - (30 * 24 * 60 * 60);
-        if let Err(e) = conn.execute(
-            "DELETE FROM tasks WHERE completed = 1 AND updated_at < ?",
-            [thirty_days_ago],
-        ) {
-            eprintln!("Failed to cleanup old tasks: {}", e);
-        }
-    }
+    app::startup::initialize_database_state(&db_conn)
+        .expect("Failed to initialize database schema");
 
     let google_state = google::create_google_state();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_autostart::init(LaunchAgent, Some(vec!["--hidden"])))
+        .plugin(tauri_plugin_autostart::init(
+            LaunchAgent,
+            Some(vec!["--hidden"]),
+        ))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            let _ = app
-                .get_webview_window("main")
-                .map(|w| {
-                    let _ = w.show();
-                    let _ = w.unminimize();
-                    let _ = w.set_focus();
-                });
+            let _ = app.get_webview_window("main").map(|w| {
+                let _ = w.show();
+                let _ = w.unminimize();
+                let _ = w.set_focus();
+            });
         }))
         .manage(db_conn.clone())
         .manage(google_state)
@@ -59,91 +46,10 @@ pub fn run() {
             let app_handle = app.handle().clone();
             let db_clone = db_conn.clone();
 
-            // Initialize system event listeners for auto-pausing timer
-            events::initialize_system_listeners(app_handle.clone(), db_clone.clone());
-
-            // --- System Tray ---
-            let show_item = MenuItem::with_id(app, "show", "Show MyTodos", true, None::<&str>)
-                .map_err(|e| e.to_string())?;
-            let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)
-                .map_err(|e| e.to_string())?;
-            let tray_menu =
-                Menu::with_items(app, &[&show_item, &quit_item]).map_err(|e| e.to_string())?;
-
-            TrayIconBuilder::new()
-                .icon(app.default_window_icon().unwrap().clone())
-                .menu(&tray_menu)
-                .show_menu_on_left_click(false)
-                .on_menu_event({
-                    let handle = app_handle.clone();
-                    let quit_db = db_clone.clone();
-                    move |app, event| match event.id.as_ref() {
-                        "show" => {
-                            if let Some(w) = app.get_webview_window("main") {
-                                let _ = w.show();
-                                let _ = w.set_focus();
-                            }
-                        }
-                        "quit" => {
-                            events::auto_pause_if_running(
-                                &handle,
-                                &quit_db,
-                                events::AutoPauseReason::Shutdown,
-                            );
-                            app.exit(0);
-                        }
-                        _ => {}
-                    }
-                })
-                .on_tray_icon_event(|tray, event| {
-                    if let TrayIconEvent::Click {
-                        button: MouseButton::Left,
-                        button_state: MouseButtonState::Up,
-                        ..
-                    } = event
-                    {
-                        let app = tray.app_handle();
-                        if let Some(w) = app.get_webview_window("main") {
-                            let _ = w.show();
-                            let _ = w.set_focus();
-                        }
-                    }
-                })
-                .build(app)
-                .map_err(|e| e.to_string())?;
-
-            // Handle window close → hide to tray instead of quitting
-            if let Some(window) = app.get_webview_window("main") {
-                let shutdown_handle = app_handle.clone();
-                let shutdown_db = db_clone.clone();
-
-                window.on_window_event(move |event| {
-                    if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                        use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_SHUTTINGDOWN};
-                        let is_os_shutting_down = unsafe { GetSystemMetrics(SM_SHUTTINGDOWN) } != 0;
-                        
-                        // If system is shutting down, or we previously detected it, allow the close.
-                        if !events::is_shutting_down() && !is_os_shutting_down {
-                            api.prevent_close();
-                            if let Some(w) = shutdown_handle.get_webview_window("main") {
-                                let _ = w.hide();
-                            }
-                        } else {
-                            println!("Shutdown or App Quit detected, pausing timers...");
-                            events::SHUTTING_DOWN.store(true, std::sync::atomic::Ordering::SeqCst);
-                            events::auto_pause_if_running(&shutdown_handle, &shutdown_db, events::AutoPauseReason::Shutdown);
-                        }
-                    }
-                });
-            }
-
-            // If launched with --hidden (e.g. via autostart), start minimized to tray
-            let args: Vec<String> = std::env::args().collect();
-            if args.contains(&"--hidden".to_string()) {
-                if let Some(window) = app.get_webview_window("main") {
-                    let _ = window.hide();
-                }
-            }
+            app::startup::initialize_runtime(app_handle.clone(), db_clone.clone());
+            app::tray::setup_system_tray(app, app_handle.clone(), db_clone.clone())?;
+            app::window_lifecycle::register_main_window_close_behavior(app, app_handle, db_clone);
+            app::startup::apply_launch_visibility(app);
 
             Ok(())
         })
