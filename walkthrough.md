@@ -1,14 +1,13 @@
-# Break Tracking Cleanup Walkthrough
+# Dock Preference Persistence Walkthrough
 
 ## What Changed
-- Break logging still persists through a dedicated project/task pair, but those records are now marked `is_system = 1`.
-- Normal project and task queries now exclude system records, so breaks no longer show up in the main project/task UI.
-- Daily work totals and visible time-entry queries now exclude system tasks, so break time no longer contributes to the header's cumulative work time.
-- Stats remain able to surface break data because the stats queries still read the persisted break entries.
-- The stats heading was renamed from `Today's Work` to `Today's Activity` to better fit the fact that breaks can appear there.
+- The existing `window_state` table now stores an optional `dock_preference` so the last clicked docking mode can survive relaunches.
+- New backend helpers and Tauri commands save and load the dock preference, and startup applies it to the main window before normal app initialization continues.
+- The header dock buttons and Settings docking control now persist the chosen mode after applying it.
+- The main page initializes `uiStore.windowOrientation` from the saved preference, falling back to the live window orientation when nothing has been saved yet.
 
 ## Verification
-- `cargo test --test break_tracking_visibility_tests --test time_stats_tests --test time_entries_tests`
+- `cargo test --test window_dock_preference_tests`
   Result: passed
 - `npm run check`
   Result: 0 errors, 6 warnings

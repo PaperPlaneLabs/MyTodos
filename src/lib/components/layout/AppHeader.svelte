@@ -37,9 +37,19 @@
     await db.window.close();
   }
 
+  async function applyWindowOrientation(orientation: "left" | "right" | "center") {
+    if (orientation === "center") {
+      await db.window.center();
+    } else {
+      await db.window.dock(orientation);
+    }
+
+    await db.window.setDockPreference(orientation);
+    uiStore.setWindowOrientation(orientation);
+  }
+
   async function dock(side: "left" | "right") {
-    await db.window.dock(side);
-    uiStore.setWindowOrientation(side);
+    await applyWindowOrientation(side);
   }
 
   async function handleDrag(e: MouseEvent) {

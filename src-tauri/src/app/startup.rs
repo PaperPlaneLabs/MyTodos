@@ -2,6 +2,27 @@ use crate::db::{initialize_schema, DbConnection};
 use crate::{events, services};
 use tauri::{App, AppHandle, Manager, Wry};
 
+pub fn apply_saved_window_dock_preference(app: &App<Wry>, db: &DbConnection) {
+    let Some(window) = app.get_webview_window("main") else {
+        return;
+    };
+
+    match crate::commands::get_saved_window_dock_preference(db) {
+        Ok(Some(dock_preference)) => {
+            if let Err(error) =
+                crate::commands::apply_dock_preference_to_window(&window, &dock_preference)
+            {
+                eprintln!(
+                    "Failed to apply saved window dock preference '{}': {}",
+                    dock_preference, error
+                );
+            }
+        }
+        Ok(None) => {}
+        Err(error) => eprintln!("Failed to load saved window dock preference: {}", error),
+    }
+}
+
 pub fn initialize_database_state(db_conn: &DbConnection) -> Result<(), String> {
     let conn = db_conn.lock();
     initialize_schema(&conn).map_err(|error| error.to_string())?;

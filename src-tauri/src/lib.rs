@@ -46,6 +46,7 @@ pub fn run() {
             let app_handle = app.handle().clone();
             let db_clone = db_conn.clone();
 
+            app::startup::apply_saved_window_dock_preference(app, &db_clone);
             app::startup::initialize_runtime(app_handle.clone(), db_clone.clone());
             app::tray::setup_system_tray(app, app_handle.clone(), db_clone.clone())?;
             app::window_lifecycle::register_main_window_close_behavior(app, app_handle, db_clone);
@@ -95,6 +96,8 @@ pub fn run() {
             commands::close_window,
             commands::dock_window,
             commands::center_window,
+            commands::set_window_dock_preference,
+            commands::get_window_dock_preference,
             commands::set_collapsed,
             commands::move_window,
             commands::start_window_drag,

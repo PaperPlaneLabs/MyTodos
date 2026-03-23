@@ -73,6 +73,7 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
             y INTEGER,
             width INTEGER DEFAULT 380,
             height INTEGER DEFAULT 800,
+            dock_preference TEXT CHECK(dock_preference IN ('left', 'center', 'right')),
             updated_at INTEGER NOT NULL
         );
 
@@ -123,6 +124,13 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
 
     // Migration: Add google_event_id column to tasks if it doesn't exist
     let _ = conn.execute("ALTER TABLE tasks ADD COLUMN google_event_id TEXT", []);
+
+    // Migration: Add dock preference persistence for relaunch layout restore
+    let _ = conn.execute(
+        "ALTER TABLE window_state
+         ADD COLUMN dock_preference TEXT CHECK(dock_preference IN ('left', 'center', 'right'))",
+        [],
+    );
 
     // Migration: Mark system-only records so break tracking can be hidden from work surfaces
     let _ = conn.execute(

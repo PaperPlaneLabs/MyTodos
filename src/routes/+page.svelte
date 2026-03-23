@@ -15,6 +15,7 @@
   import TaskListSection from "$lib/components/tasks/TaskListSection.svelte";
   import ActiveTimerWidget from "$lib/components/timer/ActiveTimerWidget.svelte";
   import { createPageInteractions } from "$lib/controllers/page-interactions.svelte";
+  import { db } from "$lib/services/db";
   import { projectStore } from "$lib/stores/projects.svelte";
   import { taskStore } from "$lib/stores/tasks.svelte";
   import { timerStore } from "$lib/stores/timer.svelte";
@@ -83,8 +84,27 @@
     return `${remaining}d left`;
   }
 
+  function isWindowOrientation(
+    value: string | null | undefined,
+  ): value is "left" | "right" | "center" {
+    return value === "left" || value === "right" || value === "center";
+  }
+
   onMount(async () => {
     uiStore.initTheme();
+    try {
+      const savedDockPreference = await db.window.getDockPreference();
+      if (isWindowOrientation(savedDockPreference)) {
+        uiStore.setWindowOrientation(savedDockPreference);
+      } else {
+        const orientation = await db.window.getOrientation();
+        if (isWindowOrientation(orientation.side)) {
+          uiStore.setWindowOrientation(orientation.side);
+        }
+      }
+    } catch (error) {
+      console.error("Failed to initialize window orientation:", error);
+    }
     timerStore.initBreakReminders();
     await projectStore.loadAll();
     await timerStore.loadActive();

@@ -184,14 +184,20 @@
         themeDropdownOpen = false;
     }
 
-    function handleWindowOrientation(orientation: WindowOrientation) {
-        uiStore.setWindowOrientation(orientation);
-        if (orientation === "left") {
-            db.window.dock("left");
-        } else if (orientation === "right") {
-            db.window.dock("right");
-        } else {
-            db.window.center();
+    async function handleWindowOrientation(orientation: WindowOrientation) {
+        try {
+            if (orientation === "left") {
+                await db.window.dock("left");
+            } else if (orientation === "right") {
+                await db.window.dock("right");
+            } else {
+                await db.window.center();
+            }
+
+            await db.window.setDockPreference(orientation);
+            uiStore.setWindowOrientation(orientation);
+        } catch (e) {
+            console.error("Failed to update window orientation:", e);
         }
     }
 

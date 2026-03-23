@@ -10,6 +10,9 @@ use tauri::{
 const DOCK_WIDTH_LOGICAL: f64 = 380.0;
 const COLLAPSE_HANDLE_WIDTH_LOGICAL: f64 = 44.0;
 const COLLAPSE_HANDLE_HEIGHT_LOGICAL: f64 = 140.0;
+const DOCK_PREFERENCE_LEFT: &str = "left";
+const DOCK_PREFERENCE_CENTER: &str = "center";
+const DOCK_PREFERENCE_RIGHT: &str = "right";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WindowOrientation {
@@ -25,6 +28,18 @@ fn logical_to_physical_pixels(value: f64, scale_factor: f64) -> i32 {
 
 fn logical_to_physical_size(value: f64, scale_factor: f64) -> u32 {
     logical_to_physical_pixels(value, scale_factor).max(1) as u32
+}
+
+fn validate_dock_preference(dock_preference: &str) -> Result<&str> {
+    match dock_preference {
+        DOCK_PREFERENCE_LEFT | DOCK_PREFERENCE_CENTER | DOCK_PREFERENCE_RIGHT => {
+            Ok(dock_preference)
+        }
+        _ => Err(AppError::InvalidInput(format!(
+            "Unsupported dock preference: {}",
+            dock_preference
+        ))),
+    }
 }
 
 fn set_client_area_position(window: &WebviewWindow, client_x: i32, client_y: i32) -> Result<()> {
@@ -71,8 +86,7 @@ pub fn close_window(window: WebviewWindow) -> Result<()> {
     window.close().map_err(|e| AppError::Other(e.to_string()))
 }
 
-#[tauri::command]
-pub fn center_window(window: WebviewWindow) -> Result<()> {
+fn center_webview_window(window: &WebviewWindow) -> Result<()> {
     let monitor = window
         .current_monitor()
         .map_err(|e| AppError::Other(e.to_string()))?
@@ -108,7 +122,18 @@ pub fn center_window(window: WebviewWindow) -> Result<()> {
 }
 
 #[tauri::command]
-pub fn dock_window(window: WebviewWindow, side: String) -> Result<()> {
+pub fn center_window(window: WebviewWindow) -> Result<()> {
+    center_webview_window(&window)
+}
+
+fn dock_webview_window(window: &WebviewWindow, side: &str) -> Result<()> {
+    validate_dock_preference(side)?;
+    if side == DOCK_PREFERENCE_CENTER {
+        return Err(AppError::InvalidInput(
+            "Use center_window for the center preference".to_string(),
+        ));
+    }
+
     let monitor = window
         .current_monitor()
         .map_err(|e| AppError::Other(e.to_string()))?
@@ -129,15 +154,83 @@ pub fn dock_window(window: WebviewWindow, side: String) -> Result<()> {
         .inner_size()
         .map_err(|e| AppError::Other(e.to_string()))?;
 
-    let client_x = if side == "left" {
+    let client_x = if side == DOCK_PREFERENCE_LEFT {
         work_area.position.x
     } else {
         work_area.position.x + work_area.size.width as i32 - inner_size.width as i32
     };
 
-    set_client_area_position(&window, client_x, work_area.position.y)?;
+    set_client_area_position(window, client_x, work_area.position.y)?;
 
     Ok(())
+}
+
+#[tauri::command]
+pub fn dock_window(window: WebviewWindow, side: String) -> Result<()> {
+    dock_webview_window(&window, &side)
+}
+
+pub fn apply_dock_preference_to_window(
+    window: &WebviewWindow,
+    dock_preference: &str,
+) -> Result<()> {
+    match validate_dock_preference(dock_preference)? {
+        DOCK_PREFERENCE_LEFT | DOCK_PREFERENCE_RIGHT => {
+            dock_webview_window(window, dock_preference)
+        }
+        DOCK_PREFERENCE_CENTER => center_webview_window(window),
+        _ => unreachable!(),
+    }
+}
+
+pub fn set_saved_window_dock_preference(
+    db: &DbConnection,
+    dock_preference: &str,
+) -> Result<String> {
+    let dock_preference = validate_dock_preference(dock_preference)?.to_string();
+    let conn = db.lock();
+    let now = get_timestamp();
+
+    conn.execute(
+        "INSERT INTO window_state (id, dock_preference, updated_at)
+         VALUES (1, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+            dock_preference = excluded.dock_preference,
+            updated_at = excluded.updated_at",
+        (&dock_preference, now),
+    )?;
+
+    Ok(dock_preference)
+}
+
+pub fn get_saved_window_dock_preference(db: &DbConnection) -> Result<Option<String>> {
+    let conn = db.lock();
+    let result = conn.query_row(
+        "SELECT dock_preference FROM window_state WHERE id = 1",
+        [],
+        |row| row.get::<_, Option<String>>(0),
+    );
+
+    match result {
+        Ok(Some(dock_preference)) => {
+            validate_dock_preference(&dock_preference)?;
+            Ok(Some(dock_preference))
+        }
+        Ok(None) => Ok(None),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(error) => Err(error.into()),
+    }
+}
+
+#[tauri::command]
+pub fn set_window_dock_preference(db: State<DbConnection>, dock_preference: String) -> Result<()> {
+    set_saved_window_dock_preference(db.inner(), &dock_preference)?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn get_window_dock_preference(db: State<DbConnection>) -> Result<Option<String>> {
+    get_saved_window_dock_preference(db.inner())
 }
 
 #[tauri::command]
@@ -231,8 +324,14 @@ pub fn save_window_state(
     let now = get_timestamp();
 
     conn.execute(
-        "INSERT OR REPLACE INTO window_state (id, x, y, width, height, updated_at)
-         VALUES (1, ?, ?, ?, ?, ?)",
+        "INSERT INTO window_state (id, x, y, width, height, updated_at)
+         VALUES (1, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+            x = excluded.x,
+            y = excluded.y,
+            width = excluded.width,
+            height = excluded.height,
+            updated_at = excluded.updated_at",
         (x, y, width, height, now),
     )?;
 
