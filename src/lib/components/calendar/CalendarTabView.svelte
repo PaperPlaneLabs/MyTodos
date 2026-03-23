@@ -7,6 +7,7 @@
   import CalendarHeader from "./CalendarHeader.svelte";
   import CalendarMonth from "./CalendarMonth.svelte";
   import CalendarWeek from "./CalendarWeek.svelte";
+  import CalendarSkeleton from "./CalendarSkeleton.svelte";
   import TimeEntryPanel from "./TimeEntryPanel.svelte";
   import DayTaskList from "./DayTaskList.svelte";
 
@@ -46,10 +47,7 @@
   </header>
 
   {#if isInitializing && calendarStore.isLoading}
-    <div class="loading-state">
-      <div class="spinner"></div>
-      <p>Loading calendar...</p>
-    </div>
+    <CalendarSkeleton />
   {:else}
     <div
       class="calendar-body"
@@ -59,12 +57,20 @@
       <div class="calendar-main">
         <CalendarHeader />
 
-        <div class="calendar-content">
-          {#if calendarStore.viewMode === "month"}
-            <CalendarMonth />
-          {:else}
-            <CalendarWeek />
-          {/if}
+        <div class="calendar-content slim-scroll">
+          {#key calendarStore.viewMode}
+            <div
+              class="view-transition-wrapper"
+              in:fade={{ duration: 200, delay: 100 }}
+              out:fade={{ duration: 100 }}
+            >
+              {#if calendarStore.viewMode === "month"}
+                <CalendarMonth />
+              {:else}
+                <CalendarWeek />
+              {/if}
+            </div>
+          {/key}
         </div>
       </div>
 
@@ -142,8 +148,39 @@
 
   .calendar-content {
     flex: 1;
-    overflow: auto;
-    padding: var(--spacing-md);
+    overflow-y: auto;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  .view-transition-wrapper {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .calendar-content > :global(*) {
+    /* Ensure the children stretch to fill the absolute wrapper */
+    flex: 1;
+  }
+
+  .slim-scroll::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .slim-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .slim-scroll::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+  .slim-scroll::-webkit-scrollbar-thumb:hover {
+    background: var(--text-tertiary);
   }
 
   .calendar-body.portrait {
@@ -177,28 +214,5 @@
     border-left: none;
   }
 
-  .loading-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
-    gap: var(--spacing-md);
-    color: var(--text-secondary);
-  }
 
-  .spinner {
-    width: 32px;
-    height: 32px;
-    border: 3px solid var(--border);
-    border-top-color: var(--accent);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-  }
-
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
 </style>

@@ -138,15 +138,17 @@
       <!-- Right Column: Schedule Items -->
       <div class="items-column">
         {#if items.length === 0}
-          <div class="empty-slot"></div>
+          <div class="empty-day">No tasks</div>
         {:else}
           {#each items as item}
             {#if item.type === "task"}
               <!-- Task Item -->
               <button
                 class="schedule-item task"
+                class:has-time={!!item.time}
                 onclick={() => handleTaskClick(item.data as Task)}
                 type="button"
+                style="--item-color: {item.color}"
               >
                 <div class="time-col">
                   {#if item.time}
@@ -257,6 +259,10 @@
     color: var(--accent);
   }
 
+  .day-row.today .items-column {
+    background: color-mix(in srgb, var(--accent) 4%, transparent);
+  }
+
   .items-column {
     padding: var(--spacing-sm);
     display: flex;
@@ -264,8 +270,11 @@
     gap: 4px;
   }
 
-  .empty-slot {
-    height: 20px;
+  .empty-day {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    font-style: italic;
+    padding: 6px 4px;
   }
 
   .schedule-item {
@@ -282,8 +291,12 @@
     transition: background 0.1s;
   }
 
-  .schedule-item:hover {
-    background: var(--bg-hover);
+  .schedule-item.task {
+    background: color-mix(in srgb, var(--item-color, var(--accent)) 8%, transparent);
+  }
+
+  .schedule-item.task:hover {
+    background: color-mix(in srgb, var(--item-color, var(--accent)) 16%, transparent);
   }
 
   .schedule-item.event {

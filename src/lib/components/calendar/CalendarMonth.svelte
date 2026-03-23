@@ -30,12 +30,13 @@
 <style>
   .calendar-month {
     flex: 1;
-    overflow: auto;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   .weekday-header {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     border-bottom: 1px solid var(--border);
     position: sticky;
     top: 0;
@@ -44,8 +45,9 @@
   }
 
   .weekday {
-    padding: var(--spacing-sm);
-    text-align: center;
+    padding: var(--spacing-xs);
+    padding-left: calc(var(--spacing-xs) + 4px); /* Extra optical adjustment so text aligns with the centered number inside the 24px circle */
+    text-align: left;
     font-size: 12px;
     font-weight: 600;
     color: var(--text-secondary);
@@ -55,7 +57,7 @@
 
   .days-grid {
     display: grid;
-    grid-template-columns: repeat(7, 1fr);
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     grid-auto-rows: minmax(100px, auto);
   }
 
@@ -64,7 +66,6 @@
   }
 
   .portrait .weekday {
-    padding: var(--spacing-xs);
     font-size: 11px;
   }
 
@@ -74,7 +75,6 @@
     }
 
     .weekday {
-      padding: var(--spacing-xs);
       font-size: 11px;
     }
   }

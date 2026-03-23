@@ -7,11 +7,13 @@
     title,
     onClose,
     children,
+    allowOverflow = false,
   }: {
     open: boolean;
     title: string;
     onClose: () => void;
     children: any;
+    allowOverflow?: boolean;
   } = $props();
 
   onMount(() => {
@@ -30,18 +32,25 @@
   <div
     class="modal-backdrop"
     onclick={onClose}
+    onkeydown={(e) => e.key === 'Enter' && onClose()}
+    role="button"
+    tabindex="0"
+    aria-label="Close modal"
     transition:fade={{ duration: 200 }}
   >
     <div
       class="modal-content"
+      class:allow-overflow={allowOverflow}
       onclick={(e) => e.stopPropagation()}
+      onkeydown={(e) => e.stopPropagation()}
+      role="presentation"
       transition:fly={{ y: 20, duration: 300 }}
     >
       <div class="modal-header">
         <h3>{title}</h3>
         <button class="close-btn" onclick={onClose}>×</button>
       </div>
-      <div class="modal-body">
+      <div class="modal-body" class:allow-overflow={allowOverflow}>
         {@render children()}
       </div>
     </div>
@@ -77,6 +86,10 @@
     border: 1px solid var(--border);
   }
 
+  .modal-content.allow-overflow {
+    overflow: visible;
+  }
+
   .modal-header {
     display: flex;
     align-items: center;
@@ -109,5 +122,9 @@
   .modal-body {
     padding: var(--spacing-md);
     overflow-y: auto;
+  }
+
+  .modal-body.allow-overflow {
+    overflow-y: visible;
   }
 </style>

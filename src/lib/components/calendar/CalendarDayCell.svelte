@@ -61,6 +61,44 @@
   }
 
   let totalCount = $derived(day.tasks.length + day.events.length);
+  let isDragOver = $state(false);
+  let isWeekend = $derived(
+    day.date.getDay() === 0 || day.date.getDay() === 6
+  );
+
+  // Unique project colors for the dot indicators (month view)
+  let projectDots = $derived.by(() => {
+    const seen = new Set<string>();
+    const colors: string[] = [];
+    for (const task of day.tasks) {
+      const color = getTaskColor(task);
+      if (!seen.has(color)) {
+        seen.add(color);
+        colors.push(color);
+      }
+    }
+    // Add a generic accent dot for calendar events
+    if (day.events.length > 0 && !seen.has('var(--accent)')) {
+      colors.push('var(--accent)');
+    }
+    return colors;
+  });
+
+  let extraDotCount = $derived(Math.max(0, projectDots.length - 3));
+
+  function handleDragEnter(e: DragEvent) {
+    if (!day.isCurrentMonth) return;
+    e.preventDefault();
+    isDragOver = true;
+  }
+
+  function handleDragLeave(e: DragEvent) {
+    // Only clear if leaving the cell entirely (not entering a child)
+    const target = e.currentTarget as HTMLElement;
+    if (!target.contains(e.relatedTarget as Node)) {
+      isDragOver = false;
+    }
+  }
 </script>
 
 <div
@@ -69,8 +107,12 @@
   class:other-month={!day.isCurrentMonth}
   class:selected={day.isSelected}
   class:has-content={totalCount > 0}
+  class:drag-over={isDragOver}
+  class:weekend={isWeekend}
   ondragover={handleDragOver}
-  ondrop={handleDrop}
+  ondragenter={handleDragEnter}
+  ondragleave={handleDragLeave}
+  ondrop={(e) => { isDragOver = false; handleDrop(e); }}
   onclick={handleDayClick}
   role="button"
   tabindex="0"
@@ -97,9 +139,13 @@
   {#if totalCount > 0}
     <div class="day-content">
       {#if calendarStore.viewMode === "month"}
-        <div class="count-badge">
-          <span class="count-dot"></span>
-          <span class="count">{totalCount}</span>
+        <div class="project-dots">
+          {#each projectDots.slice(0, 3) as color}
+            <span class="project-dot" style="background-color: {color}"></span>
+          {/each}
+          {#if extraDotCount > 0}
+            <span class="dot-overflow">+{extraDotCount}</span>
+          {/if}
         </div>
       {:else}
         {#each day.events.slice(0, eventLimit) as event}
@@ -142,6 +188,7 @@
 <style>
   .day-cell {
     min-height: 100px;
+    min-width: 0; /* Prevents long task contents from expanding grid columns */
     padding: var(--spacing-xs);
     border: 1px solid var(--border-light);
     background: var(--bg-primary);
@@ -157,12 +204,22 @@
 
   .day-cell.today {
     background: color-mix(in srgb, var(--accent) 6%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
+  }
+
+  .day-cell.weekend:not(.today) {
+    background: color-mix(in srgb, var(--text-tertiary) 4%, var(--bg-primary));
   }
 
   .day-cell.selected {
-    border-color: var(--accent);
-    border-width: 2px;
+    box-shadow: inset 0 0 0 2px var(--accent);
     background: color-mix(in srgb, var(--accent) 8%, transparent);
+  }
+
+  .day-cell.drag-over {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent);
   }
 
   .day-cell.other-month {
@@ -214,6 +271,11 @@
     align-items: center;
     justify-content: center;
     transition: all var(--transition-fast);
+    opacity: 0;
+  }
+
+  .day-cell:hover .add-task-btn {
+    opacity: 1;
   }
 
   .add-task-btn:hover {
@@ -294,30 +356,29 @@
     padding: 2px 4px;
   }
 
-  .count-badge {
-    display: inline-flex;
+
+
+  /* Project dot indicators (month view) */
+  .project-dots {
+    display: flex;
     align-items: center;
     gap: 4px;
-    padding: 3px 8px 3px 6px;
-    background: color-mix(in srgb, var(--accent) 18%, transparent);
-    border-radius: 20px;
-    border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
-    margin-top: var(--spacing-xs);
-    align-self: flex-start;
+    flex-wrap: wrap;
+    margin-top: 4px;
   }
 
-  .count-dot {
-    width: 7px;
-    height: 7px;
+  .project-dot {
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
-    background: var(--accent);
     flex-shrink: 0;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
   }
 
-  .count {
-    font-size: 13px;
-    font-weight: 700;
-    color: var(--accent);
+  .dot-overflow {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-tertiary);
     line-height: 1;
   }
 
@@ -326,18 +387,7 @@
       min-height: 80px;
     }
 
-    .count {
-      font-size: 12px;
-    }
 
-    .count-badge {
-      padding: 2px 6px 2px 4px;
-    }
-
-    .count-dot {
-      width: 5px;
-      height: 5px;
-    }
 
     .task-chip,
     .more-tasks {
