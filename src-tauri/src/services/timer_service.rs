@@ -5,6 +5,11 @@ use rusqlite::Connection;
 
 pub const ACTIVE_TIMER_HEARTBEAT_INTERVAL_SECONDS: u64 = 30;
 const ACTIVE_TIMER_STALE_AFTER_SECONDS: i64 = 120;
+const BREAK_PROJECT_NAME: &str = "Breaks";
+const BREAK_PROJECT_DESCRIPTION: &str = "Automatically tracked break time";
+const BREAK_PROJECT_COLOR: &str = "#10b981";
+const BREAK_TASK_TITLE: &str = "Break";
+const BREAK_TASK_DESCRIPTION: &str = "Auto-generated task for break time";
 
 fn get_active_timer_from_conn(conn: &Connection) -> Result<Option<ActiveTimer>> {
     let result = conn.query_row(
@@ -208,6 +213,90 @@ pub fn reset_timer(db: &DbConnection) -> Result<()> {
     Ok(())
 }
 
+fn get_or_create_break_project(conn: &Connection, now: i64) -> Result<i64> {
+    match conn.query_row(
+        "SELECT id
+         FROM projects
+         WHERE is_system = 1 AND name = ?
+         ORDER BY id ASC
+         LIMIT 1",
+        [BREAK_PROJECT_NAME],
+        |row| row.get(0),
+    ) {
+        Ok(id) => Ok(id),
+        Err(rusqlite::Error::QueryReturnedNoRows) => {
+            let position: i64 = conn
+                .query_row(
+                    "SELECT COALESCE(MAX(position), -1) + 1 FROM projects",
+                    [],
+                    |row| row.get(0),
+                )
+                .unwrap_or(0);
+
+            conn.execute(
+                "INSERT INTO projects (
+                    name,
+                    description,
+                    color,
+                    position,
+                    total_time_seconds,
+                    is_system,
+                    created_at,
+                    updated_at
+                 ) VALUES (?, ?, ?, ?, 0, 1, ?, ?)",
+                (
+                    BREAK_PROJECT_NAME,
+                    BREAK_PROJECT_DESCRIPTION,
+                    BREAK_PROJECT_COLOR,
+                    position,
+                    now,
+                    now,
+                ),
+            )?;
+
+            Ok(conn.last_insert_rowid())
+        }
+        Err(error) => Err(error.into()),
+    }
+}
+
+fn get_or_create_break_task(conn: &Connection, project_id: i64, now: i64) -> Result<i64> {
+    match conn.query_row(
+        "SELECT id
+         FROM tasks
+         WHERE is_system = 1 AND project_id = ? AND title = ?
+         ORDER BY id ASC
+         LIMIT 1",
+        (project_id, BREAK_TASK_TITLE),
+        |row| row.get(0),
+    ) {
+        Ok(id) => Ok(id),
+        Err(rusqlite::Error::QueryReturnedNoRows) => {
+            conn.execute(
+                "INSERT INTO tasks (
+                    project_id,
+                    title,
+                    description,
+                    total_time_seconds,
+                    is_system,
+                    created_at,
+                    updated_at
+                 ) VALUES (?, ?, ?, 0, 1, ?, ?)",
+                (
+                    project_id,
+                    BREAK_TASK_TITLE,
+                    BREAK_TASK_DESCRIPTION,
+                    now,
+                    now,
+                ),
+            )?;
+
+            Ok(conn.last_insert_rowid())
+        }
+        Err(error) => Err(error.into()),
+    }
+}
+
 pub fn log_break_time(db: &DbConnection, duration_seconds: i64) -> Result<()> {
     if duration_seconds <= 0 {
         return Ok(());
@@ -215,47 +304,8 @@ pub fn log_break_time(db: &DbConnection, duration_seconds: i64) -> Result<()> {
 
     let conn = db.lock();
     let now = get_timestamp();
-
-    let project_id: i64 =
-        match conn.query_row("SELECT id FROM projects WHERE name = 'Breaks'", [], |row| {
-            row.get(0)
-        }) {
-            Ok(id) => id,
-            Err(rusqlite::Error::QueryReturnedNoRows) => {
-                let position: i64 = conn
-                    .query_row(
-                        "SELECT COALESCE(MAX(position), -1) + 1 FROM projects",
-                        [],
-                        |row| row.get(0),
-                    )
-                    .unwrap_or(0);
-
-                conn.execute(
-                "INSERT INTO projects (name, description, color, position, created_at, updated_at) 
-                     VALUES ('Breaks', 'Automatically tracked break time', '#10b981', ?, ?, ?)",
-                (position, now, now),
-            )?;
-                conn.last_insert_rowid()
-            }
-            Err(error) => return Err(error.into()),
-        };
-
-    let task_id: i64 = match conn.query_row(
-        "SELECT id FROM tasks WHERE project_id = ? AND title = 'Break'",
-        [project_id],
-        |row| row.get(0),
-    ) {
-        Ok(id) => id,
-        Err(rusqlite::Error::QueryReturnedNoRows) => {
-            conn.execute(
-                "INSERT INTO tasks (project_id, title, description, created_at, updated_at) 
-                 VALUES (?, 'Break', 'Auto-generated task for break time', ?, ?)",
-                (project_id, now, now),
-            )?;
-            conn.last_insert_rowid()
-        }
-        Err(error) => return Err(error.into()),
-    };
+    let project_id = get_or_create_break_project(&conn, now)?;
+    let task_id = get_or_create_break_task(&conn, project_id, now)?;
 
     conn.execute(
         "INSERT INTO time_entries (task_id, entry_type, duration_seconds, started_at, ended_at, created_at)

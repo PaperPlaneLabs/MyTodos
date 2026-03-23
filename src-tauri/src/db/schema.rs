@@ -11,6 +11,7 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
             color TEXT DEFAULT '#6366f1',
             position INTEGER NOT NULL DEFAULT 0,
             total_time_seconds INTEGER DEFAULT 0,
+            is_system BOOLEAN NOT NULL DEFAULT 0,
             created_at INTEGER NOT NULL,
             updated_at INTEGER NOT NULL
         );
@@ -34,6 +35,7 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
             completed BOOLEAN DEFAULT 0,
             position INTEGER NOT NULL DEFAULT 0,
             total_time_seconds INTEGER DEFAULT 0,
+            is_system BOOLEAN NOT NULL DEFAULT 0,
             deadline TEXT,
             created_at INTEGER NOT NULL,
             updated_at INTEGER NOT NULL,
@@ -122,6 +124,32 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
     // Migration: Add google_event_id column to tasks if it doesn't exist
     let _ = conn.execute("ALTER TABLE tasks ADD COLUMN google_event_id TEXT", []);
 
+    // Migration: Mark system-only records so break tracking can be hidden from work surfaces
+    let _ = conn.execute(
+        "ALTER TABLE projects ADD COLUMN is_system BOOLEAN NOT NULL DEFAULT 0",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE tasks ADD COLUMN is_system BOOLEAN NOT NULL DEFAULT 0",
+        [],
+    );
+
+    let _ = conn.execute(
+        "UPDATE projects
+         SET is_system = 1
+         WHERE name = 'Breaks'
+           AND description = 'Automatically tracked break time'",
+        [],
+    );
+    let _ = conn.execute(
+        "UPDATE tasks
+         SET is_system = 1
+         WHERE title = 'Break'
+           AND description = 'Auto-generated task for break time'
+           AND project_id IN (SELECT id FROM projects WHERE is_system = 1)",
+        [],
+    );
+
     // Create indexes after migrations are complete
     let _ = conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_tasks_deadline ON tasks(deadline)",
@@ -129,6 +157,14 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
     );
     let _ = conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(date)",
+        [],
+    );
+    let _ = conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_projects_is_system ON projects(is_system)",
+        [],
+    );
+    let _ = conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_tasks_is_system ON tasks(is_system)",
         [],
     );
 

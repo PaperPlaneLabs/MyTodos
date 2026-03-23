@@ -150,15 +150,22 @@ pub fn get_daily_total_time(db: State<DbConnection>, start_timestamp: i64) -> Re
     let total: i64 = conn.query_row(
         "SELECT COALESCE(SUM(
             CASE
-                WHEN started_at IS NOT NULL AND ended_at IS NOT NULL
-                THEN MAX(0, MIN(ended_at, ?) - MAX(started_at, ?))
-                ELSE CASE WHEN created_at >= ? AND created_at < ? THEN duration_seconds ELSE 0 END
+                WHEN te.started_at IS NOT NULL AND te.ended_at IS NOT NULL
+                THEN MAX(0, MIN(te.ended_at, ?) - MAX(te.started_at, ?))
+                ELSE CASE
+                    WHEN te.created_at >= ? AND te.created_at < ? THEN te.duration_seconds
+                    ELSE 0
+                END
             END
         ), 0)
-        FROM time_entries
+        FROM time_entries te
+        JOIN tasks t ON t.id = te.task_id
         WHERE
-            (started_at IS NOT NULL AND ended_at IS NOT NULL AND started_at < ? AND ended_at > ?)
-            OR (started_at IS NULL AND created_at >= ? AND created_at < ?)",
+            t.is_system = 0
+            AND (
+                (te.started_at IS NOT NULL AND te.ended_at IS NOT NULL AND te.started_at < ? AND te.ended_at > ?)
+                OR (te.started_at IS NULL AND te.created_at >= ? AND te.created_at < ?)
+            )",
         [
             end_timestamp,
             start_timestamp,
@@ -198,7 +205,8 @@ pub fn get_time_entries_with_tasks(
          FROM time_entries te
          JOIN tasks t ON te.task_id = t.id
          LEFT JOIN projects p ON t.project_id = p.id
-         WHERE date(te.created_at, 'unixepoch') BETWEEN ? AND ?
+         WHERE t.is_system = 0
+           AND date(te.created_at, 'unixepoch') BETWEEN ? AND ?
          ORDER BY started_at ASC",
     )?;
 

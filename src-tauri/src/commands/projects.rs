@@ -8,7 +8,9 @@ pub fn get_all_projects(db: State<DbConnection>) -> Result<Vec<Project>> {
     let conn = db.lock();
     let mut stmt = conn.prepare(
         "SELECT id, name, description, color, position, total_time_seconds, created_at, updated_at
-         FROM projects ORDER BY position ASC",
+         FROM projects
+         WHERE is_system = 0
+         ORDER BY position ASC",
     )?;
 
     let projects = stmt
@@ -65,7 +67,7 @@ pub fn create_project(
 
     let max_position: i32 = conn
         .query_row(
-            "SELECT COALESCE(MAX(position), -1) FROM projects",
+            "SELECT COALESCE(MAX(position), -1) FROM projects WHERE is_system = 0",
             [],
             |row| row.get(0),
         )

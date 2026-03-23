@@ -201,14 +201,14 @@
         </div>
     {:else if stats}
         <div class="stats-content">
-            <!-- Today's Work Section -->
+            <!-- Today's Activity Section -->
             <section
                 class="stats-section"
                 transition:fly={{ y: 20, duration: 300, delay: 100 }}
             >
                 <h3>
                     <span class="section-icon">📅</span>
-                    Today's Work
+                    Today's Activity
                 </h3>
                 {#if stats.today_tasks.length === 0}
                     <div class="empty-state">

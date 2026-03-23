@@ -9,7 +9,9 @@ pub fn get_tasks_by_project(db: State<DbConnection>, project_id: i64) -> Result<
     let conn = db.lock();
     let mut stmt = conn.prepare(
         "SELECT id, project_id, section_id, title, description, completed, position, total_time_seconds, deadline, google_event_id, created_at, updated_at
-         FROM tasks WHERE project_id = ? ORDER BY position ASC"
+         FROM tasks
+         WHERE project_id = ? AND is_system = 0
+         ORDER BY position ASC"
     )?;
 
     let tasks = stmt
@@ -39,7 +41,9 @@ pub fn get_unassigned_tasks(db: State<DbConnection>) -> Result<Vec<Task>> {
     let conn = db.lock();
     let mut stmt = conn.prepare(
         "SELECT id, project_id, section_id, title, description, completed, position, total_time_seconds, deadline, google_event_id, created_at, updated_at
-         FROM tasks WHERE project_id IS NULL ORDER BY position ASC"
+         FROM tasks
+         WHERE project_id IS NULL AND is_system = 0
+         ORDER BY position ASC"
     )?;
 
     let tasks = stmt
@@ -69,7 +73,9 @@ pub fn get_tasks_by_section(db: State<DbConnection>, section_id: i64) -> Result<
     let conn = db.lock();
     let mut stmt = conn.prepare(
         "SELECT id, project_id, section_id, title, description, completed, position, total_time_seconds, deadline, google_event_id, created_at, updated_at
-         FROM tasks WHERE section_id = ? ORDER BY position ASC"
+         FROM tasks
+         WHERE section_id = ? AND is_system = 0
+         ORDER BY position ASC"
     )?;
 
     let tasks = stmt
