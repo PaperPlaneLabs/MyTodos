@@ -46,12 +46,17 @@
             
             // Log the time away as a break
             if (awayTimeSeconds > 0) {
-                await db.timeEntries.logBreakTime(awayTimeSeconds);
+                try {
+                    await db.timeEntries.logBreakTime(awayTimeSeconds);
+                } catch (logErr) {
+                    console.error("[resume] Error logging break time:", logErr);
+                }
             }
             
             // Emitting to main window to cleanly handle local store update + DB update
             await emit("break:action", { action: "resume" });
             
+            await db.window.focusMain();
             await db.window.closeResume();
         } catch (e) {
             console.error("[resume] Error resuming task:", e);
