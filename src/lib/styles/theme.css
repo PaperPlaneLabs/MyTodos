@@ -14,6 +14,10 @@
   --danger: #ef4444;
   --warning: #f59e0b;
 
+  --success-contrast: #064e3b; /* Dark green for text on green bg */
+  --warning-contrast: #451a03; /* Dark orange for text on orange bg */
+  --danger-contrast: #ffffff;  /* White stays good on standard red */
+
   --border: #e5e7eb;
   --border-light: #f3f4f6;
 
@@ -102,6 +106,10 @@
   --danger: #f87171;
   --warning: #fbbf24;
 
+  --success-contrast: #064e3b; 
+  --warning-contrast: #451a03;
+  --danger-contrast: #ffffff;
+
   --border: #374151;
   --border-light: #2a2a2a;
 
@@ -129,6 +137,10 @@
   --success: #55FF55;
   --danger: #FF5555;
   --warning: #FFAA00;
+
+  --success-contrast: #003300;
+  --warning-contrast: #331a00;
+  --danger-contrast: #ffffff;
 
   --border: #1e1713;
   --border-light: #2d231e;
@@ -158,6 +170,10 @@
   --danger: #ff003c;
   --warning: #ffb000;
 
+  --success-contrast: #000000;
+  --warning-contrast: #000000;
+  --danger-contrast: #ffffff;
+
   --border: #332200;
   --border-light: #1a1100;
 
@@ -186,6 +202,10 @@
   --danger: #ae2012;
   --warning: #ee9b00;
 
+  --success-contrast: #001219;
+  --warning-contrast: #001219;
+  --danger-contrast: #ffffff;
+
   --border: #003046;
   --border-light: #001f2e;
 
@@ -211,6 +231,10 @@
   --success: #a3be8c;
   --danger: #bf616a;
   --warning: #ebcb8b;
+
+  --success-contrast: #2e3440;
+  --warning-contrast: #2e3440;
+  --danger-contrast: #ffffff;
 
   --border: #4c566a;
   --border-light: #3b4252;

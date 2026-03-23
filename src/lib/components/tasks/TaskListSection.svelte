@@ -566,13 +566,13 @@
 
   .inline-timer.running {
     background-color: var(--success);
-    color: white;
+    color: var(--success-contrast);
     animation: pulse 2s ease-in-out infinite;
   }
 
   .inline-timer.paused {
     background-color: var(--warning);
-    color: white;
+    color: var(--warning-contrast);
   }
 
   .timer-indicator {

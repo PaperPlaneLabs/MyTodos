@@ -405,7 +405,7 @@
 
   .timer-badge.running {
     background-color: var(--success);
-    color: white;
+    color: var(--success-contrast);
     border-color: var(--success);
     box-shadow: 0 0 10px var(--success-glow);
     animation: header-pulse 2s ease-in-out infinite;
