@@ -23,87 +23,12 @@ fn get_timestamp() -> i64 {
 }
 
 fn get_active_timer_internal(db: &DbConnection) -> crate::error::Result<Option<ActiveTimer>> {
-    let conn = db.lock();
-
-    let result = conn.query_row(
-        "SELECT t.task_id, t.started_at, t.elapsed_seconds, t.is_running, tasks.title, t.project_id
-         FROM active_timer t
-         LEFT JOIN tasks ON t.task_id = tasks.id
-         WHERE t.id = 1",
-        [],
-        |row| {
-            Ok(ActiveTimer {
-                task_id: row.get(0)?,
-                started_at: row.get(1)?,
-                elapsed_seconds: row.get(2)?,
-                is_running: row.get(3)?,
-                task_title: row.get(4)?,
-                project_id: row.get(5)?,
-            })
-        },
-    );
-
-    match result {
-        Ok(timer) => Ok(Some(timer)),
-        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
-        Err(e) => Err(e.into()),
-    }
+    crate::commands::get_active_timer_internal(db)
 }
 
 fn pause_timer_internal(db: &DbConnection, timer: &ActiveTimer) -> crate::error::Result<()> {
     let conn = db.lock();
-
-    let now = get_timestamp();
-    let duration = timer.elapsed_seconds + (now - timer.started_at);
-
-    // Create a time entry for the paused duration
-    conn.execute(
-        "INSERT INTO time_entries (task_id, entry_type, duration_seconds, started_at, ended_at, created_at)
-         VALUES (?, 'timer', ?, ?, ?, ?)",
-        (timer.task_id, duration, timer.started_at, now, now),
-    )?;
-
-    // Update task total
-    conn.execute(
-        "UPDATE tasks SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
-        (duration, timer.task_id),
-    )?;
-
-    // Update project total
-    let project_id: i64 = conn.query_row(
-        "SELECT project_id FROM tasks WHERE id = ?",
-        [timer.task_id],
-        |row| row.get(0),
-    )?;
-
-    conn.execute(
-        "UPDATE projects SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
-        (duration, project_id),
-    )?;
-
-    // Update section total if applicable
-    let section_id: Option<i64> = conn
-        .query_row(
-            "SELECT section_id FROM tasks WHERE id = ?",
-            [timer.task_id],
-            |row| row.get(0),
-        )
-        .ok();
-
-    if let Some(sid) = section_id {
-        conn.execute(
-            "UPDATE sections SET total_time_seconds = total_time_seconds + ? WHERE id = ?",
-            (duration, sid),
-        )?;
-    }
-
-    // Reset elapsed_seconds to 0 and update active_timer
-    conn.execute(
-        "UPDATE active_timer SET is_running = 0, elapsed_seconds = 0, started_at = ? WHERE id = 1",
-        [now],
-    )?;
-
-    Ok(())
+    crate::commands::pause_running_timer_at(&conn, timer, get_timestamp())
 }
 
 /// Auto-pause the timer if it's currently running
@@ -157,7 +82,10 @@ pub static IS_LOCKED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicB
 pub fn handle_away_started(app_handle: &AppHandle, db: &DbConnection) {
     let now = get_timestamp();
     // Only store if not already tracking away time
-    if SCREEN_LOCK_TIME.compare_exchange(0, now, Ordering::SeqCst, Ordering::SeqCst).is_ok() {
+    if SCREEN_LOCK_TIME
+        .compare_exchange(0, now, Ordering::SeqCst, Ordering::SeqCst)
+        .is_ok()
+    {
         println!("[System Events] User away started at {}", now);
 
         // Auto-pause if running
@@ -172,7 +100,10 @@ pub fn handle_away_ended(app_handle: &AppHandle, db: &DbConnection) {
 
     if lock_time > 0 {
         let away_seconds = now - lock_time;
-        println!("[System Events] User returned. Away for {} seconds", away_seconds);
+        println!(
+            "[System Events] User returned. Away for {} seconds",
+            away_seconds
+        );
 
         // Define a reasonable minimum break time to show the resume window
         if away_seconds > 10 {

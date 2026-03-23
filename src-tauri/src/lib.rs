@@ -41,17 +41,18 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_autostart::init(LaunchAgent, Some(vec!["--hidden"])))
+        .plugin(tauri_plugin_autostart::init(
+            LaunchAgent,
+            Some(vec!["--hidden"]),
+        ))
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            let _ = app
-                .get_webview_window("main")
-                .map(|w| {
-                    let _ = w.show();
-                    let _ = w.unminimize();
-                    let _ = w.set_focus();
-                });
+            let _ = app.get_webview_window("main").map(|w| {
+                let _ = w.show();
+                let _ = w.unminimize();
+                let _ = w.set_focus();
+            });
         }))
         .manage(db_conn.clone())
         .manage(google_state)
@@ -61,6 +62,25 @@ pub fn run() {
 
             // Initialize system event listeners for auto-pausing timer
             events::initialize_system_listeners(app_handle.clone(), db_clone.clone());
+
+            match commands::recover_stale_active_timer(&db_clone) {
+                Ok(true) => println!("Recovered stale active timer during startup."),
+                Ok(false) => {}
+                Err(e) => eprintln!("Failed to recover stale active timer: {}", e),
+            }
+
+            {
+                let heartbeat_db = db_clone.clone();
+                std::thread::spawn(move || loop {
+                    std::thread::sleep(std::time::Duration::from_secs(
+                        commands::ACTIVE_TIMER_HEARTBEAT_INTERVAL_SECONDS,
+                    ));
+
+                    if let Err(e) = commands::heartbeat_active_timer(&heartbeat_db) {
+                        eprintln!("Failed to update active timer heartbeat: {}", e);
+                    }
+                });
+            }
 
             // --- System Tray ---
             let show_item = MenuItem::with_id(app, "show", "Show MyTodos", true, None::<&str>)
@@ -119,9 +139,11 @@ pub fn run() {
 
                 window.on_window_event(move |event| {
                     if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                        use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_SHUTTINGDOWN};
+                        use windows::Win32::UI::WindowsAndMessaging::{
+                            GetSystemMetrics, SM_SHUTTINGDOWN,
+                        };
                         let is_os_shutting_down = unsafe { GetSystemMetrics(SM_SHUTTINGDOWN) } != 0;
-                        
+
                         // If system is shutting down, or we previously detected it, allow the close.
                         if !events::is_shutting_down() && !is_os_shutting_down {
                             api.prevent_close();
@@ -131,7 +153,11 @@ pub fn run() {
                         } else {
                             println!("Shutdown or App Quit detected, pausing timers...");
                             events::SHUTTING_DOWN.store(true, std::sync::atomic::Ordering::SeqCst);
-                            events::auto_pause_if_running(&shutdown_handle, &shutdown_db, events::AutoPauseReason::Shutdown);
+                            events::auto_pause_if_running(
+                                &shutdown_handle,
+                                &shutdown_db,
+                                events::AutoPauseReason::Shutdown,
+                            );
                         }
                     }
                 });

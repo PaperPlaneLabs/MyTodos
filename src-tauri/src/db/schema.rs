@@ -59,6 +59,7 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
             started_at INTEGER NOT NULL,
             elapsed_seconds INTEGER DEFAULT 0,
             is_running BOOLEAN DEFAULT 1,
+            last_heartbeat_at INTEGER,
             project_id INTEGER,
             FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
             FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
@@ -96,11 +97,25 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
     // Migration: Add project_id to active_timer if it doesn't exist
     let _ = conn.execute("ALTER TABLE active_timer ADD COLUMN project_id INTEGER", []);
 
+    // Migration: Add last_heartbeat_at to active_timer if it doesn't exist
+    let _ = conn.execute(
+        "ALTER TABLE active_timer ADD COLUMN last_heartbeat_at INTEGER",
+        [],
+    );
+
     // Populate project_id for any existing active timer by looking up the task's project
     let _ = conn.execute(
         "UPDATE active_timer
          SET project_id = (SELECT project_id FROM tasks WHERE tasks.id = active_timer.task_id)
          WHERE project_id IS NULL",
+        [],
+    );
+
+    // Populate heartbeat for any existing timer rows created before the migration.
+    let _ = conn.execute(
+        "UPDATE active_timer
+         SET last_heartbeat_at = started_at
+         WHERE last_heartbeat_at IS NULL",
         [],
     );
 

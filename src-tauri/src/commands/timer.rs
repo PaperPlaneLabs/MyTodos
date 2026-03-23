@@ -1,14 +1,15 @@
 use super::common::{apply_task_and_parent_time_delta, get_timestamp};
 use crate::db::{ActiveTimer, DbConnection, TimeEntry};
 use crate::error::{AppError, Result};
+use rusqlite::Connection;
 use tauri::State;
 
-#[tauri::command]
-pub fn get_active_timer(db: State<DbConnection>) -> Result<Option<ActiveTimer>> {
-    let conn = db.lock();
+pub const ACTIVE_TIMER_HEARTBEAT_INTERVAL_SECONDS: u64 = 30;
+const ACTIVE_TIMER_STALE_AFTER_SECONDS: i64 = 120;
 
+fn get_active_timer_from_conn(conn: &Connection) -> Result<Option<ActiveTimer>> {
     let result = conn.query_row(
-        "SELECT t.task_id, t.started_at, t.elapsed_seconds, t.is_running, tasks.title, t.project_id
+        "SELECT t.task_id, t.started_at, t.elapsed_seconds, t.is_running, t.last_heartbeat_at, tasks.title, t.project_id
          FROM active_timer t
          LEFT JOIN tasks ON t.task_id = tasks.id
          WHERE t.id = 1",
@@ -19,8 +20,9 @@ pub fn get_active_timer(db: State<DbConnection>) -> Result<Option<ActiveTimer>> 
                 started_at: row.get(1)?,
                 elapsed_seconds: row.get(2)?,
                 is_running: row.get(3)?,
-                task_title: row.get(4)?,
-                project_id: row.get(5)?,
+                last_heartbeat_at: row.get(4)?,
+                task_title: row.get(5)?,
+                project_id: row.get(6)?,
             })
         },
     );
@@ -30,6 +32,80 @@ pub fn get_active_timer(db: State<DbConnection>) -> Result<Option<ActiveTimer>> 
         Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
         Err(e) => Err(e.into()),
     }
+}
+
+fn get_effective_last_heartbeat(timer: &ActiveTimer) -> i64 {
+    timer.last_heartbeat_at.unwrap_or(timer.started_at)
+}
+
+fn calculate_running_duration(timer: &ActiveTimer, ended_at: i64) -> i64 {
+    timer.elapsed_seconds + (ended_at - timer.started_at).max(0)
+}
+
+pub fn pause_running_timer_at(conn: &Connection, timer: &ActiveTimer, ended_at: i64) -> Result<()> {
+    let safe_end = ended_at.max(timer.started_at);
+    let duration = calculate_running_duration(timer, safe_end);
+
+    conn.execute(
+        "INSERT INTO time_entries (task_id, entry_type, duration_seconds, started_at, ended_at, created_at)
+         VALUES (?, 'timer', ?, ?, ?, ?)",
+        (timer.task_id, duration, timer.started_at, safe_end, safe_end),
+    )?;
+
+    apply_task_and_parent_time_delta(conn, timer.task_id, duration)?;
+
+    conn.execute(
+        "UPDATE active_timer
+         SET is_running = 0, elapsed_seconds = 0, started_at = ?, last_heartbeat_at = ?
+         WHERE id = 1",
+        [safe_end, safe_end],
+    )?;
+
+    Ok(())
+}
+
+pub fn get_active_timer_internal(db: &DbConnection) -> Result<Option<ActiveTimer>> {
+    let conn = db.lock();
+    get_active_timer_from_conn(&conn)
+}
+
+pub fn recover_stale_active_timer(db: &DbConnection) -> Result<bool> {
+    let conn = db.lock();
+    let Some(timer) = get_active_timer_from_conn(&conn)? else {
+        return Ok(false);
+    };
+
+    if !timer.is_running {
+        return Ok(false);
+    }
+
+    let last_heartbeat = get_effective_last_heartbeat(&timer);
+    let now = get_timestamp();
+    if now - last_heartbeat <= ACTIVE_TIMER_STALE_AFTER_SECONDS {
+        return Ok(false);
+    }
+
+    pause_running_timer_at(&conn, &timer, last_heartbeat)?;
+    Ok(true)
+}
+
+pub fn heartbeat_active_timer(db: &DbConnection) -> Result<bool> {
+    let conn = db.lock();
+    let now = get_timestamp();
+    let updated = conn.execute(
+        "UPDATE active_timer
+         SET last_heartbeat_at = ?
+         WHERE id = 1 AND is_running = 1",
+        [now],
+    )?;
+
+    Ok(updated > 0)
+}
+
+#[tauri::command]
+pub fn get_active_timer(db: State<DbConnection>) -> Result<Option<ActiveTimer>> {
+    recover_stale_active_timer(&db)?;
+    get_active_timer_internal(&db)
 }
 
 #[tauri::command]
@@ -55,9 +131,9 @@ pub fn start_timer(db: State<DbConnection>, task_id: i64) -> Result<ActiveTimer>
     let now = get_timestamp();
 
     conn.execute(
-        "INSERT INTO active_timer (id, task_id, started_at, elapsed_seconds, is_running, project_id)
-         VALUES (1, ?, ?, 0, 1, ?)",
-        (task_id, now, task_info.1),
+        "INSERT INTO active_timer (id, task_id, started_at, elapsed_seconds, is_running, last_heartbeat_at, project_id)
+         VALUES (1, ?, ?, 0, 1, ?, ?)",
+        (task_id, now, now, task_info.1),
     )?;
 
     Ok(ActiveTimer {
@@ -65,6 +141,7 @@ pub fn start_timer(db: State<DbConnection>, task_id: i64) -> Result<ActiveTimer>
         started_at: now,
         elapsed_seconds: 0,
         is_running: true,
+        last_heartbeat_at: Some(now),
         task_title: task_info.0,
         project_id: task_info.1,
     })
@@ -79,26 +156,7 @@ pub fn pause_timer(db: State<DbConnection>) -> Result<()> {
     }
 
     let conn = db.lock();
-
-    let now = get_timestamp();
-    let duration = timer.elapsed_seconds + (now - timer.started_at);
-
-    // Create a time entry for the paused duration
-    conn.execute(
-        "INSERT INTO time_entries (task_id, entry_type, duration_seconds, started_at, ended_at, created_at)
-         VALUES (?, 'timer', ?, ?, ?, ?)",
-        (timer.task_id, duration, timer.started_at, now, now),
-    )?;
-
-    apply_task_and_parent_time_delta(&conn, timer.task_id, duration)?;
-
-    // Reset elapsed_seconds to 0 and update active_timer
-    conn.execute(
-        "UPDATE active_timer SET is_running = 0, elapsed_seconds = 0, started_at = ? WHERE id = 1",
-        [now],
-    )?;
-
-    Ok(())
+    pause_running_timer_at(&conn, &timer, get_timestamp())
 }
 
 #[tauri::command]
@@ -114,8 +172,10 @@ pub fn resume_timer(db: State<DbConnection>) -> Result<()> {
     let now = get_timestamp();
 
     conn.execute(
-        "UPDATE active_timer SET is_running = 1, started_at = ? WHERE id = 1",
-        [now],
+        "UPDATE active_timer
+         SET is_running = 1, started_at = ?, last_heartbeat_at = ?
+         WHERE id = 1",
+        [now, now],
     )?;
 
     Ok(())
@@ -129,7 +189,7 @@ pub fn stop_timer(db: State<DbConnection>) -> Result<TimeEntry> {
 
     let now = get_timestamp();
     let total_duration = if timer.is_running {
-        timer.elapsed_seconds + (now - timer.started_at)
+        calculate_running_duration(&timer, now)
     } else {
         timer.elapsed_seconds
     };

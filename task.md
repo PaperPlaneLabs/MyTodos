@@ -1,0 +1,6 @@
+- [x] Add implementation artifacts for timer recovery work
+- [x] Add `last_heartbeat_at` support to the active timer schema and model
+- [x] Implement backend heartbeat updates and stale timer recovery helpers
+- [x] Recover stale timers during app startup before the heartbeat loop starts
+- [x] Add Rust tests for stale timer recovery behavior
+- [x] Run focused verification and write `walkthrough.md`

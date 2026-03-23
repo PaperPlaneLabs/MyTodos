@@ -66,6 +66,8 @@ pub struct ActiveTimer {
     pub elapsed_seconds: i64,
     pub is_running: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_heartbeat_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub task_title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub project_id: Option<i64>,
