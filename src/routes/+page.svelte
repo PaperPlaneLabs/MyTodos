@@ -14,6 +14,7 @@
   import ResumeView from "$lib/components/resume/ResumeView.svelte";
   import TaskListSection from "$lib/components/tasks/TaskListSection.svelte";
   import ActiveTimerWidget from "$lib/components/timer/ActiveTimerWidget.svelte";
+  import { createPageInteractions } from "$lib/controllers/page-interactions.svelte";
   import { projectStore } from "$lib/stores/projects.svelte";
   import { taskStore } from "$lib/stores/tasks.svelte";
   import { timerStore } from "$lib/stores/timer.svelte";
@@ -32,20 +33,9 @@
   };
 
   let modalHost = $state<PageModalHostApi | null>(null);
-
-  // Pointer-based Drag and Drop State
-  let isDragging = $state(false);
-  let dragType = $state<"project" | "task" | null>(null);
-  let draggedId = $state<number | null>(null);
-  let startIndex = $state<number | null>(null);
-  let currentIndex = $state<number | null>(null);
-  let pointerId = $state<number | null>(null);
-  let startY = $state(0);
-  let startX = $state(0);
-  let hasMovedThreshold = $state(false);
-
-  // Long-press State
-  let longPressTimer = $state<ReturnType<typeof setTimeout> | null>(null);
+  const pageInteractions = createPageInteractions({
+    onConfirmDelete: (type, id) => modalHost?.confirmDelete(type, id),
+  });
 
   function formatDeadline(deadline: string | null | undefined): string {
     if (!deadline) return "";
@@ -124,193 +114,16 @@
     await timerStore.stop();
   }
 
-  // Context Menu Handler
-  function handleContextMenu(
-    e: MouseEvent | PointerEvent,
-    type: "project" | "task",
-    id: number,
-  ) {
-    e.preventDefault();
-    uiStore.openContextMenu(e.clientX, e.clientY, type, id);
-  }
-
-  // Handlers for Pointer Events
-  function handlePointerDown(
-    e: PointerEvent,
-    type: "project" | "task",
-    id: number,
-    index: number,
-  ) {
-    if (e.button === 2) return; // Ignore right click for drag
-
-    pointerId = e.pointerId;
-    dragType = type;
-    draggedId = id;
-    startIndex = index;
-    currentIndex = index;
-    startY = e.clientY;
-    startX = e.clientX;
-    hasMovedThreshold = false;
-
-    // Start long press timer (for mobile)
-    if (longPressTimer) clearTimeout(longPressTimer);
-    longPressTimer = setTimeout(() => {
-      if (!hasMovedThreshold) {
-        uiStore.openContextMenu(startX, startY, type, id);
-        cancelDrag();
-      }
-    }, 600);
-  }
-
-  function handlePointerMove(e: PointerEvent) {
-    if (pointerId !== e.pointerId || draggedId === null) return;
-
-    // Check threshold
-    if (!hasMovedThreshold) {
-      if (
-        Math.abs(e.clientY - startY) > 5 ||
-        Math.abs(e.clientX - startX) > 5
-      ) {
-        hasMovedThreshold = true;
-        isDragging = true;
-        if (longPressTimer) {
-          clearTimeout(longPressTimer);
-          longPressTimer = null;
-        }
-      } else {
-        return;
-      }
-    }
-
-    // Safety check: is the button still down?
-    if (e.buttons !== 1) {
-      handlePointerUp(e);
-      return;
-    }
-
-    const elem = document.elementFromPoint(e.clientX, e.clientY);
-    const wrapper = elem?.closest(".draggable-wrapper, .task-item-wrapper");
-
-    if (wrapper) {
-      const type = wrapper.classList.contains("draggable-wrapper")
-        ? "project"
-        : "task";
-      if (type === dragType) {
-        const newIndex = parseInt(wrapper.getAttribute("data-index") || "-1");
-        if (newIndex !== -1 && newIndex !== currentIndex) {
-          if (dragType === "project") {
-            projectStore.reorderLocal(currentIndex!, newIndex);
-          } else {
-            taskStore.reorderLocal(currentIndex!, newIndex);
-          }
-          currentIndex = newIndex;
-        }
-      }
-    }
-  }
-
-  async function handlePointerUp(e: PointerEvent) {
-    if (pointerId !== e.pointerId) return;
-
-    if (longPressTimer) {
-      clearTimeout(longPressTimer);
-      longPressTimer = null;
-    }
-
-    if (isDragging) {
-      try {
-        if (dragType === "project") {
-          const ids = projectStore.projects.map((p) => p.id);
-          await projectStore.reorder(ids);
-        } else if (dragType === "task") {
-          const ids = taskStore.tasks.map((t) => t.id);
-          await taskStore.reorder(ids);
-        }
-      } catch (err) {
-        console.error("Failed to save order:", err);
-      }
-    }
-
-    cancelDrag();
-  }
-
-  function cancelDrag() {
-    if (longPressTimer) {
-      clearTimeout(longPressTimer);
-      longPressTimer = null;
-    }
-    isDragging = false;
-    dragType = null;
-    draggedId = null;
-    startIndex = null;
-    currentIndex = null;
-    pointerId = null;
-    hasMovedThreshold = false;
-  }
-
-  function handleKeySelect(e: KeyboardEvent, id: number | null) {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      projectStore.setSelected(id);
-    }
-  }
-
-  // Context Menu Items
-  let contextMenuItems = $derived.by(() => {
-    if (!uiStore.contextMenuType || uiStore.contextMenuId === null) return [];
-
-    const id = uiStore.contextMenuId;
-    const type = uiStore.contextMenuType;
-
-    if (type === "project") {
-      const project = projectStore.projects.find((p) => p.id === id);
-      return [
-        {
-          type: "colorPicker" as const,
-          label: "Color",
-          currentColor: project?.color ?? "#6366f1",
-          onSelect: (color: string) => projectStore.updateColor(id, color),
-        },
-        {
-          label: "Edit Project",
-          icon: "✏️",
-          onClick: () => uiStore.openProjectModal(id),
-        },
-        {
-          label: "Delete Project",
-          icon: "🗑️",
-          danger: true,
-          onClick: () => modalHost?.confirmDelete("project", id),
-        },
-      ];
-    } else {
-      return [
-        {
-          label: "Edit Task",
-          icon: "✏️",
-          onClick: () => uiStore.openTaskModal(id),
-        },
-        {
-          label: "Delete Task",
-          icon: "🗑️",
-          danger: true,
-          onClick: () => modalHost?.confirmDelete("task", id),
-        },
-      ];
-    }
-  });
 </script>
 
 <svelte:window
-  onpointermove={(!isBreakWindow && !isResumeWindow) ? handlePointerMove : undefined}
-  onpointerup={(!isBreakWindow && !isResumeWindow) ? handlePointerUp : undefined}
-  onpointercancel={(!isBreakWindow && !isResumeWindow) ? cancelDrag : undefined}
+  onpointermove={(!isBreakWindow && !isResumeWindow) ? pageInteractions.handlePointerMove : undefined}
+  onpointerup={(!isBreakWindow && !isResumeWindow) ? pageInteractions.handlePointerUp : undefined}
+  onpointercancel={(!isBreakWindow && !isResumeWindow) ? pageInteractions.cancelDrag : undefined}
   onkeydown={(!isBreakWindow && !isResumeWindow)
-    ? (e) => {
-        if (e.key === "Escape") cancelDrag();
-      }
+    ? pageInteractions.handleWindowKeydown
     : undefined}
-  onclick={(!isBreakWindow && !isResumeWindow) ? () => uiStore.closeContextMenu() : undefined}
+  onclick={(!isBreakWindow && !isResumeWindow) ? pageInteractions.handleWindowClick : undefined}
 />
 
 {#if isBreakWindow}
@@ -333,24 +146,25 @@
       {:else}
         <div class="main-content">
           <ProjectListSection
-            {isDragging}
-            {draggedId}
-            onKeySelect={handleKeySelect}
-            onContextMenu={(event, id) => handleContextMenu(event, "project", id)}
+            isDragging={pageInteractions.isDragging}
+            draggedId={pageInteractions.draggedId}
+            onKeySelect={pageInteractions.handleKeySelect}
+            onContextMenu={(event, id) => pageInteractions.handleContextMenu(event, "project", id)}
             onPointerDown={(event, id, index) =>
-              handlePointerDown(event, "project", id, index)}
+              pageInteractions.handlePointerDown(event, "project", id, index)}
           />
 
           {#if projectStore.selectedId !== undefined}
             <TaskListSection
-              {isDragging}
-              {draggedId}
+              isDragging={pageInteractions.isDragging}
+              draggedId={pageInteractions.draggedId}
               {formatDeadline}
               {isOverdue}
               {getDaysRemaining}
-              onTaskContextMenu={(event, id) => handleContextMenu(event, "task", id)}
+              onTaskContextMenu={(event, id) =>
+                pageInteractions.handleContextMenu(event, "task", id)}
               onTaskPointerDown={(event, id, index) =>
-                handlePointerDown(event, "task", id, index)}
+                pageInteractions.handlePointerDown(event, "task", id, index)}
               onToggleTimer={handleToggleTimer}
               onStopTimer={handleStopTimer}
               onOpenResetModal={(taskId) => modalHost?.openResetModal(taskId)}
@@ -363,7 +177,7 @@
     {/if}
   </div>
 
-  <ContextMenu items={contextMenuItems} />
+  <ContextMenu items={pageInteractions.contextMenuItems} />
   <PageModalHost bind:this={modalHost} />
 
   <UpdateNotification />
