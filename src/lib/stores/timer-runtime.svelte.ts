@@ -1,4 +1,8 @@
 import type { ActiveTimer } from "$lib/services/db";
+import {
+  calculateContinuousElapsedSeconds,
+  calculateDisplayElapsedSeconds,
+} from "./timer-runtime-utils";
 import { projectStore } from "./projects.svelte";
 import { taskStore } from "./tasks.svelte";
 
@@ -29,21 +33,11 @@ export function createTimerRuntimeController({
   }
 
   function getContinuousElapsedSeconds(): number {
-    const activeTimer = getActiveTimer();
-    if (!activeTimer?.is_running) {
-      return 0;
-    }
-
-    return activeTimer.elapsed_seconds + (Date.now() / 1000 - activeTimer.started_at);
+    return calculateContinuousElapsedSeconds(getActiveTimer());
   }
 
   function getDisplayElapsedSeconds(): number {
-    const activeTimer = getActiveTimer();
-    if (!activeTimer?.is_running) {
-      return elapsedOffset;
-    }
-
-    return elapsedOffset + (Date.now() / 1000 - activeTimer.started_at);
+    return calculateDisplayElapsedSeconds(getActiveTimer(), elapsedOffset);
   }
 
   function captureInitialTimes(taskId: number, projectId: number | null): void {
