@@ -16,6 +16,7 @@ export function createTimerRuntimeController({
   refreshDailyTotal,
 }: CreateTimerRuntimeControllerOptions) {
   let currentElapsed = $state(0);
+  let elapsedOffset = 0;
   let intervalId: number | null = null;
   let initialTaskTime = 0;
   let initialProjectTime = 0;
@@ -36,6 +37,15 @@ export function createTimerRuntimeController({
     return activeTimer.elapsed_seconds + (Date.now() / 1000 - activeTimer.started_at);
   }
 
+  function getDisplayElapsedSeconds(): number {
+    const activeTimer = getActiveTimer();
+    if (!activeTimer?.is_running) {
+      return elapsedOffset;
+    }
+
+    return elapsedOffset + (Date.now() / 1000 - activeTimer.started_at);
+  }
+
   function captureInitialTimes(taskId: number, projectId: number | null): void {
     initialTaskTime = 0;
     initialProjectTime = 0;
@@ -54,10 +64,12 @@ export function createTimerRuntimeController({
 
   function setElapsed(seconds: number): void {
     currentElapsed = seconds;
+    elapsedOffset = seconds;
   }
 
   function resetElapsed(): void {
     currentElapsed = 0;
+    elapsedOffset = 0;
   }
 
   function startInterval(): void {
@@ -76,8 +88,7 @@ export function createTimerRuntimeController({
         void refreshDailyTotal();
       }
 
-      currentElapsed =
-        activeTimer.elapsed_seconds + (Date.now() / 1000 - activeTimer.started_at);
+      currentElapsed = getDisplayElapsedSeconds();
 
       if (activeTimer.task_id) {
         taskStore.updateTaskTime(
@@ -126,6 +137,7 @@ export function createTimerRuntimeController({
       return currentElapsed;
     },
     getContinuousElapsedSeconds,
+    getDisplayElapsedSeconds,
     captureInitialTimes,
     setElapsed,
     resetElapsed,

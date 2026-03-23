@@ -1,14 +1,11 @@
-# Dock Preference Persistence Walkthrough
+# Timer Pause/Resume Continuity Walkthrough
 
 ## What Changed
-- The existing `window_state` table now stores an optional `dock_preference` so the last clicked docking mode can survive relaunches.
-- New backend helpers and Tauri commands save and load the dock preference, and startup applies it to the main window before normal app initialization continues.
-- The header dock buttons and Settings docking control now persist the chosen mode after applying it.
-- The main page initializes `uiStore.windowOrientation` from the saved preference, falling back to the live window orientation when nothing has been saved yet.
+- The timer runtime now keeps a local elapsed offset so the displayed timer can continue across pauses without affecting the running-segment calculations used elsewhere.
+- `timerStore.pause()` and auto-pause now preserve the current displayed elapsed time instead of clearing it.
+- `timerStore.resume()` now resumes from the preserved elapsed value instead of resetting the widget back to zero.
 
 ## Verification
-- `cargo test --test window_dock_preference_tests`
-  Result: passed
 - `npm run check`
   Result: 0 errors, 6 warnings
 

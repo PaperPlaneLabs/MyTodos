@@ -183,15 +183,16 @@ export const timerStore: TimerStore = {
   async pause() {
     try {
       await db.timer.pause();
+      const pausedElapsed = timerRuntime.getDisplayElapsedSeconds();
       if (activeTimer) {
+        activeTimer.elapsed_seconds = 0;
         activeTimer.is_running = false;
-        timerRuntime.setElapsed(timerRuntime.getContinuousElapsedSeconds());
       }
+      timerRuntime.setElapsed(pausedElapsed);
 
       timerRuntime.stopInterval();
       breakReminderController.deactivate();
       await refreshDailyTotal();
-      timerRuntime.resetElapsed();
       timerChangeCounter++;
     } catch (error) {
       console.error("Failed to pause timer:", error);
@@ -203,14 +204,16 @@ export const timerStore: TimerStore = {
     breakReminderController.init();
 
     try {
+      const resumedElapsed = timerRuntime.elapsed;
       await db.timer.resume();
       if (activeTimer) {
+        activeTimer.elapsed_seconds = 0;
         activeTimer.is_running = true;
         activeTimer.started_at = Math.floor(Date.now() / 1000);
       }
 
       await refreshDailyTotal();
-      timerRuntime.resetElapsed();
+      timerRuntime.setElapsed(resumedElapsed);
       autoPausedReason = null;
 
       timerRuntime.startInterval();
@@ -274,13 +277,15 @@ export const timerStore: TimerStore = {
 
 registerTimerEventHandlers({
   onAutoPaused: (reason) => {
+    const pausedElapsed = timerRuntime.getDisplayElapsedSeconds();
     autoPausedReason = reason;
 
     if (activeTimer) {
+      activeTimer.elapsed_seconds = 0;
       activeTimer.is_running = false;
     }
 
-    timerRuntime.resetElapsed();
+    timerRuntime.setElapsed(pausedElapsed);
     timerRuntime.stopInterval();
     breakReminderController.deactivate();
     void refreshDailyTotal();
