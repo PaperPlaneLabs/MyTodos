@@ -7,13 +7,19 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+$ReleasesRepo = "SujithChristopher/MyTodos-releases"
+
 function Write-Step($msg) { Write-Host "`n>> $msg" -ForegroundColor Cyan }
 function Write-Success($msg) { Write-Host "   [OK] $msg" -ForegroundColor Green }
 function Write-Fail($msg) { Write-Host "   [ER] $msg" -ForegroundColor Red }
 function Write-Warn($msg) { Write-Host "   [!!] $msg" -ForegroundColor Yellow }
 
-# 1. Load signing keys from .env
-if (Test-Path ".env") {
+function Load-EnvFile {
+    if (-not (Test-Path ".env")) {
+        Write-Warn ".env file not found. Ensure TAURI_SIGNING_PRIVATE_KEY is set."
+        return
+    }
+
     Get-Content ".env" | ForEach-Object {
         if ($_ -match '^\s*([^#=]+)\s*=\s*(.*)$') {
             $key = $matches[1].Trim()
@@ -21,31 +27,127 @@ if (Test-Path ".env") {
             [Environment]::SetEnvironmentVariable($key, $value, "Process")
         }
     }
+
     Write-Success "Loaded keys from .env"
 }
-else {
-    Write-Warn ".env file not found. Ensure TAURI_SIGNING_PRIVATE_KEY is set."
+
+function Get-ManifestFileName([string]$platform) {
+    switch ($platform) {
+        "windows-x86_64" { return "latest-windows-x86_64.json" }
+        "linux-x86_64" { return "latest-linux-x86_64.json" }
+        "darwin-aarch64" { return "latest-darwin-aarch64.json" }
+        "darwin-x86_64" { return "latest-darwin-x86_64.json" }
+        default { throw "Unsupported platform manifest: $platform" }
+    }
 }
+
+function Get-PlatformFromManifestName([string]$name) {
+    switch ($name) {
+        "latest-windows-x86_64.json" { return "windows-x86_64" }
+        "latest-linux-x86_64.json" { return "linux-x86_64" }
+        "latest-darwin-aarch64.json" { return "darwin-aarch64" }
+        "latest-darwin-x86_64.json" { return "darwin-x86_64" }
+        default { return $null }
+    }
+}
+
+function Set-PlatformState(
+    [hashtable]$states,
+    [string]$platform,
+    [string]$version,
+    [string]$url,
+    [string]$signature,
+    [string]$notes,
+    [string]$pubDate
+) {
+    $states[$platform] = @{
+        version = $version
+        notes = $notes
+        pub_date = $pubDate
+        url = $url
+        signature = $signature
+    }
+}
+
+function Import-LegacyLatestJson([string]$path, [hashtable]$states) {
+    if (-not (Test-Path $path)) {
+        return
+    }
+
+    $legacy = Get-Content $path -Raw | ConvertFrom-Json
+    if (-not $legacy.platforms) {
+        return
+    }
+
+    foreach ($prop in $legacy.platforms.PSObject.Properties) {
+        if ($states.ContainsKey($prop.Name)) {
+            continue
+        }
+
+        Set-PlatformState `
+            -states $states `
+            -platform $prop.Name `
+            -version $legacy.version `
+            -url $prop.Value.url `
+            -signature $prop.Value.signature `
+            -notes $legacy.notes `
+            -pubDate $legacy.pub_date
+    }
+}
+
+function Import-PerPlatformManifests([string]$dir, [hashtable]$states) {
+    $manifestFiles = Get-ChildItem -Path $dir -Filter "latest-*.json" -File -ErrorAction SilentlyContinue
+    foreach ($manifestFile in $manifestFiles) {
+        $platform = Get-PlatformFromManifestName $manifestFile.Name
+        if (-not $platform) {
+            continue
+        }
+
+        $manifest = Get-Content $manifestFile.FullName -Raw | ConvertFrom-Json
+        Set-PlatformState `
+            -states $states `
+            -platform $platform `
+            -version $manifest.version `
+            -url $manifest.url `
+            -signature $manifest.signature `
+            -notes $manifest.notes `
+            -pubDate $manifest.pub_date
+    }
+}
+
+function Write-PlatformManifest([string]$outputDir, [string]$platform, [hashtable]$state) {
+    $manifestPath = Join-Path $outputDir (Get-ManifestFileName $platform)
+    $manifest = @{
+        version = $state.version
+        notes = $state.notes
+        pub_date = $state.pub_date
+        url = $state.url
+        signature = $state.signature
+    } | ConvertTo-Json -Depth 3
+
+    Set-Content -Path $manifestPath -Value $manifest
+    return $manifestPath
+}
+
+Load-EnvFile
 
 if (-not [Environment]::GetEnvironmentVariable("TAURI_SIGNING_PRIVATE_KEY", "Process")) {
     Write-Fail "TAURI_SIGNING_PRIVATE_KEY not set. Cannot sign artifacts."
     exit 1
 }
 
-# 2. Identify artifacts in dist/
 if (-not (Test-Path "dist")) {
     Write-Fail "dist/ folder not found. Please run build or download artifacts first."
     exit 1
 }
 
 $artifacts = Get-ChildItem -Path "dist" -Include *.msi, *-setup.exe, *.AppImage, *.app.tar.gz, *.deb, *.rpm -Recurse
-
 if ($artifacts.Count -eq 0) {
     Write-Fail "No artifacts found in dist/ to sign."
     exit 1
 }
 
-Write-Step "Signing $($artifacts.Count) artifacts..."
+Write-Step "Signing $($artifacts.Count) artifact(s)..."
 
 foreach ($file in $artifacts) {
     $sigPath = "$($file.FullName).sig"
@@ -55,139 +157,150 @@ foreach ($file in $artifacts) {
     }
 
     Write-Host "   Signing $($file.Name)..." -NoNewline
-    
+
     try {
-        # Run signature command
         $tauriPath = ".\node_modules\.bin\tauri.cmd"
-        if (-not (Test-Path $tauriPath)) { $tauriPath = "tauri" } # Fallback to global
-        
+        if (-not (Test-Path $tauriPath)) {
+            $tauriPath = "tauri"
+        }
+
         $output = & $tauriPath signer sign $file.FullName 2>&1 | Out-String
-        
         if ($LASTEXITCODE -ne 0) {
             Write-Host " [FAILED]" -ForegroundColor Red
             Write-Error "Signing failed: $output"
         }
-        
-        # Clean up signature
-        # Output format: "Your file was signed successfully... Public signature: <BASE64>... Make sure to include..."
+
         if ($output -match "Public signature:") {
             $parts = $output -split "Public signature:"
-            # Take everything after "Public signature:"
             $sigPart = $parts[1]
-             
-            # The signature is likely followed by "Make sure to include" or newline
             if ($sigPart -match "Make sure to include") {
                 $subParts = $sigPart -split "Make sure to include"
                 $signature = $subParts[0].Trim()
-            }
-            else {
+            } else {
                 $signature = $sigPart.Trim()
             }
-        }
-        else {
-            # Fallback if no text matched (maybe direct output?)
+        } else {
             $signature = $output.Trim()
         }
 
         Set-Content -Path $sigPath -Value $signature -NoNewline
         Write-Host " [OK]" -ForegroundColor Green
-    }
-    catch {
+    } catch {
         Write-Host " [ERROR]" -ForegroundColor Red
         Write-Warn $_
     }
 }
 
-# 3. Generate latest.json
-Write-Step "Generating latest.json..."
+Write-Step "Generating updater manifests..."
 
 $tag = "v$v"
 $releaseUrl = "https://github.com/SujithChristopher/MyTodos-releases/releases/download/$tag"
-$platforms = @{}
+$platformStates = @{}
 
-# Load existing latest.json to preserve other platforms
-if (Test-Path "dist/latest.json") {
-    try {
-        $existing = Get-Content "dist/latest.json" -Raw | ConvertFrom-Json
-        if ($existing.platforms) {
-            foreach ($prop in $existing.platforms.PSObject.Properties) {
-                # Preserve existing platform ONLY if we don't have a local update for it
-                if (-not $platforms.ContainsKey($prop.Name)) {
-                    $platforms[$prop.Name] = $prop.Value
-                }
-            }
-        }
-    }
-    catch { Write-Warn "Could not read existing latest.json" }
-}
+Import-PerPlatformManifests -dir "dist" -states $platformStates
+Import-LegacyLatestJson -path "dist/latest.json" -states $platformStates
 
-# Windows
-$nsisExeSig = Get-ChildItem -Path "dist" -Filter "*-setup.exe.sig" | Select-Object -First 1
-$nsisExe = Get-ChildItem -Path "dist" -Filter "*-setup.exe" | Where-Object { $_.Name -notlike "*.sig" } | Select-Object -First 1
+$notes = "MyTodos $tag"
+$pubDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+
+$nsisExeSig = Get-ChildItem -Path "dist" -Filter "*-setup.exe.sig" -ErrorAction SilentlyContinue | Select-Object -First 1
+$nsisExe = Get-ChildItem -Path "dist" -Filter "*-setup.exe" -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike "*.sig" } | Select-Object -First 1
 if ($nsisExeSig -and $nsisExe) {
-    $platforms["windows-x86_64"] = @{
-        signature = (Get-Content $nsisExeSig.FullName -Raw).Trim()
-        url       = "$releaseUrl/$($nsisExe.Name)"
-    }
+    Set-PlatformState `
+        -states $platformStates `
+        -platform "windows-x86_64" `
+        -version $v `
+        -url "$releaseUrl/$($nsisExe.Name)" `
+        -signature (Get-Content $nsisExeSig.FullName -Raw).Trim() `
+        -notes $notes `
+        -pubDate $pubDate
     Write-Success "Added windows-x86_64"
 }
 
-# Linux
-$appImageSig = Get-ChildItem -Path "dist" -Filter "*.AppImage.sig" | Select-Object -First 1
-$appImage = Get-ChildItem -Path "dist" -Filter "*.AppImage" | Where-Object { $_.Name -notlike "*.sig" } | Select-Object -First 1
+$appImageSig = Get-ChildItem -Path "dist" -Filter "*.AppImage.sig" -ErrorAction SilentlyContinue | Select-Object -First 1
+$appImage = Get-ChildItem -Path "dist" -Filter "*.AppImage" -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike "*.sig" } | Select-Object -First 1
 if ($appImageSig -and $appImage) {
-    $platforms["linux-x86_64"] = @{
-        signature = (Get-Content $appImageSig.FullName -Raw).Trim()
-        url       = "$releaseUrl/$($appImage.Name)"
-    }
+    Set-PlatformState `
+        -states $platformStates `
+        -platform "linux-x86_64" `
+        -version $v `
+        -url "$releaseUrl/$($appImage.Name)" `
+        -signature (Get-Content $appImageSig.FullName -Raw).Trim() `
+        -notes $notes `
+        -pubDate $pubDate
     Write-Success "Added linux-x86_64"
 }
 
-# macOS (local check)
-$macAppSig = Get-ChildItem -Path "dist" -Filter "*.app.tar.gz.sig" | Select-Object -First 1
-$macApp = Get-ChildItem -Path "dist" -Filter "*.app.tar.gz" | Where-Object { $_.Name -notlike "*.sig" } | Select-Object -First 1
-if ($macAppSig -and $macApp) {
-    $arch = "darwin-x86_64"
-    if ($macApp.Name -match "aarch64") { $arch = "darwin-aarch64" }
-    
-    $platforms[$arch] = @{
-        signature = (Get-Content $macAppSig.FullName -Raw).Trim()
-        url       = "$releaseUrl/$($macApp.Name)"
+$macArtifacts = Get-ChildItem -Path "dist" -Filter "*.app.tar.gz" -ErrorAction SilentlyContinue | Where-Object { $_.Name -notlike "*.sig" }
+foreach ($macApp in $macArtifacts) {
+    $sigPath = "$($macApp.FullName).sig"
+    if (-not (Test-Path $sigPath)) {
+        continue
     }
-    Write-Success "Added $arch"
+
+    $platform = "darwin-x86_64"
+    if ($macApp.Name -match "aarch64") {
+        $platform = "darwin-aarch64"
+    }
+
+    Set-PlatformState `
+        -states $platformStates `
+        -platform $platform `
+        -version $v `
+        -url "$releaseUrl/$($macApp.Name)" `
+        -signature (Get-Content $sigPath -Raw).Trim() `
+        -notes $notes `
+        -pubDate $pubDate
+    Write-Success "Added $platform"
 }
 
-if ($platforms.Count -gt 0) {
-    $latestJson = @{
-        version   = $v
-        notes     = "MyTodos v$v"
-        pub_date  = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
-        platforms = $platforms
-    } | ConvertTo-Json -Depth 3
+$manifestFiles = @()
+foreach ($platform in @("windows-x86_64", "linux-x86_64", "darwin-aarch64", "darwin-x86_64")) {
+    if (-not $platformStates.ContainsKey($platform)) {
+        continue
+    }
 
-    Set-Content -Path "dist/latest.json" -Value $latestJson
-    Write-Success "Generated latest.json with $($platforms.Count) platform(s)"
-}
-else {
-    Write-Warn "No platforms added to latest.json"
+    $manifestFiles += Write-PlatformManifest -outputDir "dist" -platform $platform -state $platformStates[$platform]
 }
 
-# 4. Upload
+if ($platformStates.ContainsKey("windows-x86_64")) {
+    $legacyLatest = @{
+        version = $platformStates["windows-x86_64"].version
+        notes = $platformStates["windows-x86_64"].notes
+        pub_date = $platformStates["windows-x86_64"].pub_date
+        platforms = @{
+            "windows-x86_64" = @{
+                signature = $platformStates["windows-x86_64"].signature
+                url = $platformStates["windows-x86_64"].url
+            }
+        }
+    } | ConvertTo-Json -Depth 4
+
+    Set-Content -Path "dist/latest.json" -Value $legacyLatest
+    Write-Warn "Updated legacy latest.json for Windows only."
+}
+
+if ($manifestFiles.Count -gt 0) {
+    Write-Success "Generated $($manifestFiles.Count) per-platform manifest file(s)"
+} else {
+    Write-Warn "No per-platform manifests were generated"
+}
+
 if ($Upload) {
-    Write-Step "Uploading signatures and latest.json to GitHub..."
-    
-    $filesToUpload = Get-ChildItem -Path "dist" -Include *.sig, latest.json -Recurse | ForEach-Object { $_.FullName }
-    
+    Write-Step "Uploading signatures and updater manifests to GitHub..."
+
+    $filesToUpload = Get-ChildItem -Path "dist" -Include *.sig, latest.json, latest-*.json -Recurse | ForEach-Object { $_.FullName }
     if ($filesToUpload.Count -gt 0) {
-        # Use --clobber to overwrite existing invalid signatures
-        gh release upload $tag $filesToUpload --repo SujithChristopher/MyTodos-releases --clobber
-        Write-Success "Uploaded $($filesToUpload.Count) files."
-    }
-    else {
+        gh release upload $tag $filesToUpload --repo $ReleasesRepo --clobber
+        if ($LASTEXITCODE -ne 0) {
+            Write-Fail "Upload failed"
+            exit 1
+        }
+        Write-Success "Uploaded $($filesToUpload.Count) file(s)."
+    } else {
         Write-Warn "Nothing to upload."
     }
-}
-else {
+} else {
     Write-Host "`nRun with -Upload to publish to GitHub." -ForegroundColor Yellow
 }
 

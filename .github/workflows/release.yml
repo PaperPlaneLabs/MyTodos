@@ -1,25 +1,40 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to build for, for example v0.1.42
+        required: true
+        type: string
+      build_macos_aarch64:
+        description: Build Apple Silicon macOS release
+        required: true
+        default: true
+        type: boolean
+      build_macos_x86_64:
+        description: Build Intel macOS release
+        required: true
+        default: true
+        type: boolean
 
 jobs:
   release-macos-aarch64:
+    if: ${{ github.event.inputs.build_macos_aarch64 == 'true' }}
     permissions:
       contents: write
     runs-on: macos-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: refs/tags/${{ github.event.inputs.tag }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: 20
-          cache: 'npm'
+          cache: npm
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -29,7 +44,7 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: './src-tauri -> target'
+          workspaces: ./src-tauri -> target
           key: macos-aarch64
 
       - name: Install frontend dependencies
@@ -44,31 +59,33 @@ jobs:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'MyTodos ${{ github.ref_name }}'
-          releaseBody: 'See the assets to download this version and install.'
+          tagName: ${{ github.event.inputs.tag }}
+          releaseName: MyTodos ${{ github.event.inputs.tag }}
+          releaseBody: See the assets to download this version and install.
           releaseDraft: false
           prerelease: false
           owner: SujithChristopher
           repo: MyTodos-releases
           releaseCommitish: main
-          args: '--target aarch64-apple-darwin'
+          args: --target aarch64-apple-darwin
           updaterJsonKeepUniversal: true
 
   release-macos-x86_64:
-    needs: release-macos-aarch64
+    if: ${{ github.event.inputs.build_macos_x86_64 == 'true' }}
     permissions:
       contents: write
     runs-on: macos-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: refs/tags/${{ github.event.inputs.tag }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
           node-version: 20
-          cache: 'npm'
+          cache: npm
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -78,7 +95,7 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: './src-tauri -> target'
+          workspaces: ./src-tauri -> target
           key: macos-x86_64
 
       - name: Install frontend dependencies
@@ -93,13 +110,13 @@ jobs:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: 'MyTodos ${{ github.ref_name }}'
-          releaseBody: 'See the assets to download this version and install.'
+          tagName: ${{ github.event.inputs.tag }}
+          releaseName: MyTodos ${{ github.event.inputs.tag }}
+          releaseBody: See the assets to download this version and install.
           releaseDraft: false
           prerelease: false
           owner: SujithChristopher
           repo: MyTodos-releases
           releaseCommitish: main
-          args: '--target x86_64-apple-darwin'
+          args: --target x86_64-apple-darwin
           updaterJsonKeepUniversal: true
