@@ -6,9 +6,9 @@
 - [x] Extract active timer widget into a dedicated route-independent component
 - [x] Identify stable public API for `src/lib/stores/timer.svelte.ts`
 - [x] Extract break reminder logic from `src/lib/stores/timer.svelte.ts`
-- [ ] Extract auto-pause event handling from `src/lib/stores/timer.svelte.ts`
-- [ ] Extract timer interval and derived display logic from `src/lib/stores/timer.svelte.ts`
-- [ ] Keep one stable exported `timerStore` facade after the split
+- [x] Extract auto-pause event handling from `src/lib/stores/timer.svelte.ts`
+- [x] Extract timer interval and derived display logic from `src/lib/stores/timer.svelte.ts`
+- [x] Keep one stable exported `timerStore` facade after the split
 - [ ] Create a Rust timer service module under `src-tauri/src`
 - [ ] Move timer business rules out of `src-tauri/src/commands/timer.rs`
 - [ ] Update system event handling to depend on the timer service instead of command-level helpers
