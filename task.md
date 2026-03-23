@@ -1,7 +1,7 @@
 - [ ] Create a decomposition map for `src/routes/+page.svelte`
 - [x] Extract project list UI from `src/routes/+page.svelte`
-- [ ] Extract task list and task action UI from `src/routes/+page.svelte`
-- [/] Extract timer widget and modal host logic from `src/routes/+page.svelte`
+- [x] Extract task list and task action UI from `src/routes/+page.svelte`
+- [x] Extract timer widget and modal host logic from `src/routes/+page.svelte`
 - [/] Shrink `src/routes/+page.svelte` into a composition-first route
 - [x] Extract active timer widget into a dedicated route-independent component
 - [ ] Identify stable public API for `src/lib/stores/timer.svelte.ts`
