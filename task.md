@@ -1,6 +1,17 @@
-- [x] Add implementation artifacts for timer recovery work
-- [x] Add `last_heartbeat_at` support to the active timer schema and model
-- [x] Implement backend heartbeat updates and stale timer recovery helpers
-- [x] Recover stale timers during app startup before the heartbeat loop starts
-- [x] Add Rust tests for stale timer recovery behavior
-- [x] Run focused verification and write `walkthrough.md`
+- [ ] Create a decomposition map for `src/routes/+page.svelte`
+- [ ] Extract project list UI from `src/routes/+page.svelte`
+- [ ] Extract task list and task action UI from `src/routes/+page.svelte`
+- [/] Extract timer widget and modal host logic from `src/routes/+page.svelte`
+- [/] Shrink `src/routes/+page.svelte` into a composition-first route
+- [x] Extract active timer widget into a dedicated route-independent component
+- [ ] Identify stable public API for `src/lib/stores/timer.svelte.ts`
+- [ ] Extract break reminder logic from `src/lib/stores/timer.svelte.ts`
+- [ ] Extract auto-pause event handling from `src/lib/stores/timer.svelte.ts`
+- [ ] Extract timer interval and derived display logic from `src/lib/stores/timer.svelte.ts`
+- [ ] Keep one stable exported `timerStore` facade after the split
+- [ ] Create a Rust timer service module under `src-tauri/src`
+- [ ] Move timer business rules out of `src-tauri/src/commands/timer.rs`
+- [ ] Update system event handling to depend on the timer service instead of command-level helpers
+- [ ] Split startup concerns out of `src-tauri/src/lib.rs`
+- [ ] Add or document a consistent local/CI quality gate sequence
+- [ ] Run verification after each major extraction phase
