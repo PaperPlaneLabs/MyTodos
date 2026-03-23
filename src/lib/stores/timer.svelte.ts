@@ -1,7 +1,7 @@
 import { db, type ActiveTimer, type AutoPauseEvent, AutoPauseReason } from "$lib/services/db";
-import { taskStore } from "./tasks.svelte";
 import { projectStore } from "./projects.svelte";
-import { invoke } from "@tauri-apps/api/core";
+import { taskStore } from "./tasks.svelte";
+import { createBreakReminderController } from "./timer-break-reminders.svelte";
 
 let activeTimer = $state<ActiveTimer | null>(null);
 let dailyTotalBeforeActive = $state(0);
@@ -13,28 +13,6 @@ let currentProjectId = $state<number | null>(null);
 let timerChangeCounter = $state(0);
 let lastKnownDay = new Date().getDate();
 let autoPausedReason = $state<AutoPauseReason | null>(null);
-let breakReminderEnabled = $state(false); // Disabled for now - can be re-enabled later
-let breakReminderIntervalMinutes = $state(30);
-let breakReminderOpen = $state(false);
-let breakReminderMessage = $state("Quick break time. Stand up, stretch, and reset.");
-let breakReminderTimeoutId: number | null = null;
-let breakReminderInitialized = false;
-let lastBreakMessageIndex = -1;
-
-const BREAK_REMINDER_ENABLED_KEY = "breakReminderEnabled";
-const BREAK_REMINDER_INTERVAL_KEY = "breakReminderIntervalMinutes";
-const BREAK_REMINDER_MIN_MINUTES = 0;
-const BREAK_REMINDER_MAX_MINUTES = 60;
-const BREAK_REMINDER_DEFAULT_MINUTES = 30;
-const BREAK_REMINDER_SNOOZE_MINUTES = 10;
-const BREAK_REMINDER_MESSAGES = [
-  "Quick break time. Stand up, stretch, and reset.",
-  "You have been focused for a while. Grab water and breathe for a minute.",
-  "Eyes off the screen for a bit. Your next session will be sharper.",
-  "Small pause, big gain. Loosen your shoulders and take a short walk.",
-  "Momentum is great, but recovery matters too. Take a quick break.",
-  "Pause now so you can keep a steady pace later.",
-];
 
 function getStartOfToday(): number {
   const now = new Date();
@@ -42,98 +20,107 @@ function getStartOfToday(): number {
   return Math.floor(now.getTime() / 1000);
 }
 
-function clampBreakReminderMinutes(minutes: number): number {
-  if (minutes === 0) return 0; // 0 means "not tracked"
-  return Math.min(
-    BREAK_REMINDER_MAX_MINUTES,
-    Math.max(15, Math.round(minutes)),
-  );
-}
-
-function clearBreakReminderTimeout(): void {
-  if (breakReminderTimeoutId !== null) {
-    clearTimeout(breakReminderTimeoutId);
-    breakReminderTimeoutId = null;
-  }
-}
-
-function persistBreakReminderSettings(): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(BREAK_REMINDER_ENABLED_KEY, String(breakReminderEnabled));
-  localStorage.setItem(
-    BREAK_REMINDER_INTERVAL_KEY,
-    String(breakReminderIntervalMinutes),
-  );
-}
-
-function pickBreakReminderMessage(): string {
-  if (BREAK_REMINDER_MESSAGES.length === 1) {
-    return BREAK_REMINDER_MESSAGES[0];
-  }
-
-  let nextIndex = Math.floor(Math.random() * BREAK_REMINDER_MESSAGES.length);
-  while (nextIndex === lastBreakMessageIndex) {
-    nextIndex = Math.floor(Math.random() * BREAK_REMINDER_MESSAGES.length);
-  }
-
-  lastBreakMessageIndex = nextIndex;
-  return BREAK_REMINDER_MESSAGES[nextIndex];
-}
-
 function getContinuousElapsedSeconds(): number {
   if (!activeTimer?.is_running) {
     return 0;
   }
+
   return activeTimer.elapsed_seconds + (Date.now() / 1000 - activeTimer.started_at);
 }
 
-function scheduleBreakReminder(delayMs: number): void {
-  clearBreakReminderTimeout();
+function captureInitialTimes(taskId: number, projectId: number | null): void {
+  initialTaskTime = 0;
+  initialProjectTime = 0;
 
-  if (!activeTimer?.is_running || !breakReminderEnabled) {
+  const task = taskStore.tasks.find((item) => item.id === taskId);
+  if (!task) {
     return;
   }
 
-  const safeDelayMs = Math.max(1000, Math.floor(delayMs));
-  breakReminderTimeoutId = window.setTimeout(() => {
-    breakReminderTimeoutId = null;
+  initialTaskTime = task.total_time_seconds;
+  if (projectId) {
+    const project = projectStore.projects.find((item) => item.id === projectId);
+    initialProjectTime = project?.total_time_seconds ?? 0;
+  }
+}
 
-    if (!activeTimer?.is_running || !breakReminderEnabled) {
+async function refreshDailyTotal(): Promise<void> {
+  dailyTotalBeforeActive = await db.timeEntries.getDailyTotalTime(getStartOfToday());
+}
+
+function stopInterval(): void {
+  if (intervalId !== null) {
+    clearInterval(intervalId);
+    intervalId = null;
+  }
+}
+
+function startInterval(): void {
+  if (intervalId !== null) return;
+
+  lastKnownDay = new Date().getDate();
+  intervalId = window.setInterval(() => {
+    if (!activeTimer?.is_running) {
       return;
     }
 
-    const msg = pickBreakReminderMessage();
-    breakReminderMessage = msg;
-    const currentTheme = localStorage.getItem("theme") ?? "light";
-    invoke("open_break_window", { message: msg, theme: currentTheme }).catch((e) => {
-      // Fallback: show in-app modal if window creation fails
-      console.error("Failed to open break window:", e);
-      breakReminderOpen = true;
-    });
-  }, safeDelayMs);
+    const currentDay = new Date().getDate();
+    if (currentDay !== lastKnownDay) {
+      lastKnownDay = currentDay;
+      void refreshDailyTotal();
+    }
+
+    currentElapsed =
+      activeTimer.elapsed_seconds + (Date.now() / 1000 - activeTimer.started_at);
+
+    if (activeTimer.task_id) {
+      taskStore.updateTaskTime(
+        activeTimer.task_id,
+        Math.floor(initialTaskTime + currentElapsed),
+      );
+
+      if (currentProjectId) {
+        projectStore.updateProjectTime(
+          currentProjectId,
+          Math.floor(initialProjectTime + currentElapsed),
+        );
+      }
+    }
+  }, 1000);
 }
 
-function scheduleAlignedBreakReminder(): void {
-  if (!activeTimer?.is_running || !breakReminderEnabled) {
-    clearBreakReminderTimeout();
-    return;
-  }
+const breakReminderController = createBreakReminderController({
+  getIsRunning: () => activeTimer?.is_running ?? false,
+  getContinuousElapsedSeconds,
+});
 
-  const intervalMs = breakReminderIntervalMinutes * 60 * 1000;
-  const elapsedMs = getContinuousElapsedSeconds() * 1000;
-  let delayMs = intervalMs - (elapsedMs % intervalMs);
-  if (delayMs < 1000) {
-    delayMs = intervalMs;
-  }
-
-  scheduleBreakReminder(delayMs);
+export interface TimerStore {
+  readonly active: ActiveTimer | null;
+  readonly elapsed: number;
+  readonly dailyTotal: number;
+  readonly isRunning: boolean;
+  readonly currentProjectId: number | null;
+  readonly changeSignal: number;
+  readonly autoPausedReason: AutoPauseReason | null;
+  readonly isAutoPaused: boolean;
+  readonly breakReminderEnabled: boolean;
+  readonly breakReminderIntervalMinutes: number;
+  readonly breakReminderOpen: boolean;
+  readonly breakReminderMessage: string;
+  initBreakReminders(): void;
+  setBreakReminderEnabled(enabled: boolean): void;
+  setBreakReminderInterval(minutes: number): void;
+  dismissBreakReminder(): void;
+  snoozeBreakReminder(minutes?: number): void;
+  loadActive(): Promise<void>;
+  start(taskId: number): Promise<ActiveTimer>;
+  pause(): Promise<void>;
+  resume(): Promise<void>;
+  stop(): Promise<null>;
+  reset(): Promise<void>;
 }
 
-function scheduleBreakReminderFromNow(minutes: number): void {
-  scheduleBreakReminder(clampBreakReminderMinutes(minutes) * 60 * 1000);
-}
-
-export const timerStore = {
+export const timerStore: TimerStore = {
   get active() {
     return activeTimer;
   },
@@ -147,18 +134,14 @@ export const timerStore = {
     if (activeTimer?.is_running) {
       const now = Date.now() / 1000;
       const startOfToday = getStartOfToday();
-
-      // CRITICAL: Only count time from today onward
-      // If timer started yesterday, only count from midnight today
       const effectiveStart = Math.max(activeTimer.started_at, startOfToday);
       runningToday = Math.max(0, now - effectiveStart);
 
-      // Don't add elapsed_seconds if timer started before today
-      // (with new pause behavior, elapsed_seconds should be 0 anyway)
       if (activeTimer.started_at >= startOfToday) {
         runningToday += activeTimer.elapsed_seconds;
       }
     }
+
     return dailyTotalBeforeActive + runningToday;
   },
 
@@ -183,162 +166,91 @@ export const timerStore = {
   },
 
   get breakReminderEnabled() {
-    return breakReminderEnabled;
+    return breakReminderController.enabled;
   },
 
   get breakReminderIntervalMinutes() {
-    return breakReminderIntervalMinutes;
+    return breakReminderController.intervalMinutes;
   },
 
   get breakReminderOpen() {
-    return breakReminderOpen;
+    return breakReminderController.open;
   },
 
   get breakReminderMessage() {
-    return breakReminderMessage;
+    return breakReminderController.message;
   },
 
   initBreakReminders() {
-    if (breakReminderInitialized || typeof window === "undefined") return;
-    breakReminderInitialized = true;
-
-    const savedEnabled = localStorage.getItem(BREAK_REMINDER_ENABLED_KEY);
-    const savedInterval = localStorage.getItem(BREAK_REMINDER_INTERVAL_KEY);
-
-    breakReminderEnabled = savedEnabled !== "false";
-
-    if (savedInterval !== null) {
-      const parsed = Number(savedInterval);
-      if (Number.isFinite(parsed) && parsed >= 0) {
-        breakReminderIntervalMinutes = clampBreakReminderMinutes(parsed);
-        // interval=0 means "not tracked" — treat as disabled
-        if (breakReminderIntervalMinutes === 0) {
-          breakReminderEnabled = false;
-        }
-      }
-    } else {
-      breakReminderIntervalMinutes = BREAK_REMINDER_DEFAULT_MINUTES;
-    }
+    breakReminderController.init();
   },
 
   setBreakReminderEnabled(enabled: boolean) {
-    breakReminderEnabled = enabled;
-    breakReminderOpen = false;
-    if (enabled && activeTimer?.is_running) {
-      scheduleBreakReminderFromNow(breakReminderIntervalMinutes);
-    } else {
-      clearBreakReminderTimeout();
-    }
-    persistBreakReminderSettings();
+    breakReminderController.setEnabled(enabled);
   },
 
   setBreakReminderInterval(minutes: number) {
-    breakReminderIntervalMinutes = clampBreakReminderMinutes(minutes);
-    // 0 means "Not Tracked" — disable reminders
-    if (breakReminderIntervalMinutes === 0) {
-      breakReminderEnabled = false;
-      clearBreakReminderTimeout();
-    } else if (breakReminderEnabled && activeTimer?.is_running && !breakReminderOpen) {
-      scheduleBreakReminderFromNow(breakReminderIntervalMinutes);
-    }
-    persistBreakReminderSettings();
+    breakReminderController.setInterval(minutes);
   },
 
   dismissBreakReminder() {
-    breakReminderOpen = false;
-    if (breakReminderEnabled && activeTimer?.is_running) {
-      scheduleBreakReminderFromNow(breakReminderIntervalMinutes);
-    } else {
-      clearBreakReminderTimeout();
-    }
+    breakReminderController.dismiss();
   },
 
-  snoozeBreakReminder(minutes: number = BREAK_REMINDER_SNOOZE_MINUTES) {
-    breakReminderOpen = false;
-    if (breakReminderEnabled && activeTimer?.is_running) {
-      scheduleBreakReminderFromNow(minutes);
-    } else {
-      clearBreakReminderTimeout();
-    }
+  snoozeBreakReminder(minutes?: number) {
+    breakReminderController.snooze(minutes);
   },
 
   async loadActive() {
-    this.initBreakReminders();
+    breakReminderController.init();
+
     try {
       const timer = await db.timer.getActive();
       activeTimer = timer;
+      await refreshDailyTotal();
 
-      // If timer exists and started before today, refresh daily total to ensure it's for today only
-      const startOfToday = getStartOfToday();
-      if (timer && timer.started_at < startOfToday) {
-        // Timer started yesterday or earlier - refresh daily total
-        dailyTotalBeforeActive = await db.timeEntries.getDailyTotalTime(startOfToday);
-      } else {
-        // Timer started today or no timer - load daily total normally
-        dailyTotalBeforeActive = await db.timeEntries.getDailyTotalTime(startOfToday);
+      if (!timer) {
+        currentProjectId = null;
+        breakReminderController.deactivate();
+        return;
       }
 
-      if (timer) {
-        // Use project_id directly from the timer - it's now persisted in the database
-        currentProjectId = timer.project_id ?? null;
-
-        if (timer.is_running) {
-          // Capture initial times for the UI updates
-          const task = taskStore.tasks.find(t => t.id === timer.task_id);
-          if (task) {
-            initialTaskTime = task.total_time_seconds;
-            if (currentProjectId) {
-              const project = projectStore.projects.find(p => p.id === currentProjectId);
-              initialProjectTime = project?.total_time_seconds ?? 0;
-            }
-          }
-          this.startInterval();
-          scheduleAlignedBreakReminder();
-        } else {
-          currentElapsed = timer.elapsed_seconds;
-          breakReminderOpen = false;
-          clearBreakReminderTimeout();
-        }
+      currentProjectId = timer.project_id ?? null;
+      if (timer.is_running) {
+        captureInitialTimes(timer.task_id, currentProjectId);
+        startInterval();
+        breakReminderController.scheduleAligned();
       } else {
-        breakReminderOpen = false;
-        clearBreakReminderTimeout();
+        currentElapsed = timer.elapsed_seconds;
+        breakReminderController.deactivate();
       }
-    } catch (e) {
-      console.error("Failed to load active timer:", e);
+    } catch (error) {
+      console.error("Failed to load active timer:", error);
     }
   },
 
   async start(taskId: number) {
-    this.initBreakReminders();
+    breakReminderController.init();
+
     try {
       const timer = await db.timer.start(taskId);
       activeTimer = timer;
       currentElapsed = 0;
-      breakReminderOpen = false;
-
-      // Refresh daily total before starting
-      dailyTotalBeforeActive = await db.timeEntries.getDailyTotalTime(getStartOfToday());
-
-      // Use project_id directly from the timer response
       currentProjectId = timer.project_id ?? null;
+      autoPausedReason = null;
 
-      // Capture initial times for the UI updates
-      const task = taskStore.tasks.find(t => t.id === taskId);
-      if (task) {
-        initialTaskTime = task.total_time_seconds;
-        if (currentProjectId) {
-          const project = projectStore.projects.find(p => p.id === currentProjectId);
-          initialProjectTime = project?.total_time_seconds ?? 0;
-        }
-      }
+      await refreshDailyTotal();
+      captureInitialTimes(taskId, currentProjectId);
 
-      this.startInterval();
-      scheduleBreakReminderFromNow(breakReminderIntervalMinutes);
+      startInterval();
+      breakReminderController.closeReminder();
+      breakReminderController.scheduleFromCurrentInterval();
       timerChangeCounter++;
+
       return timer;
-    } catch (e) {
-      console.error("Failed to start timer:", e);
-      throw e;
+    } catch (error) {
+      console.error("Failed to start timer:", error);
+      throw error;
     }
   },
 
@@ -347,41 +259,41 @@ export const timerStore = {
       await db.timer.pause();
       if (activeTimer) {
         activeTimer.is_running = false;
-        currentElapsed = this.elapsed;
+        currentElapsed = getContinuousElapsedSeconds();
       }
-      this.stopInterval();
-      breakReminderOpen = false;
-      clearBreakReminderTimeout();
 
-      // Refresh daily total after pause (entry might have been created)
-      dailyTotalBeforeActive = await db.timeEntries.getDailyTotalTime(getStartOfToday());
-      currentElapsed = 0; // Reset active elapsed as it's now in the database total
+      stopInterval();
+      breakReminderController.deactivate();
+      await refreshDailyTotal();
+      currentElapsed = 0;
       timerChangeCounter++;
-    } catch (e) {
-      console.error("Failed to pause timer:", e);
-      throw e;
+    } catch (error) {
+      console.error("Failed to pause timer:", error);
+      throw error;
     }
   },
 
   async resume() {
-    this.initBreakReminders();
+    breakReminderController.init();
+
     try {
       await db.timer.resume();
       if (activeTimer) {
         activeTimer.is_running = true;
         activeTimer.started_at = Math.floor(Date.now() / 1000);
       }
-      // Refresh daily total before resuming
-      dailyTotalBeforeActive = await db.timeEntries.getDailyTotalTime(getStartOfToday());
+
+      await refreshDailyTotal();
       currentElapsed = 0;
-      autoPausedReason = null; // Clear auto-pause state
-      this.startInterval();
-      breakReminderOpen = false;
-      scheduleBreakReminderFromNow(breakReminderIntervalMinutes);
+      autoPausedReason = null;
+
+      startInterval();
+      breakReminderController.closeReminder();
+      breakReminderController.scheduleFromCurrentInterval();
       timerChangeCounter++;
-    } catch (e) {
-      console.error("Failed to resume timer:", e);
-      throw e;
+    } catch (error) {
+      console.error("Failed to resume timer:", error);
+      throw error;
     }
   },
 
@@ -389,96 +301,52 @@ export const timerStore = {
     try {
       const projectId = currentProjectId;
       await db.timer.stop();
+
       activeTimer = null;
       currentElapsed = 0;
-      this.stopInterval();
-      breakReminderOpen = false;
-      clearBreakReminderTimeout();
+      currentProjectId = null;
+      stopInterval();
+      breakReminderController.deactivate();
 
-      // Reload stores to get authoritative values from database
       await projectStore.loadAll();
       if (projectId !== null) {
         await taskStore.loadByProject(projectId);
       }
 
-      // Refresh daily total
-      dailyTotalBeforeActive = await db.timeEntries.getDailyTotalTime(getStartOfToday());
+      await refreshDailyTotal();
       timerChangeCounter++;
-
-      return null; // Return value changed in stopped entry logic if needed but caller doesn't seem to use it much
-    } catch (e) {
-      console.error("Failed to stop timer:", e);
-      throw e;
+      return null;
+    } catch (error) {
+      console.error("Failed to stop timer:", error);
+      throw error;
     }
-  },
-
-  async refreshDailyTotal() {
-    dailyTotalBeforeActive = await db.timeEntries.getDailyTotalTime(getStartOfToday());
   },
 
   async reset() {
     try {
       const projectId = currentProjectId;
       await db.timer.reset();
+
       activeTimer = null;
       currentElapsed = 0;
-      this.stopInterval();
-      breakReminderOpen = false;
-      clearBreakReminderTimeout();
+      currentProjectId = null;
+      stopInterval();
+      breakReminderController.deactivate();
 
-      // Reload stores to ensure consistency
       await projectStore.loadAll();
       if (projectId !== null) {
         await taskStore.loadByProject(projectId);
       }
 
-      // Refresh daily total
-      await this.refreshDailyTotal();
-    } catch (e) {
-      console.error("Failed to reset timer:", e);
-      throw e;
-    }
-  },
-
-  startInterval() {
-    if (intervalId !== null) return;
-
-    // Initialize lastKnownDay to current day
-    lastKnownDay = new Date().getDate();
-
-    intervalId = window.setInterval(() => {
-      if (activeTimer?.is_running) {
-        // Check if day changed (midnight crossed)
-        const currentDay = new Date().getDate();
-        if (currentDay !== lastKnownDay) {
-          lastKnownDay = currentDay;
-          this.refreshDailyTotal(); // Reset to new day's total
-        }
-
-        currentElapsed = activeTimer.elapsed_seconds + (Date.now() / 1000 - activeTimer.started_at);
-
-        // Update task and project stores with current elapsed time
-        if (activeTimer.task_id) {
-          taskStore.updateTaskTime(activeTimer.task_id, Math.floor(initialTaskTime + currentElapsed));
-
-          if (currentProjectId) {
-            projectStore.updateProjectTime(currentProjectId, Math.floor(initialProjectTime + currentElapsed));
-          }
-        }
-      }
-    }, 1000);
-  },
-
-  stopInterval() {
-    if (intervalId !== null) {
-      clearInterval(intervalId);
-      intervalId = null;
+      await refreshDailyTotal();
+    } catch (error) {
+      console.error("Failed to reset timer:", error);
+      throw error;
     }
   },
 };
 
-// Listen for auto-pause events from the backend and break window actions
-if (typeof window !== 'undefined') {
+if (typeof window !== "undefined") {
   (async () => {
     const { listen } = await import("@tauri-apps/api/event");
 
@@ -491,23 +359,29 @@ if (typeof window !== 'undefined') {
         currentElapsed = 0;
       }
 
-      timerStore.stopInterval();
-      breakReminderOpen = false;
-      clearBreakReminderTimeout();
-      timerStore.refreshDailyTotal();
+      stopInterval();
+      breakReminderController.deactivate();
+      void refreshDailyTotal();
       timerChangeCounter++;
     });
 
-    await listen<{ action: "take_break" | "dismiss" | "snooze" | "resume" }>("break:action", (event) => {
+    await listen<{
+      action: "take_break" | "dismiss" | "snooze" | "resume";
+    }>("break:action", (event) => {
       const { action } = event.payload;
+
       if (action === "take_break") {
-        timerStore.pause().catch((e) => console.error("Failed to pause for break:", e));
+        timerStore.pause().catch((error) =>
+          console.error("Failed to pause for break:", error),
+        );
       } else if (action === "dismiss") {
         timerStore.dismissBreakReminder();
       } else if (action === "snooze") {
-        timerStore.snoozeBreakReminder(BREAK_REMINDER_SNOOZE_MINUTES);
+        timerStore.snoozeBreakReminder();
       } else if (action === "resume") {
-        timerStore.resume().catch((e) => console.error("Failed to resume after break:", e));
+        timerStore.resume().catch((error) =>
+          console.error("Failed to resume after break:", error),
+        );
       }
     });
   })();

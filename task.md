@@ -4,8 +4,8 @@
 - [x] Extract timer widget and modal host logic from `src/routes/+page.svelte`
 - [x] Shrink `src/routes/+page.svelte` into a composition-first route
 - [x] Extract active timer widget into a dedicated route-independent component
-- [ ] Identify stable public API for `src/lib/stores/timer.svelte.ts`
-- [ ] Extract break reminder logic from `src/lib/stores/timer.svelte.ts`
+- [x] Identify stable public API for `src/lib/stores/timer.svelte.ts`
+- [x] Extract break reminder logic from `src/lib/stores/timer.svelte.ts`
 - [ ] Extract auto-pause event handling from `src/lib/stores/timer.svelte.ts`
 - [ ] Extract timer interval and derived display logic from `src/lib/stores/timer.svelte.ts`
 - [ ] Keep one stable exported `timerStore` facade after the split
