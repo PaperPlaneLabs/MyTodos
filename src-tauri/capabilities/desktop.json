@@ -7,7 +7,8 @@
   ],
   "windows": [
     "main",
-    "break"
+    "break",
+    "resume"
   ],
   "permissions": [
     "updater:default",

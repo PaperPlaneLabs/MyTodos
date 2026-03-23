@@ -456,11 +456,7 @@ pub fn close_break_window(app: AppHandle) -> Result<()> {
     Ok(())
 }
 
-#[tauri::command]
-pub fn log_break_diagnostic(message: String) -> Result<()> {
-    println!("[break:diag:js] {}", message);
-    Ok(())
-}
+
 
 #[tauri::command]
 pub fn get_window_orientation(window: WebviewWindow) -> Result<WindowOrientation> {

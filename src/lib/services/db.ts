@@ -205,6 +205,7 @@ export const db = {
     move: (x: number, y: number) => invoke<void>("move_window", { x, y }),
     startDragging: () => invoke<void>("start_window_drag"),
     focusMain: () => invoke<void>("focus_main_window"),
+
   },
 
   googleCalendar: {

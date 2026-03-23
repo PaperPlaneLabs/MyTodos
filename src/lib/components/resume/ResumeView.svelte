@@ -1,6 +1,8 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import { fade, scale } from "svelte/transition";
+    import { db } from "$lib/services/db";
+    import { emit } from "@tauri-apps/api/event";
 
     let taskId = $state<number | null>(null);
     let taskTitle = $state("");
@@ -40,10 +42,8 @@
     async function resumeTask() {
         if (sending || !taskId) return;
         sending = true;
+        
         try {
-            const { db } = await import("$lib/services/db");
-            const { emit } = await import("@tauri-apps/api/event");
-            
             // Log the time away as a break
             if (awayTimeSeconds > 0) {
                 try {
@@ -53,9 +53,13 @@
                 }
             }
             
-            // Emitting to main window to cleanly handle local store update + DB update
+            // 1. Direct Backend Resume (Primary action)
+            await db.timer.resume();
+            
+            // 2. Emitting to main window (For frontend store synchronization)
             await emit("break:action", { action: "resume" });
             
+            // 3. Focus and Close
             await db.window.focusMain();
             await db.window.closeResume();
         } catch (e) {
@@ -68,11 +72,13 @@
         if (sending) return;
         sending = true;
         try {
-            const { db } = await import("$lib/services/db");
-            
             // Log the time away as a break
             if (awayTimeSeconds > 0) {
-                await db.timeEntries.logBreakTime(awayTimeSeconds);
+                try {
+                    await db.timeEntries.logBreakTime(awayTimeSeconds);
+                } catch (logErr) {
+                    // silently fail logging if it happens
+                }
             }
             
             await db.window.focusMain();
@@ -85,7 +91,6 @@
 
     async function dragWindow() {
         try {
-            const { db } = await import("$lib/services/db");
             await db.window.startDragging();
         } catch {
             // ignore
