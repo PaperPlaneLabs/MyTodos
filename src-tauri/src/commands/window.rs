@@ -3,8 +3,13 @@ use crate::db::{DbConnection, WindowState};
 use crate::error::{AppError, Result};
 use serde::{Deserialize, Serialize};
 use tauri::{
-    AppHandle, LogicalPosition, LogicalSize, Manager, State, WebviewWindow, WebviewWindowBuilder,
+    AppHandle, LogicalPosition, LogicalSize, Manager, PhysicalPosition, PhysicalSize, State,
+    WebviewWindow, WebviewWindowBuilder,
 };
+
+const DOCK_WIDTH_LOGICAL: f64 = 380.0;
+const COLLAPSE_HANDLE_WIDTH_LOGICAL: f64 = 44.0;
+const COLLAPSE_HANDLE_HEIGHT_LOGICAL: f64 = 140.0;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct WindowOrientation {
@@ -12,6 +17,33 @@ pub struct WindowOrientation {
     pub is_portrait: bool,
     pub width: f64,
     pub height: f64,
+}
+
+fn logical_to_physical_pixels(value: f64, scale_factor: f64) -> i32 {
+    (value * scale_factor).round() as i32
+}
+
+fn logical_to_physical_size(value: f64, scale_factor: f64) -> u32 {
+    logical_to_physical_pixels(value, scale_factor).max(1) as u32
+}
+
+fn set_client_area_position(window: &WebviewWindow, client_x: i32, client_y: i32) -> Result<()> {
+    let outer_position = window
+        .outer_position()
+        .map_err(|e| AppError::Other(e.to_string()))?;
+    let inner_position = window
+        .inner_position()
+        .map_err(|e| AppError::Other(e.to_string()))?;
+
+    let left_inset = inner_position.x - outer_position.x;
+    let top_inset = inner_position.y - outer_position.y;
+
+    window
+        .set_position(PhysicalPosition::new(
+            client_x - left_inset,
+            client_y - top_inset,
+        ))
+        .map_err(|e| AppError::Other(e.to_string()))
 }
 
 #[tauri::command]
@@ -85,32 +117,25 @@ pub fn dock_window(window: WebviewWindow, side: String) -> Result<()> {
     let scale_factor = monitor.scale_factor();
     let work_area = monitor.work_area();
 
-    // Convert physical work area to logical
-    let logical_work_x = (work_area.position.x as f64) / scale_factor;
-    let logical_work_y = (work_area.position.y as f64) / scale_factor;
-    let logical_work_width = (work_area.size.width as f64) / scale_factor;
-    let logical_work_height = (work_area.size.height as f64) / scale_factor;
+    let physical_width =
+        logical_to_physical_size(DOCK_WIDTH_LOGICAL, scale_factor).min(work_area.size.width);
+    let physical_height = work_area.size.height;
 
-    // Logical size for the window
-    let logical_width = 380.0;
-    let logical_height = logical_work_height;
+    window
+        .set_size(PhysicalSize::new(physical_width, physical_height))
+        .map_err(|e| AppError::Other(e.to_string()))?;
 
-    let pos = if side == "left" {
-        LogicalPosition::new(logical_work_x, logical_work_y)
+    let inner_size = window
+        .inner_size()
+        .map_err(|e| AppError::Other(e.to_string()))?;
+
+    let client_x = if side == "left" {
+        work_area.position.x
     } else {
-        LogicalPosition::new(
-            logical_work_x + logical_work_width - logical_width,
-            logical_work_y,
-        )
+        work_area.position.x + work_area.size.width as i32 - inner_size.width as i32
     };
 
-    window
-        .set_size(LogicalSize::new(logical_width, logical_height))
-        .map_err(|e| AppError::Other(e.to_string()))?;
-
-    window
-        .set_position(pos)
-        .map_err(|e| AppError::Other(e.to_string()))?;
+    set_client_area_position(&window, client_x, work_area.position.y)?;
 
     Ok(())
 }
@@ -124,45 +149,53 @@ pub fn set_collapsed(window: WebviewWindow, collapsed: bool, top: f64) -> Result
 
     let scale_factor = monitor.scale_factor();
     let work_area = monitor.work_area();
-
-    let logical_work_x = (work_area.position.x as f64) / scale_factor;
-    let logical_work_y = (work_area.position.y as f64) / scale_factor;
-    let logical_work_width = (work_area.size.width as f64) / scale_factor;
-    let logical_work_height = (work_area.size.height as f64) / scale_factor;
-
-    let full_width = 380.0;
-    let handle_width = 44.0;
-    let handle_height = 140.0;
+    let top_offset = logical_to_physical_pixels(top, scale_factor);
 
     if collapsed {
-        window
-            .set_min_size(Some(LogicalSize::new(handle_width, handle_height)))
-            .map_err(|e| AppError::Other(e.to_string()))?;
-
-        let x = logical_work_x + logical_work_width - handle_width;
+        let handle_width = logical_to_physical_size(COLLAPSE_HANDLE_WIDTH_LOGICAL, scale_factor);
+        let handle_height = logical_to_physical_size(COLLAPSE_HANDLE_HEIGHT_LOGICAL, scale_factor);
 
         window
-            .set_size(LogicalSize::new(handle_width, handle_height))
+            .set_min_size(Some(PhysicalSize::new(handle_width, handle_height)))
             .map_err(|e| AppError::Other(e.to_string()))?;
+
         window
-            .set_position(LogicalPosition::new(x, logical_work_y + top))
+            .set_size(PhysicalSize::new(handle_width, handle_height))
             .map_err(|e| AppError::Other(e.to_string()))?;
+
+        let inner_size = window
+            .inner_size()
+            .map_err(|e| AppError::Other(e.to_string()))?;
+        let client_x = work_area.position.x + work_area.size.width as i32 - inner_size.width as i32;
+        let client_y = work_area.position.y + top_offset;
+
+        set_client_area_position(&window, client_x, client_y)?;
+
         window
             .set_always_on_top(true)
             .map_err(|e| AppError::Other(e.to_string()))?;
     } else {
-        window
-            .set_min_size(Some(LogicalSize::new(320.0, 400.0)))
-            .map_err(|e| AppError::Other(e.to_string()))?;
-
-        let x = logical_work_x + logical_work_width - full_width;
+        let full_width =
+            logical_to_physical_size(DOCK_WIDTH_LOGICAL, scale_factor).min(work_area.size.width);
 
         window
-            .set_size(LogicalSize::new(full_width, logical_work_height))
+            .set_min_size(Some(PhysicalSize::new(
+                logical_to_physical_size(320.0, scale_factor),
+                logical_to_physical_size(400.0, scale_factor),
+            )))
             .map_err(|e| AppError::Other(e.to_string()))?;
+
         window
-            .set_position(LogicalPosition::new(x, logical_work_y))
+            .set_size(PhysicalSize::new(full_width, work_area.size.height))
             .map_err(|e| AppError::Other(e.to_string()))?;
+
+        let inner_size = window
+            .inner_size()
+            .map_err(|e| AppError::Other(e.to_string()))?;
+        let client_x = work_area.position.x + work_area.size.width as i32 - inner_size.width as i32;
+
+        set_client_area_position(&window, client_x, work_area.position.y)?;
+
         window
             .set_always_on_top(false)
             .map_err(|e| AppError::Other(e.to_string()))?;
