@@ -67,7 +67,7 @@ export const timerStore: TimerStore = {
   },
 
   get dailyTotal() {
-    return timerRuntime.getDailyTotal();
+    return timerRuntime.dailyTotal;
   },
 
   get isRunning() {
