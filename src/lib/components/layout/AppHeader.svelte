@@ -452,6 +452,7 @@
     border: 1px solid var(--border);
     transition: all var(--transition-normal);
     cursor: default;
+    color: var(--text-secondary);
   }
 
   .timer-badge:hover {
