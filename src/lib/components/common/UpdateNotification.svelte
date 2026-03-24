@@ -78,38 +78,65 @@
 {#if updateAvailable && !dismissed}
     <div class="update-notification">
         {#if isDownloading}
-            <div class="update-content">
+            <div class="update-content" role="status" aria-live="polite">
                 <span class="update-icon">⬇️</span>
                 <span class="update-text"
                     >Downloading update... {downloadProgress}%</span
                 >
             </div>
-            <div class="progress-bar">
+            <div
+                class="progress-bar"
+                role="progressbar"
+                aria-label="Update download progress"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow={downloadProgress}
+            >
                 <div
                     class="progress-fill"
                     style="width: {downloadProgress}%"
                 ></div>
             </div>
         {:else if error}
-            <div class="update-content">
+            <div class="update-content" role="alert">
                 <span class="update-icon">⚠️</span>
                 <span class="update-text error">{error}</span>
-                <button class="update-btn retry" onclick={downloadAndInstall}
+                <button
+                    type="button"
+                    class="update-btn retry"
+                    onclick={downloadAndInstall}
                     >Retry</button
                 >
-                <button class="update-btn dismiss" onclick={dismiss}>×</button>
+                <button
+                    type="button"
+                    class="update-btn dismiss"
+                    aria-label="Dismiss update notification"
+                    onclick={dismiss}
+                >
+                    ×
+                </button>
             </div>
         {:else}
-            <div class="update-content">
+            <div class="update-content" role="status" aria-live="polite">
                 <span class="update-icon">✨</span>
                 <span class="update-text">
                     Update available: <strong>v{updateAvailable.version}</strong
                     >
                 </span>
-                <button class="update-btn primary" onclick={downloadAndInstall}
+                <button
+                    type="button"
+                    class="update-btn primary"
+                    onclick={downloadAndInstall}
                     >Update</button
                 >
-                <button class="update-btn dismiss" onclick={dismiss}>×</button>
+                <button
+                    type="button"
+                    class="update-btn dismiss"
+                    aria-label="Dismiss update notification"
+                    onclick={dismiss}
+                >
+                    ×
+                </button>
             </div>
         {/if}
     </div>
@@ -174,7 +201,7 @@
 
     .update-btn.primary {
         background: var(--accent);
-        color: white;
+        color: var(--accent-contrast);
     }
 
     .update-btn.primary:hover {

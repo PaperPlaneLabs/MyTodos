@@ -1,5 +1,6 @@
 <script lang="ts">
   import { flip } from "svelte/animate";
+  import { tick } from "svelte";
   import { slide } from "svelte/transition";
   import TimeDisplay from "$lib/components/common/TimeDisplay.svelte";
   import { projectStore } from "$lib/stores/projects.svelte";
@@ -47,12 +48,70 @@
     event.stopPropagation();
     onTaskPointerDown(event, taskId, index);
   }
+
+  async function focusTaskReorderHandle(taskId: number) {
+    await tick();
+    document
+      .querySelector<HTMLElement>(`[data-task-handle-id="${taskId}"]`)
+      ?.focus();
+  }
+
+  async function handleTaskReorderKeydown(
+    event: KeyboardEvent,
+    taskId: number,
+    index: number,
+  ) {
+    const offset =
+      event.key === "ArrowUp" ? -1 : event.key === "ArrowDown" ? 1 : 0;
+    if (offset === 0) return;
+
+    const nextIndex = Math.max(
+      0,
+      Math.min(taskStore.tasks.length - 1, index + offset),
+    );
+    if (nextIndex === index) return;
+
+    event.preventDefault();
+    taskStore.reorderLocal(index, nextIndex);
+    await taskStore.reorder(taskStore.tasks.map((item) => item.id));
+    await focusTaskReorderHandle(taskId);
+  }
+
+  function getTaskCheckboxLabel(title: string, completed: boolean) {
+    return completed
+      ? `Mark ${title} as not completed`
+      : `Mark ${title} as completed`;
+  }
+
+  function getTimerActionLabel(
+    action: "pause" | "resume" | "stop" | "start" | "reset-session" | "reset-total",
+    title: string,
+  ) {
+    switch (action) {
+      case "pause":
+        return `Pause timer for ${title}`;
+      case "resume":
+        return `Resume timer for ${title}`;
+      case "stop":
+        return `Stop timer for ${title}`;
+      case "start":
+        return `Start timer for ${title}`;
+      case "reset-session":
+        return `Discard the paused timer session for ${title}`;
+      case "reset-total":
+        return `Reset all tracked time for ${title}`;
+    }
+  }
 </script>
 
 <div class="tasks-section">
   <div class="section-header">
     <h2>{projectStore.selected?.name || "Tasks"}</h2>
-    <button class="btn btn-ghost btn-sm" onclick={() => uiStore.openTaskModal()}>
+    <button
+      type="button"
+      class="btn btn-ghost btn-sm"
+      onclick={() => uiStore.openTaskModal()}
+    >
       + Task
     </button>
   </div>
@@ -68,8 +127,8 @@
       >
         <div
           class="task-item"
-          role="button"
-          tabindex="0"
+          role="group"
+          aria-labelledby={"task-title-" + task.id}
           class:task-timer-active={timerStore.active?.task_id === task.id &&
             timerStore.isRunning}
           class:task-timer-paused={timerStore.active?.task_id === task.id &&
@@ -81,6 +140,9 @@
             class="drag-handle-task"
             role="button"
             tabindex="0"
+            data-task-handle-id={task.id}
+            aria-label={"Reorder task " + task.title + ". Use Up or Down arrow keys."}
+            onkeydown={(event) => handleTaskReorderKeydown(event, task.id, index)}
             onpointerdown={(event) => handleTaskDragHandlePointerDown(event, task.id, index)}
           >
             ⋮⋮
@@ -89,13 +151,18 @@
             <input
               type="checkbox"
               checked={task.completed}
+              aria-label={getTaskCheckboxLabel(task.title, task.completed)}
               onchange={() => taskStore.toggleCompletion(task.id)}
               class="task-checkbox-hidden"
             />
             <span class="checkbox-custom"></span>
           </label>
           <div class="task-content">
-            <div class="task-title" class:completed={task.completed}>
+            <div
+              class="task-title"
+              id={"task-title-" + task.id}
+              class:completed={task.completed}
+            >
               {task.title}
             </div>
             <div class="task-meta">
@@ -129,23 +196,32 @@
           <div class="task-controls">
             {#if timerStore.active && timerStore.active.task_id === task.id}
               <button
+                type="button"
                 class="btn-icon-compact"
                 onclick={() => (timerStore.isRunning ? timerStore.pause() : timerStore.resume())}
+                aria-label={getTimerActionLabel(
+                  timerStore.isRunning ? "pause" : "resume",
+                  task.title,
+                )}
                 title={timerStore.isRunning ? "Pause timer" : "Resume timer"}
               >
                 {#if timerStore.isRunning}⏸{:else}▶{/if}
               </button>
               <button
+                type="button"
                 class="btn-icon-compact btn-stop"
                 onclick={onStopTimer}
+                aria-label={getTimerActionLabel("stop", task.title)}
                 title="Stop timer and save"
               >
                 ⏹
               </button>
               {#if !timerStore.isRunning}
                 <button
+                  type="button"
                   class="btn-icon-compact btn-reset"
                   onclick={() => onOpenResetModal(task.id)}
+                  aria-label={getTimerActionLabel("reset-session", task.title)}
                   title="Reset timer (discard time)"
                 >
                   ⟲
@@ -153,16 +229,20 @@
               {/if}
             {:else if task.project_id}
               <button
+                type="button"
                 class="btn-icon-compact"
                 onclick={() => onToggleTimer(task.id)}
+                aria-label={getTimerActionLabel("start", task.title)}
                 title="Start timer"
               >
                 ⏱
               </button>
               {#if task.total_time_seconds > 0}
                 <button
+                  type="button"
                   class="btn-icon-compact btn-reset"
                   onclick={() => onOpenResetModal(task.id)}
+                  aria-label={getTimerActionLabel("reset-total", task.title)}
                   title="Reset all time for this task"
                 >
                   ⟲
@@ -176,9 +256,11 @@
 
     {#if taskStore.completedTasks.length > 0}
       <button
+        type="button"
         class="completed-separator"
         transition:slide={{ duration: 200 }}
         onclick={() => uiStore.toggleCompletedTasks()}
+        aria-controls="completed-tasks-panel"
         aria-expanded={!uiStore.completedTasksCollapsed}
       >
         <span class="completed-caret" class:expanded={!uiStore.completedTasksCollapsed}>
@@ -201,7 +283,11 @@
       </button>
 
       {#if !uiStore.completedTasksCollapsed}
-        <div class="completed-tasks-container" transition:slide={{ duration: 250 }}>
+        <div
+          id="completed-tasks-panel"
+          class="completed-tasks-container"
+          transition:slide={{ duration: 250 }}
+        >
           {#each taskStore.completedTasks as task, index (task.id)}
             {@const globalIndex = index + taskStore.activeTasks.length}
             <div
@@ -212,8 +298,8 @@
             >
               <div
                 class="task-item completed-task-item"
-                role="button"
-                tabindex="0"
+                role="group"
+                aria-labelledby={"task-title-" + task.id}
                 oncontextmenu={(event) => onTaskContextMenu(event, task.id)}
                 onpointerdown={(event) => handleTaskBodyPointerDown(event, task.id, globalIndex)}
               >
@@ -221,6 +307,10 @@
                   class="drag-handle-task"
                   role="button"
                   tabindex="0"
+                  data-task-handle-id={task.id}
+                  aria-label={"Reorder task " + task.title + ". Use Up or Down arrow keys."}
+                  onkeydown={(event) =>
+                    handleTaskReorderKeydown(event, task.id, globalIndex)}
                   onpointerdown={(event) =>
                     handleTaskDragHandlePointerDown(event, task.id, globalIndex)}
                 >
@@ -230,13 +320,18 @@
                   <input
                     type="checkbox"
                     checked={task.completed}
+                    aria-label={getTaskCheckboxLabel(task.title, task.completed)}
                     onchange={() => taskStore.toggleCompletion(task.id)}
                     class="task-checkbox-hidden"
                   />
                   <span class="checkbox-custom"></span>
                 </label>
                 <div class="task-content">
-                  <div class="task-title" class:completed={task.completed}>
+                  <div
+                    class="task-title"
+                    id={"task-title-" + task.id}
+                    class:completed={task.completed}
+                  >
                     {task.title}
                   </div>
                   <div class="task-meta">
@@ -267,8 +362,10 @@
                 <div class="task-controls">
                   {#if task.project_id && task.total_time_seconds > 0}
                     <button
+                      type="button"
                       class="btn-icon-compact btn-reset"
                       onclick={() => onOpenResetModal(task.id)}
+                      aria-label={getTimerActionLabel("reset-total", task.title)}
                       title="Reset all time for this task"
                     >
                       ⟲
@@ -399,6 +496,10 @@
     opacity: 1;
   }
 
+  .drag-handle-task:focus-visible {
+    opacity: 1;
+  }
+
   .task-item {
     display: flex;
     align-items: center;
@@ -473,6 +574,11 @@
     border-color: var(--accent);
   }
 
+  .checkbox-container input:focus-visible ~ .checkbox-custom {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
   .checkbox-custom:after {
     content: "";
     position: absolute;
@@ -488,7 +594,7 @@
     top: 2px;
     width: 5px;
     height: 10px;
-    border: solid white;
+    border: solid var(--accent-contrast);
     border-width: 0 2px 2px 0;
     transform: rotate(45deg);
   }

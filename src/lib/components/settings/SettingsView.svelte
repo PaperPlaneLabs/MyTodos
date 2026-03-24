@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import { fade, fly, slide } from "svelte/transition";
+    import { fade, fly } from "svelte/transition";
     import {
         uiStore,
         type Theme,
@@ -38,12 +38,13 @@
         { value: 45, label: "45 minutes" },
         { value: 60, label: "60 minutes" },
     ];
+    let currentThemePreview = $derived(
+        themes.find((t) => t.id === uiStore.theme) ?? themes[0],
+    );
 
     let isAutoStartEnabled = $state(false);
     let loading = $state(true);
     let toggling = $state(false);
-    let themeDropdownOpen = $state(false);
-    let breakIntervalDropdownOpen = $state(false);
     let showResetConfirm = $state(false);
     let showBreakIntervalConfirm = $state(false);
     let pendingBreakInterval = $state<number | null>(null);
@@ -175,13 +176,8 @@
         }
     }
 
-    function toggleThemeDropdown() {
-        themeDropdownOpen = !themeDropdownOpen;
-    }
-
     function selectTheme(id: Theme) {
         uiStore.setTheme(id);
-        themeDropdownOpen = false;
     }
 
     async function handleWindowOrientation(orientation: WindowOrientation) {
@@ -248,7 +244,11 @@
 
 <div class="settings-view" transition:fade={{ duration: 200 }}>
     <header class="settings-header">
-        <button class="back-btn" onclick={() => uiStore.closeSettingsView()}>
+        <button
+            type="button"
+            class="back-btn"
+            onclick={() => uiStore.closeSettingsView()}
+        >
             <svg
                 width="20"
                 height="20"
@@ -256,6 +256,7 @@
                 fill="none"
                 stroke="currentColor"
                 stroke-width="2"
+                aria-hidden="true"
             >
                 <path d="m15 18-6-6 6-6" />
             </svg>
@@ -274,15 +275,21 @@
 
             <div class="setting-item">
                 <div class="setting-info">
-                    <span class="setting-label">Start at login</span>
+                    <span class="setting-label" id="start-at-login-label"
+                        >Start at login</span
+                    >
                     <span class="setting-desc"
                         >Automatically launch MyTodos when you log in</span
                     >
                 </div>
                 <button
+                    type="button"
                     class="toggle-switch"
                     class:active={isAutoStartEnabled}
                     class:loading={loading || toggling}
+                    role="switch"
+                    aria-checked={isAutoStartEnabled}
+                    aria-labelledby="start-at-login-label"
                     onclick={toggleAutoStart}
                     disabled={loading || toggling}
                     title={isAutoStartEnabled
@@ -300,17 +307,23 @@
                 </div>
                 <div class="segmented-control">
                     <button
+                        type="button"
                         class:active={uiStore.windowOrientation === "left"}
+                        aria-pressed={uiStore.windowOrientation === "left"}
                         onclick={() => handleWindowOrientation("left")}
                         >Left</button
                     >
                     <button
+                        type="button"
                         class:active={uiStore.windowOrientation === "center"}
+                        aria-pressed={uiStore.windowOrientation === "center"}
                         onclick={() => handleWindowOrientation("center")}
                         >FreeForm</button
                     >
                     <button
+                        type="button"
                         class:active={uiStore.windowOrientation === "right"}
+                        aria-pressed={uiStore.windowOrientation === "right"}
                         onclick={() => handleWindowOrientation("right")}
                         >Right</button
                     >
@@ -319,14 +332,20 @@
 
             <div class="setting-item">
                 <div class="setting-info">
-                    <span class="setting-label">Compact Mode</span>
+                    <span class="setting-label" id="compact-mode-label"
+                        >Compact Mode</span
+                    >
                     <span class="setting-desc"
                         >Reduce spacing for a denser layout</span
                     >
                 </div>
                 <button
+                    type="button"
                     class="toggle-switch"
                     class:active={uiStore.compactMode}
+                    role="switch"
+                    aria-checked={uiStore.compactMode}
+                    aria-labelledby="compact-mode-label"
                     onclick={() => uiStore.setCompactMode(!uiStore.compactMode)}
                     title={uiStore.compactMode
                         ? "Disable compact mode"
@@ -338,14 +357,20 @@
 
             <div class="setting-item">
                 <div class="setting-info">
-                    <span class="setting-label">Break Reminders</span>
+                    <span class="setting-label" id="break-reminders-label"
+                        >Break Reminders</span
+                    >
                     <span class="setting-desc"
                         >Show a break prompt while a timer is running</span
                     >
                 </div>
                 <button
+                    type="button"
                     class="toggle-switch"
                     class:active={timerStore.breakReminderEnabled}
+                    role="switch"
+                    aria-checked={timerStore.breakReminderEnabled}
+                    aria-labelledby="break-reminders-label"
                     onclick={() =>
                         timerStore.setBreakReminderEnabled(
                             !timerStore.breakReminderEnabled,
@@ -360,7 +385,9 @@
 
             <div class="setting-item">
                 <div class="setting-info">
-                    <span class="setting-label">Break Interval</span>
+                    <span class="setting-label" id="break-interval-label"
+                        >Break Interval</span
+                    >
                     <span class="setting-desc">
                         {#if timerStore.breakReminderIntervalMinutes === 0}
                             Break time is not tracked
@@ -372,66 +399,20 @@
                         {/if}
                     </span>
                 </div>
-                <div class="break-interval-dropdown-container">
-                    <button
-                        class="break-interval-trigger"
-                        onclick={() =>
-                            (breakIntervalDropdownOpen =
-                                !breakIntervalDropdownOpen)}
+                <div class="setting-select">
+                    <select
+                        id="break-interval-select"
+                        class="input setting-native-select"
+                        bind:value={breakIntervalSelectValue}
+                        aria-labelledby="break-interval-label"
+                        onchange={updateBreakReminderInterval}
                     >
-                        <span class="break-interval-current">
-                            {breakReminderOptions.find(
-                                (o) =>
-                                    String(o.value) ===
-                                    breakIntervalSelectValue,
-                            )?.label ?? "Select..."}
-                        </span>
-                        <span class="chevron">▼</span>
-                    </button>
-                    {#if breakIntervalDropdownOpen}
-                        <div
-                            class="break-interval-menu"
-                            transition:slide={{ duration: 150 }}
-                        >
-                            {#each breakReminderOptions as opt}
-                                <button
-                                    class="break-interval-option"
-                                    class:selected={String(opt.value) ===
-                                        breakIntervalSelectValue}
-                                    onclick={() => {
-                                        breakIntervalDropdownOpen = false;
-                                        const prev = Number(
-                                            breakIntervalSelectValue,
-                                        );
-                                        if (opt.value === prev) return;
-                                        if (opt.value === 0) {
-                                            timerStore.setBreakReminderInterval(
-                                                0,
-                                            );
-                                            breakIntervalSelectValue = "0";
-                                        } else {
-                                            pendingBreakInterval = opt.value;
-                                            breakIntervalSelectValue = String(
-                                                opt.value,
-                                            );
-                                            showBreakIntervalConfirm = true;
-                                        }
-                                    }}
-                                >
-                                    {opt.label}
-                                </button>
-                            {/each}
-                        </div>
-                    {/if}
+                        {#each breakReminderOptions as opt}
+                            <option value={String(opt.value)}>{opt.label}</option>
+                        {/each}
+                    </select>
                 </div>
             </div>
-
-            {#if breakIntervalDropdownOpen}
-                <div
-                    class="backdrop"
-                    onclick={() => (breakIntervalDropdownOpen = false)}
-                ></div>
-            {/if}
 
             <div class="setting-item">
                 <div class="setting-info">
@@ -440,6 +421,8 @@
                         class="setting-desc"
                         class:update-error={updateStatus === "error"}
                         class:update-success={updateStatus === "up-to-date"}
+                        role="status"
+                        aria-live="polite"
                     >
                         {#if updateStatus === "checking"}
                             Checking...
@@ -458,12 +441,20 @@
                 </div>
                 {#if updateStatus === "available"}
                     <button
+                        type="button"
                         class="btn btn-primary btn-sm"
                         onclick={downloadAndInstallUpdate}>Update</button
                     >
                 {:else if updateStatus === "downloading"}
                     <div class="update-progress-inline">
-                        <div class="progress-bar-sm">
+                        <div
+                            class="progress-bar-sm"
+                            role="progressbar"
+                            aria-label="Update download progress"
+                            aria-valuemin="0"
+                            aria-valuemax="100"
+                            aria-valuenow={updateProgress}
+                        >
                             <div
                                 class="progress-fill-sm"
                                 style="width: {updateProgress}%"
@@ -472,6 +463,7 @@
                     </div>
                 {:else}
                     <button
+                        type="button"
                         class="btn btn-secondary btn-sm"
                         onclick={checkForUpdates}
                         disabled={updateStatus === "checking"}
@@ -491,59 +483,33 @@
 
             <div class="setting-item">
                 <div class="setting-info">
-                    <span class="setting-label">Theme</span>
+                    <span class="setting-label" id="theme-label">Theme</span>
                     <span class="setting-desc">Customize application look</span>
                 </div>
 
-                <div class="theme-dropdown-container">
-                    <button
-                        class="theme-dropdown-trigger"
-                        onclick={toggleThemeDropdown}
-                    >
-                        {#if uiStore.theme}
-                            {@const current = themes.find(
-                                (t) => t.id === uiStore.theme,
+                <div class="setting-select theme-select">
+                    <select
+                        id="theme-select"
+                        class="input setting-native-select"
+                        value={uiStore.theme}
+                        aria-labelledby="theme-label"
+                        onchange={(event) =>
+                            selectTheme(
+                                (event.currentTarget as HTMLSelectElement)
+                                    .value as Theme,
                             )}
-                            <span class="theme-name-current"
-                                >{current?.name || "Select Theme"}</span
-                            >
-                            <div
-                                class="preview-dot"
-                                style="--preview-bg: {current?.bg}; --preview-accent: {current?.accent}"
-                            ></div>
-                        {/if}
-                        <span class="chevron">▼</span>
-                    </button>
-
-                    {#if themeDropdownOpen}
-                        <div
-                            class="theme-dropdown-menu"
-                            transition:slide={{ duration: 150 }}
-                        >
-                            {#each themes as t}
-                                <button
-                                    class="theme-option"
-                                    class:selected={uiStore.theme === t.id}
-                                    onclick={() => selectTheme(t.id)}
-                                >
-                                    <span class="theme-name">{t.name}</span>
-                                    <div
-                                        class="preview-dot"
-                                        style="--preview-bg: {t.bg}; --preview-accent: {t.accent}"
-                                    ></div>
-                                </button>
-                            {/each}
-                        </div>
-                    {/if}
+                    >
+                        {#each themes as t}
+                            <option value={t.id}>{t.name}</option>
+                        {/each}
+                    </select>
+                    <div
+                        class="preview-dot"
+                        aria-hidden="true"
+                        style="--preview-bg: {currentThemePreview.bg}; --preview-accent: {currentThemePreview.accent}"
+                    ></div>
                 </div>
             </div>
-
-            {#if themeDropdownOpen}
-                <div
-                    class="backdrop"
-                    onclick={() => (themeDropdownOpen = false)}
-                ></div>
-            {/if}
         </section>
 
         <!-- INTEGRATIONS SECTION -->
@@ -566,6 +532,7 @@
                 </div>
                 {#if !googleCalendarStore.connected}
                     <button
+                        type="button"
                         class="btn btn-primary btn-sm"
                         onclick={() => googleCalendarStore.connect()}
                         disabled={googleCalendarStore.connecting}
@@ -575,6 +542,7 @@
                 {:else}
                     <div style="display:flex; gap: 8px;">
                         <button
+                            type="button"
                             class="btn btn-secondary btn-sm"
                             onclick={() => googleCalendarStore.syncAll()}
                             disabled={googleCalendarStore.syncing}
@@ -582,6 +550,7 @@
                             {googleCalendarStore.syncing ? "..." : "Sync"}
                         </button>
                         <button
+                            type="button"
                             class="btn btn-secondary btn-sm"
                             onclick={() => googleCalendarStore.disconnect()}
                         >
@@ -591,7 +560,9 @@
                 {/if}
             </div>
             {#if googleCalendarStore.error}
-                <div class="gcal-error">{googleCalendarStore.error}</div>
+                <div class="gcal-error" role="alert">
+                    {googleCalendarStore.error}
+                </div>
             {/if}
         </section>
 
@@ -612,6 +583,7 @@
                     >
                 </div>
                 <button
+                    type="button"
                     class="btn btn-danger btn-sm"
                     onclick={() => (showResetConfirm = true)}
                 >
@@ -870,147 +842,21 @@
         box-shadow: var(--shadow-sm);
     }
 
-    /* Break Interval Custom Dropdown */
-    .break-interval-dropdown-container {
-        position: relative;
+    .setting-select {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-sm);
+        min-width: 180px;
         flex-shrink: 0;
     }
 
-    .break-interval-trigger {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 6px 12px;
-        background: var(--bg-primary);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-md);
-        cursor: pointer;
+    .setting-native-select {
         min-width: 140px;
-        justify-content: space-between;
-        color: var(--text-primary);
-        font-size: 13px;
-        transition: all var(--transition-fast);
+        padding-right: 32px;
     }
 
-    .break-interval-trigger:hover {
-        border-color: var(--accent);
-    }
-
-    .break-interval-current {
-        font-weight: 500;
-    }
-
-    .break-interval-menu {
-        position: absolute;
-        top: 100%;
-        right: 0;
-        margin-top: 4px;
-        background: var(--bg-primary);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-md);
-        box-shadow: var(--shadow-lg);
-        width: 160px;
-        z-index: 1000;
-        padding: 4px;
-        overflow: hidden;
-    }
-
-    .break-interval-option {
-        display: flex;
-        align-items: center;
-        width: 100%;
-        padding: 6px 10px;
-        border: none;
-        background: transparent;
-        cursor: pointer;
-        border-radius: var(--radius-sm);
-        color: var(--text-primary);
-        font-size: 12px;
-        transition: all var(--transition-fast);
-        text-align: left;
-    }
-
-    .break-interval-option:hover {
-        background: var(--bg-hover);
-    }
-
-    .break-interval-option.selected {
-        background: var(--accent-light);
-        color: var(--accent);
-        font-weight: 600;
-    }
-
-    /* Theme Dropdown */
-    .theme-dropdown-container {
-        position: relative;
-    }
-
-    .theme-dropdown-trigger {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 6px 12px;
-        background: var(--bg-primary);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-md);
-        cursor: pointer;
-        min-width: 140px;
-        justify-content: space-between;
-        color: var(--text-primary);
-        font-size: 13px;
-        transition: all var(--transition-fast);
-    }
-
-    .theme-dropdown-trigger:hover {
-        border-color: var(--accent);
-    }
-
-    .theme-name-current {
-        font-weight: 500;
-    }
-
-    .chevron {
-        font-size: 10px;
-        opacity: 0.5;
-    }
-
-    .theme-dropdown-menu {
-        position: absolute;
-        top: 100%;
-        right: 0;
-        margin-top: 4px;
-        background: var(--bg-primary);
-        border: 1px solid var(--border);
-        border-radius: var(--radius-md);
-        box-shadow: var(--shadow-lg);
-        width: 160px;
-        z-index: 1000;
-        padding: 4px;
-        overflow: hidden;
-    }
-
-    .theme-option {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        width: 100%;
-        padding: 6px 10px;
-        border: none;
-        background: transparent;
-        cursor: pointer;
-        border-radius: var(--radius-sm);
-        color: var(--text-primary);
-        font-size: 12px;
-        transition: all var(--transition-fast);
-    }
-
-    .theme-option:hover {
-        background: var(--bg-hover);
-    }
-
-    .theme-option.selected {
-        background: var(--accent-light);
-        color: var(--accent);
+    .theme-select {
+        justify-content: flex-end;
     }
 
     .preview-dot {
@@ -1023,15 +869,6 @@
             var(--preview-accent) 50%
         );
         border: 1px solid var(--border);
-    }
-
-    .backdrop {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: 900;
     }
 
     /* Google Calendar */

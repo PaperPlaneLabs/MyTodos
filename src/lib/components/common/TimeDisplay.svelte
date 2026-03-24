@@ -25,6 +25,6 @@
   .time-display {
     font-variant-numeric: tabular-nums;
     font-family: var(--font-mono);
-    color: var(--text-secondary);
+    color: inherit;
   }
 </style>

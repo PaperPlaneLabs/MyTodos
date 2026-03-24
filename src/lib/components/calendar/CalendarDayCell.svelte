@@ -13,6 +13,15 @@
     return calendarStore.dateToString(date);
   }
 
+  function getDayAriaLabel(date: Date): string {
+    return date.toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+
   function handleDayClick() {
     calendarStore.setSelectedDate(day.date);
     // Removed automatic modal opening to favor the new task list at the bottom
@@ -114,6 +123,7 @@
   ondragleave={handleDragLeave}
   ondrop={(e) => { isDragOver = false; handleDrop(e); }}
   onclick={handleDayClick}
+  aria-label={getDayAriaLabel(day.date)}
   role="button"
   tabindex="0"
   onkeydown={(e) => {
@@ -129,6 +139,7 @@
     >
     {#if day.isCurrentMonth}
       <button
+        type="button"
         class="add-task-btn"
         onclick={handleAddTaskClick}
         aria-label="Add task for this day">+</button
@@ -165,7 +176,7 @@
             draggable="true"
             ondragstart={(e) => handleTaskDragStart(e, task)}
             onclick={(e) => handleTaskClick(e, task)}
-            style="background-color: {getTaskColor(task)}"
+            style="--task-color: {getTaskColor(task)}"
           >
             {#if task.completed}
               <span class="check-icon">✓</span>
@@ -246,7 +257,7 @@
 
   .day-number.today-num {
     background: var(--accent);
-    color: white;
+    color: var(--accent-contrast);
     font-weight: 700;
   }
 
@@ -317,8 +328,10 @@
     font-size: 11px;
     padding: 2px 4px;
     border-radius: var(--radius-sm);
-    color: white;
-    border: none;
+    color: var(--text-primary);
+    border: 1px solid color-mix(in srgb, var(--task-color) 30%, var(--border));
+    border-left: 3px solid var(--task-color);
+    background: color-mix(in srgb, var(--task-color) 14%, var(--bg-primary));
     display: flex;
     align-items: center;
     gap: 2px;

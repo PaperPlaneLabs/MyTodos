@@ -91,7 +91,9 @@
 >
   {#if uiStore.isCollapsed}
     <button 
+      type="button"
       class="handle" 
+      aria-label={uiStore.isCollapsed ? "Expand the app" : "Collapse the app"}
       onclick={toggleCollapse}
       onpointerdown={handlePointerDown}
       onpointermove={handlePointerMove}
@@ -115,7 +117,9 @@
     </button>
   {:else}
     <button 
+      type="button"
       class="collapse-btn" 
+      aria-label="Collapse the app"
       onclick={toggleCollapse}
       onpointerdown={handlePointerDown}
       onpointermove={handlePointerMove}
@@ -148,7 +152,7 @@
     width: 100%;
     height: 140px;
     background: var(--accent);
-    color: white;
+    color: var(--accent-contrast);
     border: none;
     border-radius: 0; /* Square edges when collapsed against screen edge */
     display: flex;
@@ -230,7 +234,7 @@
     width: 28px;
     height: 56px;
     background: var(--accent);
-    color: white;
+    color: var(--accent-contrast);
     border: none;
     border-radius: var(--radius-md) 0 0 var(--radius-md);
     display: flex;

@@ -274,7 +274,11 @@
             <label for="task-deadline" class="text-sm text-secondary"
               >Deadline (optional)</label
             >
-            <DateTimePicker bind:date={taskDeadline} bind:time={taskTime} />
+            <DateTimePicker
+              bind:date={taskDeadline}
+              bind:time={taskTime}
+              triggerAriaLabel="Choose an optional task deadline"
+            />
           {/if}
         </div>
 

@@ -29,7 +29,12 @@
 <div class="time-entry-panel">
   <div class="panel-header">
     <h3>Time Entry</h3>
-    <button class="close-btn" onclick={() => uiStore.selectCalendarEntry(null)} aria-label="Close">
+    <button
+      type="button"
+      class="close-btn"
+      onclick={() => uiStore.selectCalendarEntry(null)}
+      aria-label="Close"
+    >
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <path d="M18 6 6 18M6 6l12 12" />
       </svg>
@@ -76,13 +81,13 @@
     {/if}
 
     <div class="entry-actions">
-      <button class="btn btn-secondary btn-sm" onclick={() => {
+      <button type="button" class="btn btn-secondary btn-sm" onclick={() => {
         uiStore.selectCalendarEntry(null);
         uiStore.openTaskModal({ taskId: entry.task_id });
       }}>
         View Task
       </button>
-      <button class="btn btn-danger btn-sm" onclick={handleDelete}>
+      <button type="button" class="btn btn-danger btn-sm" onclick={handleDelete}>
         Delete
       </button>
     </div>
@@ -285,6 +290,6 @@
 
   .btn-danger:hover {
     background: var(--danger);
-    color: white;
+    color: var(--danger-contrast);
   }
 </style>
