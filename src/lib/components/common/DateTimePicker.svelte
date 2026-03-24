@@ -1,22 +1,25 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
-  import { fade, slide } from "svelte/transition";
+  import { fade } from "svelte/transition";
   import { getCurrentWindow, LogicalSize } from "@tauri-apps/api/window";
 
   let {
     date = $bindable(null),
     time = $bindable(""),
     disabled = false,
+    triggerAriaLabel = "Choose a deadline date and time",
   } = $props<{
     date?: string | null;
     time?: string;
     disabled?: boolean;
+    triggerAriaLabel?: string;
   }>();
 
   let showPicker = $state(false);
   let originalHeight = $state<number | null>(null);
   let pickerTriggerElement = $state<HTMLElement | null>(null);
   let opensUpwards = $state(false);
+  const pickerPopoverId = `date-time-picker-${Math.random().toString(36).slice(2, 10)}`;
 
   // Custom Time State
   let customHours = $state("12");
@@ -237,6 +240,15 @@
       closePicker();
     }
   }
+
+  function formatDateAriaLabel(dateStr: string) {
+    return new Date(`${dateStr}T00:00:00`).toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
 </script>
 
 <svelte:window onkeydown={handleKeydown} />
@@ -247,19 +259,32 @@
     class="picker-trigger input" 
     class:has-value={!!date}
     {disabled}
+    aria-label={date ? `Deadline: ${displayString}` : triggerAriaLabel}
+    aria-controls={pickerPopoverId}
+    aria-expanded={showPicker}
+    aria-haspopup="dialog"
     onclick={togglePicker}
     bind:this={pickerTriggerElement}
   >
-    <span class="icon">📅</span>
+    <span class="icon" aria-hidden="true">📅</span>
     <span class="value">{displayString}</span>
   </button>
 
   {#if showPicker}
-    <div class="calendar-view-backdrop" aria-label="Close picker" role="button" tabindex="0" onclick={closePicker} onkeydown={(e) => e.key === 'Escape' && closePicker()}></div>
+    <button
+      type="button"
+      class="calendar-view-backdrop"
+      aria-label="Close deadline picker"
+      onclick={closePicker}
+    ></button>
     
     <div 
+      id={pickerPopoverId}
       class="picker-popover" 
       class:opens-upwards={opensUpwards}
+      role="dialog"
+      aria-label={triggerAriaLabel}
+      aria-modal="false"
       transition:fade={{ duration: 150 }}
     >
       <!-- Header / Nav -->
@@ -295,6 +320,8 @@
             class:other-month={!d.isCurrentMonth}
             class:selected={isSelected}
             class:today={isToday}
+            aria-label={formatDateAriaLabel(d.dateStr)}
+            aria-pressed={isSelected}
             onclick={() => selectDate(d.dateStr)}
           >
             <div class="day-number">{d.num}</div>
@@ -305,12 +332,13 @@
       <!-- Time Input & Actions -->
       <div class="popover-footer">
         <div class="custom-time-section" class:disabled={!date}>
-          <span class="time-icon">⏱</span>
+          <span class="time-icon" aria-hidden="true">⏱</span>
           <div class="time-inputs box-input">
             <input 
               type="number" 
               class="time-num-input" 
               bind:value={customHours} 
+              aria-label="Deadline hour"
               oninput={updateTimeFromCustom}
               onblur={() => formatTimeBlur("hours")}
               min="1" max="12"
@@ -322,6 +350,7 @@
               type="number" 
               class="time-num-input" 
               bind:value={customMinutes} 
+              aria-label="Deadline minute"
               oninput={updateTimeFromCustom}
               onblur={() => formatTimeBlur("minutes")}
               min="0" max="59"
@@ -501,12 +530,12 @@
 
   .day-btn.selected {
     background: var(--accent);
-    color: white;
+    color: var(--accent-contrast);
     font-weight: 600;
   }
 
   .day-btn.selected::after {
-    background: white;
+    background: var(--accent-contrast);
   }
 
   /* Custom Time Input & Footer */
@@ -544,6 +573,12 @@
     border-radius: var(--radius-md);
     padding: 2px 6px;
     height: 32px;
+  }
+
+  .box-input:focus-within {
+    border-color: var(--accent);
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
   }
 
   .time-num-input {
@@ -613,5 +648,8 @@
     right: 0;
     bottom: 0;
     z-index: 99;
+    border: none;
+    padding: 0;
+    background: transparent;
   }
 </style>

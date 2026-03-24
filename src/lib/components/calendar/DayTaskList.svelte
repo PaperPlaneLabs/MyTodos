@@ -55,7 +55,7 @@
       {/if}
     </h3>
     {#if calendarStore.selectedDate}
-      <button class="btn-add" onclick={handleAddTask}>
+      <button type="button" class="btn-add" onclick={handleAddTask}>
         <span>+ Add Task</span>
       </button>
     {/if}
@@ -161,7 +161,7 @@
 
   .btn-add {
     background: var(--accent);
-    color: white;
+    color: var(--accent-contrast);
     border: none;
     padding: var(--spacing-xs) var(--spacing-md);
     border-radius: var(--radius-md);

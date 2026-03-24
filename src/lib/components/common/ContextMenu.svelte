@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from "svelte";
   import { uiStore } from "$lib/stores/ui.svelte";
   import { fade } from "svelte/transition";
 
@@ -75,6 +76,9 @@
       window.addEventListener("scroll", () => uiStore.closeContextMenu(), {
         passive: true,
       });
+      void tick().then(() => {
+        menuElement?.querySelector<HTMLButtonElement>("button")?.focus();
+      });
     } else {
       window.removeEventListener("mousedown", handleOutsideClick);
     }
@@ -87,6 +91,47 @@
   function isColorPicker(item: AnyMenuItem): item is ColorPickerItem {
     return (item as ColorPickerItem).type === "colorPicker";
   }
+
+  function focusMenuButton(offset: number) {
+    if (!menuElement) return;
+
+    const buttons = Array.from(
+      menuElement.querySelectorAll<HTMLButtonElement>("button"),
+    );
+    if (buttons.length === 0) return;
+
+    const currentIndex = buttons.findIndex(
+      (button) => button === document.activeElement,
+    );
+    const nextIndex =
+      currentIndex === -1
+        ? 0
+        : (currentIndex + offset + buttons.length) % buttons.length;
+    buttons[nextIndex]?.focus();
+  }
+
+  function handleMenuKeydown(event: KeyboardEvent) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      uiStore.closeContextMenu();
+      return;
+    }
+
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      focusMenuButton(1);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      focusMenuButton(-1);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      menuElement?.querySelector<HTMLButtonElement>("button")?.focus();
+    } else if (event.key === "End") {
+      event.preventDefault();
+      const buttons = menuElement?.querySelectorAll<HTMLButtonElement>("button");
+      buttons?.[buttons.length - 1]?.focus();
+    }
+  }
 </script>
 
 {#if uiStore.contextMenuOpen}
@@ -97,6 +142,7 @@
     transition:fade={{ duration: 100 }}
     role="menu"
     tabindex="-1"
+    onkeydown={handleMenuKeydown}
   >
     {#each items as item}
       {#if isColorPicker(item)}
@@ -105,11 +151,14 @@
           <div class="color-swatches">
             {#each PROJECT_COLORS as color}
               <button
+                type="button"
                 class="color-swatch"
                 class:active={item.currentColor === color.value}
                 style="background-color: {color.value};"
                 title={color.label}
-                aria-label="Set project color to {color.label}"
+                aria-label={"Set project color to " + color.label}
+                aria-checked={item.currentColor === color.value}
+                role="menuitemradio"
                 onclick={() => {
                   item.onSelect(color.value);
                   uiStore.closeContextMenu();
@@ -120,6 +169,7 @@
         </div>
       {:else}
         <button
+          type="button"
           class="menu-item"
           class:danger={(item as MenuItem).danger}
           onclick={() => {
@@ -236,7 +286,11 @@
       border-color 0.15s,
       box-shadow 0.15s;
     padding: 0;
-    outline: none;
+  }
+
+  .color-swatch:focus-visible {
+    transform: scale(1.15);
+    box-shadow: 0 0 0 2px var(--accent);
   }
 
   .color-swatch:hover {
