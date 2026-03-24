@@ -1,5 +1,6 @@
 <script lang="ts">
   import { flip } from "svelte/animate";
+  import { tick } from "svelte";
   import { slide } from "svelte/transition";
   import TimeDisplay from "$lib/components/common/TimeDisplay.svelte";
   import { projectStore } from "$lib/stores/projects.svelte";
@@ -19,12 +20,53 @@
     onContextMenu: (event: MouseEvent | PointerEvent, id: number) => void;
     onPointerDown: (event: PointerEvent, id: number, index: number) => void;
   } = $props();
+
+  async function focusProjectReorderHandle(projectId: number) {
+    await tick();
+    document
+      .querySelector<HTMLElement>(`[data-project-handle-id="${projectId}"]`)
+      ?.focus();
+  }
+
+  async function handleProjectReorderKeydown(
+    event: KeyboardEvent,
+    projectId: number,
+    index: number,
+  ) {
+    const offset =
+      event.key === "ArrowUp" ? -1 : event.key === "ArrowDown" ? 1 : 0;
+    if (offset === 0) return;
+
+    const nextIndex = Math.max(
+      0,
+      Math.min(projectStore.projects.length - 1, index + offset),
+    );
+    if (nextIndex === index) return;
+
+    event.preventDefault();
+    projectStore.reorderLocal(index, nextIndex);
+    await projectStore.reorder(projectStore.projects.map((item) => item.id));
+    await focusProjectReorderHandle(projectId);
+  }
+
+  function getProjectLabel(
+    name: string,
+    hasTimer: boolean,
+    timerRunning: boolean,
+  ) {
+    if (!hasTimer) return name;
+    return `${name}, timer ${timerRunning ? "running" : "paused"}`;
+  }
 </script>
 
 <div class="projects-section">
   <div class="section-header">
     <h2>Projects</h2>
-    <button class="btn btn-ghost btn-sm" onclick={() => uiStore.openProjectModal()}>
+    <button
+      type="button"
+      class="btn btn-ghost btn-sm"
+      onclick={() => uiStore.openProjectModal()}
+    >
       + New
     </button>
   </div>
@@ -41,6 +83,12 @@
         class:timer-paused={timerStore.active &&
           timerStore.currentProjectId === null &&
           !timerStore.isRunning}
+        aria-label={getProjectLabel(
+          "Tasks",
+          !!timerStore.active && timerStore.currentProjectId === null,
+          timerStore.isRunning,
+        )}
+        aria-pressed={projectStore.selectedId === null}
         role="button"
         tabindex="0"
         onclick={() => projectStore.setSelected(null)}
@@ -50,7 +98,11 @@
           <div class="project-header">
             <div class="project-name">Tasks</div>
             {#if timerStore.active && timerStore.currentProjectId === null}
-              <div class="active-timer-dot" title="Active timer in this project"></div>
+              <div
+                class="active-timer-dot"
+                aria-hidden="true"
+                title="Active timer in this project"
+              ></div>
             {/if}
           </div>
         </div>
@@ -76,6 +128,12 @@
             timerStore.currentProjectId === project.id &&
             !timerStore.isRunning}
           style="border-left-color: {project.color};"
+          aria-label={getProjectLabel(
+            project.name,
+            !!timerStore.active && timerStore.currentProjectId === project.id,
+            timerStore.isRunning,
+          )}
+          aria-pressed={projectStore.selectedId === project.id}
           role="button"
           tabindex="0"
           onclick={() => !isDragging && projectStore.setSelected(project.id)}
@@ -86,7 +144,9 @@
             class="drag-handle"
             role="button"
             tabindex="0"
-            aria-label="Drag to reorder"
+            data-project-handle-id={project.id}
+            aria-label={"Reorder project " + project.name + ". Use Up or Down arrow keys."}
+            onkeydown={(event) => handleProjectReorderKeydown(event, project.id, index)}
             onpointerdown={(event) => onPointerDown(event, project.id, index)}
           >
             ⋮⋮
@@ -96,7 +156,11 @@
               <div class="project-name">{project.name}</div>
               <div class="project-meta-right">
                 {#if timerStore.active && timerStore.currentProjectId === project.id}
-                  <div class="active-timer-dot" title="Active timer in this project"></div>
+                  <div
+                    class="active-timer-dot"
+                    aria-hidden="true"
+                    title="Active timer in this project"
+                  ></div>
                 {/if}
                 {#if project.total_time_seconds > 0}
                   <div class="project-time-badge">
@@ -114,7 +178,11 @@
       <div class="empty-state">
         <p class="text-secondary text-sm">No projects yet</p>
         <p class="text-tertiary text-xs">Click "+ New" to create your first project</p>
-        <button class="btn btn-primary btn-sm" onclick={() => uiStore.openProjectModal()}>
+        <button
+          type="button"
+          class="btn btn-primary btn-sm"
+          onclick={() => uiStore.openProjectModal()}
+        >
           Create Project
         </button>
       </div>
@@ -201,6 +269,10 @@
     opacity: 1;
   }
 
+  .drag-handle:focus-visible {
+    opacity: 1;
+  }
+
   .project-item.active {
     background-color: var(--accent-light);
     border-color: var(--accent);
@@ -250,7 +322,7 @@
 
   .project-item.active .project-time-badge {
     background-color: var(--accent);
-    color: white;
+    color: var(--accent-contrast);
   }
 
   .active-timer-dot {

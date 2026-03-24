@@ -251,8 +251,8 @@
     }
 
     .close-btn:hover {
-        background-color: #ef4444;
-        color: #fff;
+        background-color: var(--danger);
+        color: var(--danger-contrast);
     }
 
     .content {
@@ -372,7 +372,7 @@
 
     .btn-primary {
         background-color: var(--accent);
-        color: #fff;
+        color: var(--accent-contrast);
     }
 
     .btn-primary:hover:not(:disabled) {

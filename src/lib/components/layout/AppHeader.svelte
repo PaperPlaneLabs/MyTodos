@@ -7,6 +7,7 @@
   import { fly } from "svelte/transition";
 
   let isMobile = $state(true); // Default to true (safe for mobile/web) until confirmed
+  const quickAddMenuId = `quick-add-menu-${Math.random().toString(36).slice(2, 10)}`;
 
   onMount(async () => {
     try {
@@ -59,23 +60,44 @@
       await db.window.startDragging();
     }
   }
+
+  function windowDrag(node: HTMLElement) {
+    const onMouseDown = (event: MouseEvent) => {
+      void handleDrag(event);
+    };
+
+    node.addEventListener("mousedown", onMouseDown);
+    return {
+      destroy() {
+        node.removeEventListener("mousedown", onMouseDown);
+      },
+    };
+  }
 </script>
 
 {#if !isMobile}
   <div
     class="title-bar"
-    onmousedown={handleDrag}
+    use:windowDrag
     data-tauri-drag-region
     role="presentation"
   >
     <div class="window-controls">
-      <button class="win-btn minimize" onclick={minimize} title="Minimize">
-        <svg width="12" height="12" viewBox="0 0 12 12"
+      <button
+        type="button"
+        class="win-btn minimize"
+        aria-label="Minimize window"
+        onclick={minimize}
+        title="Minimize"
+      >
+        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"
           ><rect fill="currentColor" x="1" y="5" width="10" height="1" /></svg
         >
       </button>
       <button
+        type="button"
         class="win-btn dock-left"
+        aria-label="Dock window to the left"
         onclick={() => dock("left")}
         title="Dock Left"
       >
@@ -88,17 +110,20 @@
           stroke-width="2"
           stroke-linecap="round"
           stroke-linejoin="round"
+          aria-hidden="true"
         >
           <rect width="18" height="18" x="3" y="3" rx="2" />
           <path d="M9 3v18" />
         </svg>
       </button>
       <button
+        type="button"
         class="win-btn maximize"
+        aria-label="Toggle window maximized state"
         onclick={toggleMaximize}
         title="Maximize"
       >
-        <svg width="12" height="12" viewBox="0 0 12 12"
+        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"
           ><rect
             fill="none"
             stroke="currentColor"
@@ -111,7 +136,9 @@
         >
       </button>
       <button
+        type="button"
         class="win-btn dock-right"
+        aria-label="Dock window to the right"
         onclick={() => dock("right")}
         title="Dock Right"
       >
@@ -124,13 +151,20 @@
           stroke-width="2"
           stroke-linecap="round"
           stroke-linejoin="round"
+          aria-hidden="true"
         >
           <rect width="18" height="18" x="3" y="3" rx="2" />
           <path d="M15 3v18" />
         </svg>
       </button>
-      <button class="win-btn close" onclick={close} title="Close">
-        <svg width="12" height="12" viewBox="0 0 12 12"
+      <button
+        type="button"
+        class="win-btn close"
+        aria-label="Close window"
+        onclick={close}
+        title="Close"
+      >
+        <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"
           ><path
             fill="currentColor"
             d="M1.5 1.5l9 9m-9 0l9-9"
@@ -145,9 +179,8 @@
 
 <header
   class="app-header"
-  onmousedown={handleDrag}
+  use:windowDrag
   data-tauri-drag-region
-  role="banner"
 >
   <div class="header-left">
     <h1>MyTodos</h1>
@@ -156,37 +189,52 @@
   <div class="header-right">
     <div class="quick-add-container">
       <button
+        type="button"
         class="add-btn"
         class:active={uiStore.showQuickAdd}
+        aria-label={uiStore.showQuickAdd ? "Close quick add menu" : "Open quick add menu"}
+        aria-controls={quickAddMenuId}
+        aria-expanded={uiStore.showQuickAdd}
+        aria-haspopup="menu"
         onclick={() => uiStore.toggleQuickAdd()}
         title="Add new..."
       >
-        <span class="plus-icon">＋</span>
+        <span class="plus-icon" aria-hidden="true">＋</span>
       </button>
 
       {#if uiStore.showQuickAdd}
-        <div class="quick-add-menu" transition:fly={{ y: 10, duration: 200 }}>
+        <div
+          id={quickAddMenuId}
+          class="quick-add-menu"
+          role="menu"
+          aria-label="Quick add actions"
+          transition:fly={{ y: 10, duration: 200 }}
+        >
           <button
+            type="button"
+            role="menuitem"
             onclick={() => {
               uiStore.openTaskModal();
               uiStore.closeQuickAdd();
             }}
             class="menu-item"
           >
-            <span class="menu-icon">✓</span>
+            <span class="menu-icon" aria-hidden="true">✓</span>
             <div class="menu-text">
               <span class="menu-title">New Task</span>
               <span class="menu-desc">Add to current list</span>
             </div>
           </button>
           <button
+            type="button"
+            role="menuitem"
             onclick={() => {
               uiStore.openProjectModal();
               uiStore.closeQuickAdd();
             }}
             class="menu-item"
           >
-            <span class="menu-icon">📁</span>
+            <span class="menu-icon" aria-hidden="true">📁</span>
             <div class="menu-text">
               <span class="menu-title">New Project</span>
               <span class="menu-desc">Create a container</span>
@@ -199,6 +247,7 @@
     <div
       class="timer-badge"
       class:running={timerStore.isRunning}
+      aria-live="polite"
       title="Today's work time"
     >
       <span class="timer-icon"></span>
@@ -206,8 +255,10 @@
     </div>
 
     <button
+      type="button"
       class="icon-btn"
       class:active={uiStore.showCalendarView}
+      aria-label="Open calendar view"
       onclick={() => uiStore.openCalendarView()}
       title="Calendar"
     >
@@ -215,7 +266,9 @@
     </button>
 
     <button
+      type="button"
       class="icon-btn"
+      aria-label="Open statistics view"
       onclick={() => uiStore.openStatsView()}
       title="View statistics"
     >
@@ -223,7 +276,9 @@
     </button>
 
     <button
+      type="button"
       class="icon-btn"
+      aria-label="Open settings view"
       onclick={() => uiStore.openSettingsView()}
       title="Settings"
     >
@@ -307,7 +362,7 @@
     justify-content: center;
     border-radius: 50%;
     background-color: var(--accent);
-    color: white;
+    color: var(--accent-contrast);
     transition: all var(--transition-fast);
     font-size: 18px;
     box-shadow: var(--shadow-sm);
@@ -321,6 +376,7 @@
   .add-btn.active {
     transform: rotate(45deg);
     background-color: var(--danger);
+    color: var(--danger-contrast);
   }
 
   .quick-add-menu {
@@ -396,6 +452,7 @@
     border: 1px solid var(--border);
     transition: all var(--transition-normal);
     cursor: default;
+    color: var(--text-secondary);
   }
 
   .timer-badge:hover {

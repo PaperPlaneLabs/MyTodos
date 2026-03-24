@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { tick } from "svelte";
   import { fade, fly } from "svelte/transition";
 
   let {
@@ -16,39 +16,106 @@
     allowOverflow?: boolean;
   } = $props();
 
-  onMount(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && open) {
-        onClose();
-      }
-    };
+  const titleId = `modal-title-${Math.random().toString(36).slice(2, 10)}`;
 
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
+  let dialogElement = $state<HTMLDivElement | null>(null);
+  let closeButtonElement = $state<HTMLButtonElement | null>(null);
+  let lastFocusedElement = $state<HTMLElement | null>(null);
+
+  async function focusInitialControl() {
+    await tick();
+    closeButtonElement?.focus();
+  }
+
+  function getFocusableElements(): HTMLElement[] {
+    if (!dialogElement) return [];
+
+    return Array.from(
+      dialogElement.querySelectorAll<HTMLElement>(
+        'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+      ),
+    ).filter((element) => !element.hasAttribute("disabled"));
+  }
+
+  function handleDialogKeydown(event: KeyboardEvent) {
+    if (event.key === "Escape") {
+      event.stopPropagation();
+      onClose();
+      return;
+    }
+
+    if (event.key !== "Tab") return;
+
+    const focusableElements = getFocusableElements();
+    if (focusableElements.length === 0) {
+      event.preventDefault();
+      dialogElement?.focus();
+      return;
+    }
+
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+    const activeElement = document.activeElement;
+
+    if (event.shiftKey && activeElement === firstElement) {
+      event.preventDefault();
+      lastElement.focus();
+    } else if (!event.shiftKey && activeElement === lastElement) {
+      event.preventDefault();
+      firstElement.focus();
+    }
+  }
+
+  $effect(() => {
+    if (open) {
+      lastFocusedElement =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+      void focusInitialControl();
+      return;
+    }
+
+    if (lastFocusedElement) {
+      lastFocusedElement.focus();
+      lastFocusedElement = null;
+    }
   });
 </script>
 
 {#if open}
   <div
-    class="modal-backdrop"
-    onclick={onClose}
-    onkeydown={(e) => e.key === 'Enter' && onClose()}
-    role="button"
-    tabindex="0"
-    aria-label="Close modal"
+    class="modal-shell"
     transition:fade={{ duration: 200 }}
   >
+    <button
+      type="button"
+      class="modal-backdrop"
+      aria-label="Close dialog"
+      onclick={onClose}
+    ></button>
     <div
+      bind:this={dialogElement}
       class="modal-content"
       class:allow-overflow={allowOverflow}
-      onclick={(e) => e.stopPropagation()}
-      onkeydown={(e) => e.stopPropagation()}
-      role="presentation"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+      tabindex="-1"
+      onkeydown={handleDialogKeydown}
       transition:fly={{ y: 20, duration: 300 }}
     >
       <div class="modal-header">
-        <h3>{title}</h3>
-        <button class="close-btn" onclick={onClose}>×</button>
+        <h3 id={titleId}>{title}</h3>
+        <button
+          bind:this={closeButtonElement}
+          type="button"
+          class="close-btn"
+          aria-label="Close dialog"
+          onclick={onClose}
+        >
+          ×
+        </button>
       </div>
       <div class="modal-body" class:allow-overflow={allowOverflow}>
         {@render children()}
@@ -58,7 +125,7 @@
 {/if}
 
 <style>
-  .modal-backdrop {
+  .modal-shell {
     position: fixed;
     top: 0;
     left: 0;
@@ -73,7 +140,19 @@
     z-index: 1000;
   }
 
+  .modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background-color: var(--modal-backdrop);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    border: none;
+    padding: 0;
+  }
+
   .modal-content {
+    position: relative;
+    z-index: 1;
     background-color: var(--bg-primary);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-lg);

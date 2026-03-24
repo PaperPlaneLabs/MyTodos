@@ -252,7 +252,7 @@
   }
 
   .day-row.today .day-number {
-    color: white;
+    color: var(--accent-contrast);
   }
 
   .day-row.today .day-name {

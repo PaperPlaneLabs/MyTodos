@@ -77,6 +77,7 @@
 
   let showPicker = $state(false);
   let pickerYear = $state(new Date().getFullYear());
+  const pickerId = `calendar-month-picker-${Math.random().toString(36).slice(2, 10)}`;
 
   function togglePicker() {
     pickerYear = calendarStore.currentDate.getFullYear();
@@ -94,7 +95,12 @@
 
 <div class="calendar-header">
   <div class="header-nav">
-    <button class="nav-btn" onclick={navFunctions.prev} aria-label="Previous">
+    <button
+      type="button"
+      class="nav-btn"
+      onclick={navFunctions.prev}
+      aria-label="Previous"
+    >
       <svg
         width="20"
         height="20"
@@ -109,7 +115,14 @@
 
     <div class="selector-container">
       {#if calendarStore.viewMode === "month"}
-        <button class="month-label" onclick={togglePicker}>
+        <button
+          type="button"
+          class="month-label"
+          aria-controls={pickerId}
+          aria-expanded={showPicker}
+          aria-haspopup="dialog"
+          onclick={togglePicker}
+        >
           {months[calendarStore.currentDate.getMonth()]}
           {calendarStore.currentDate.getFullYear()}
           {#if !isCurrent}
@@ -118,7 +131,14 @@
           <span class="chevron"></span>
         </button>
       {:else}
-        <button class="month-label" onclick={togglePicker}>
+        <button
+          type="button"
+          class="month-label"
+          aria-controls={pickerId}
+          aria-expanded={showPicker}
+          aria-haspopup="dialog"
+          onclick={togglePicker}
+        >
           Week of {calendarStore.currentDate.toLocaleDateString("en-US", {
             month: "short",
             day: "numeric",
@@ -131,17 +151,16 @@
       {/if}
 
       {#if showPicker}
-        <div
+        <button
+          type="button"
           class="calendar-view-backdrop"
-          aria-label="Close picker"
-          role="button"
-          tabindex="0"
+          aria-label="Close calendar month picker"
           onclick={() => (showPicker = false)}
-          onkeydown={(e) => e.key === "Escape" && (showPicker = false)}
-        ></div>
-        <div class="picker-dropdown">
+        ></button>
+        <div id={pickerId} class="picker-dropdown" role="dialog" aria-modal="false" aria-label="Choose month and year">
           <div class="year-stepper">
             <button
+              type="button"
               class="stepper-btn"
               aria-label="Previous year"
               onclick={() => pickerYear--}
@@ -157,6 +176,7 @@
             </button>
             <span class="year-display">{pickerYear}</span>
             <button
+              type="button"
               class="stepper-btn"
               aria-label="Next year"
               onclick={() => pickerYear++}
@@ -175,6 +195,7 @@
           <div class="month-grid">
             {#each months as month, idx}
               <button
+                type="button"
                 class="month-btn"
                 class:active={calendarStore.currentDate.getMonth() === idx &&
                   calendarStore.currentDate.getFullYear() === pickerYear}
@@ -187,6 +208,7 @@
 
           <div class="picker-footer">
             <button
+              type="button"
               class="today-btn"
               onclick={() => {
                 goToToday();
@@ -198,7 +220,12 @@
       {/if}
     </div>
 
-    <button class="nav-btn" onclick={navFunctions.next} aria-label="Next">
+    <button
+      type="button"
+      class="nav-btn"
+      onclick={navFunctions.next}
+      aria-label="Next"
+    >
       <svg
         width="20"
         height="20"
@@ -215,12 +242,16 @@
   <div class="view-toggle" class:is-week={calendarStore.viewMode === "week"}>
     <div class="active-bg"></div>
     <button
+      type="button"
       class:active={calendarStore.viewMode === "month"}
+      aria-pressed={calendarStore.viewMode === "month"}
       onclick={() => calendarStore.setViewMode("month")}
       title="Month View">{isPortrait ? "M" : "Month"}</button
     >
     <button
+      type="button"
       class:active={calendarStore.viewMode === "week"}
+      aria-pressed={calendarStore.viewMode === "week"}
       onclick={() => calendarStore.setViewMode("week")}
       title="Week View">{isPortrait ? "W" : "Week"}</button
     >
@@ -343,7 +374,7 @@
 
   .month-btn.active {
     background: var(--accent);
-    color: white;
+    color: var(--accent-contrast);
   }
 
   .picker-footer {
@@ -447,7 +478,7 @@
   }
 
   .view-toggle button.active {
-    color: white;
+    color: var(--accent-contrast);
   }
 
   /* Global backdrop for clicking outside dropdowns */
@@ -458,5 +489,8 @@
     right: 0;
     bottom: 0;
     z-index: 99;
+    border: none;
+    padding: 0;
+    background: transparent;
   }
 </style>

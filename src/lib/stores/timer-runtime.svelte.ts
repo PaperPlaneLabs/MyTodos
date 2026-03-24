@@ -137,6 +137,10 @@ export function createTimerRuntimeController({
     resetElapsed,
     startInterval,
     stopInterval,
-    getDailyTotal,
+    get dailyTotal() {
+      // Access currentElapsed (a $state) to ensure reactivity for any consumer
+      const _ = currentElapsed;
+      return getDailyTotal();
+    },
   };
 }
