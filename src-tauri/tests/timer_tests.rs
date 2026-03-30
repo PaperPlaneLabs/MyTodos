@@ -747,3 +747,74 @@ fn test_recover_stale_timer_keeps_recent_running_timer_active() {
     assert_eq!(timer.last_heartbeat_at, Some(last_heartbeat_at));
     assert_eq!(count_time_entries(&db, task_id), 0);
 }
+
+#[test]
+fn test_log_afk_time_creates_named_system_task_and_updates_totals() {
+    let db = setup_test_db();
+
+    my_todos_lib::services::timer_service::log_afk_time(&db, "Meeting", 900).unwrap();
+    my_todos_lib::services::timer_service::log_afk_time(&db, "Meeting", 300).unwrap();
+    my_todos_lib::services::timer_service::log_afk_time(&db, "Lunch", 1800).unwrap();
+
+    let conn = db.lock();
+    let away_project: (i64, i64, bool) = conn
+        .query_row(
+            "SELECT id, total_time_seconds, is_system
+             FROM projects
+             WHERE name = 'Away'",
+            [],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .unwrap();
+    assert!(away_project.2);
+    assert_eq!(away_project.1, 3000);
+
+    let meeting_task: (i64, i64, bool) = conn
+        .query_row(
+            "SELECT id, total_time_seconds, is_system
+             FROM tasks
+             WHERE project_id = ? AND title = 'Meeting'",
+            [away_project.0],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .unwrap();
+    assert!(meeting_task.2);
+    assert_eq!(meeting_task.1, 1200);
+
+    let lunch_task_time: i64 = conn
+        .query_row(
+            "SELECT total_time_seconds
+             FROM tasks
+             WHERE project_id = ? AND title = 'Lunch'",
+            [away_project.0],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(lunch_task_time, 1800);
+
+    let meeting_entries: i64 = conn
+        .query_row(
+            "SELECT COUNT(*)
+             FROM time_entries
+             WHERE task_id = ?",
+            [meeting_task.0],
+            |row| row.get(0),
+        )
+        .unwrap();
+    assert_eq!(meeting_entries, 2);
+}
+
+#[test]
+fn test_log_afk_time_rejects_blank_category_names() {
+    let db = setup_test_db();
+
+    let result = my_todos_lib::services::timer_service::log_afk_time(&db, "   ", 300);
+
+    assert!(result.is_err());
+    match result.unwrap_err() {
+        AppError::InvalidInput(message) => {
+            assert!(message.contains("AFK category name"));
+        }
+        other => panic!("Expected InvalidInput error, got {other:?}"),
+    }
+}

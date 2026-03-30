@@ -91,6 +91,11 @@
   }
 
   onMount(async () => {
+    if (isBreakWindow || isResumeWindow) {
+      uiStore.initTheme();
+      return;
+    }
+
     uiStore.initTheme();
     try {
       const savedDockPreference = await db.window.getDockPreference();
@@ -112,6 +117,10 @@
   });
 
   $effect(() => {
+    if (isBreakWindow || isResumeWindow) {
+      return;
+    }
+
     taskStore.loadByProject(projectStore.selectedId);
   });
 

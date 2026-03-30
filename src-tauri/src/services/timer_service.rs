@@ -10,6 +10,9 @@ const BREAK_PROJECT_DESCRIPTION: &str = "Automatically tracked break time";
 const BREAK_PROJECT_COLOR: &str = "#10b981";
 const BREAK_TASK_TITLE: &str = "Break";
 const BREAK_TASK_DESCRIPTION: &str = "Auto-generated task for break time";
+const AFK_PROJECT_NAME: &str = "Away";
+const AFK_PROJECT_DESCRIPTION: &str = "Automatically tracked away-from-keyboard time";
+const AFK_PROJECT_COLOR: &str = "#f59e0b";
 
 fn get_active_timer_from_conn(conn: &Connection) -> Result<Option<ActiveTimer>> {
     let result = conn.query_row(
@@ -213,14 +216,20 @@ pub fn reset_timer(db: &DbConnection) -> Result<()> {
     Ok(())
 }
 
-fn get_or_create_break_project(conn: &Connection, now: i64) -> Result<i64> {
+fn get_or_create_system_project(
+    conn: &Connection,
+    name: &str,
+    description: &str,
+    color: &str,
+    now: i64,
+) -> Result<i64> {
     match conn.query_row(
         "SELECT id
          FROM projects
          WHERE is_system = 1 AND name = ?
          ORDER BY id ASC
          LIMIT 1",
-        [BREAK_PROJECT_NAME],
+        [name],
         |row| row.get(0),
     ) {
         Ok(id) => Ok(id),
@@ -244,14 +253,7 @@ fn get_or_create_break_project(conn: &Connection, now: i64) -> Result<i64> {
                     created_at,
                     updated_at
                  ) VALUES (?, ?, ?, ?, 0, 1, ?, ?)",
-                (
-                    BREAK_PROJECT_NAME,
-                    BREAK_PROJECT_DESCRIPTION,
-                    BREAK_PROJECT_COLOR,
-                    position,
-                    now,
-                    now,
-                ),
+                (name, description, color, position, now, now),
             )?;
 
             Ok(conn.last_insert_rowid())
@@ -260,14 +262,20 @@ fn get_or_create_break_project(conn: &Connection, now: i64) -> Result<i64> {
     }
 }
 
-fn get_or_create_break_task(conn: &Connection, project_id: i64, now: i64) -> Result<i64> {
+fn get_or_create_system_task(
+    conn: &Connection,
+    project_id: i64,
+    title: &str,
+    description: &str,
+    now: i64,
+) -> Result<i64> {
     match conn.query_row(
         "SELECT id
          FROM tasks
          WHERE is_system = 1 AND project_id = ? AND title = ?
          ORDER BY id ASC
          LIMIT 1",
-        (project_id, BREAK_TASK_TITLE),
+        (project_id, title),
         |row| row.get(0),
     ) {
         Ok(id) => Ok(id),
@@ -282,19 +290,29 @@ fn get_or_create_break_task(conn: &Connection, project_id: i64, now: i64) -> Res
                     created_at,
                     updated_at
                  ) VALUES (?, ?, ?, 0, 1, ?, ?)",
-                (
-                    project_id,
-                    BREAK_TASK_TITLE,
-                    BREAK_TASK_DESCRIPTION,
-                    now,
-                    now,
-                ),
+                (project_id, title, description, now, now),
             )?;
 
             Ok(conn.last_insert_rowid())
         }
         Err(error) => Err(error.into()),
     }
+}
+
+fn insert_manual_time_entry(
+    conn: &Connection,
+    task_id: i64,
+    duration_seconds: i64,
+    now: i64,
+) -> Result<()> {
+    conn.execute(
+        "INSERT INTO time_entries (task_id, entry_type, duration_seconds, started_at, ended_at, created_at)
+         VALUES (?, 'manual', ?, ?, ?, ?)",
+        (task_id, duration_seconds, now - duration_seconds, now, now),
+    )?;
+
+    apply_task_and_parent_time_delta(conn, task_id, duration_seconds)?;
+    Ok(())
 }
 
 pub fn log_break_time(db: &DbConnection, duration_seconds: i64) -> Result<()> {
@@ -304,15 +322,50 @@ pub fn log_break_time(db: &DbConnection, duration_seconds: i64) -> Result<()> {
 
     let conn = db.lock();
     let now = get_timestamp();
-    let project_id = get_or_create_break_project(&conn, now)?;
-    let task_id = get_or_create_break_task(&conn, project_id, now)?;
-
-    conn.execute(
-        "INSERT INTO time_entries (task_id, entry_type, duration_seconds, started_at, ended_at, created_at)
-         VALUES (?, 'manual', ?, ?, ?, ?)",
-        (task_id, duration_seconds, now - duration_seconds, now, now),
+    let project_id = get_or_create_system_project(
+        &conn,
+        BREAK_PROJECT_NAME,
+        BREAK_PROJECT_DESCRIPTION,
+        BREAK_PROJECT_COLOR,
+        now,
+    )?;
+    let task_id = get_or_create_system_task(
+        &conn,
+        project_id,
+        BREAK_TASK_TITLE,
+        BREAK_TASK_DESCRIPTION,
+        now,
     )?;
 
-    apply_task_and_parent_time_delta(&conn, task_id, duration_seconds)?;
+    insert_manual_time_entry(&conn, task_id, duration_seconds, now)?;
+    Ok(())
+}
+
+pub fn log_afk_time(db: &DbConnection, category_name: &str, duration_seconds: i64) -> Result<()> {
+    if duration_seconds <= 0 {
+        return Ok(());
+    }
+
+    let trimmed_name = category_name.trim();
+    if trimmed_name.is_empty() {
+        return Err(AppError::InvalidInput(
+            "AFK category name cannot be empty".to_string(),
+        ));
+    }
+
+    let conn = db.lock();
+    let now = get_timestamp();
+    let project_id = get_or_create_system_project(
+        &conn,
+        AFK_PROJECT_NAME,
+        AFK_PROJECT_DESCRIPTION,
+        AFK_PROJECT_COLOR,
+        now,
+    )?;
+    let task_description = format!("Auto-generated task for {} away time", trimmed_name);
+    let task_id =
+        get_or_create_system_task(&conn, project_id, trimmed_name, &task_description, now)?;
+
+    insert_manual_time_entry(&conn, task_id, duration_seconds, now)?;
     Ok(())
 }

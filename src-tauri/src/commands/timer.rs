@@ -38,3 +38,12 @@ pub fn reset_timer(db: State<DbConnection>) -> Result<()> {
 pub fn log_break_time(db: State<DbConnection>, duration_seconds: i64) -> Result<()> {
     timer_service::log_break_time(db.inner(), duration_seconds)
 }
+
+#[tauri::command]
+pub fn log_afk_time(
+    db: State<DbConnection>,
+    category_name: String,
+    duration_seconds: i64,
+) -> Result<()> {
+    timer_service::log_afk_time(db.inner(), &category_name, duration_seconds)
+}

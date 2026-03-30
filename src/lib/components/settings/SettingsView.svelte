@@ -8,8 +8,8 @@
     } from "$lib/stores/ui.svelte";
     import { googleCalendarStore } from "$lib/stores/google-calendar.svelte";
     import { projectStore } from "$lib/stores/projects.svelte";
-    import { taskStore } from "$lib/stores/tasks.svelte";
     import { timerStore } from "$lib/stores/timer.svelte";
+    import { afkCategoryStore } from "$lib/stores/afk-categories.svelte";
     import { db } from "$lib/services/db";
     import { getVersion } from "@tauri-apps/api/app";
     import { check } from "@tauri-apps/plugin-updater";
@@ -49,6 +49,8 @@
     let showBreakIntervalConfirm = $state(false);
     let pendingBreakInterval = $state<number | null>(null);
     let breakIntervalSelectValue = $state("30");
+    let newAfkCategory = $state("");
+    let afkCategoryError = $state("");
 
     let appVersion = $state("");
     let updateStatus = $state<
@@ -64,6 +66,7 @@
     let updateProgress = $state(0);
 
     onMount(async () => {
+        afkCategoryStore.init();
         breakIntervalSelectValue = String(
             timerStore.breakReminderIntervalMinutes,
         );
@@ -240,6 +243,28 @@
             timerStore.breakReminderIntervalMinutes,
         );
     }
+
+    function addAfkCategory() {
+        const result = afkCategoryStore.addCategory(newAfkCategory);
+        if (!result.added) {
+            afkCategoryError = result.error;
+            return;
+        }
+
+        afkCategoryError = "";
+        newAfkCategory = "";
+    }
+
+    function removeAfkCategory(category: string) {
+        afkCategoryStore.removeCategory(category);
+        afkCategoryError = "";
+    }
+
+    function handleAfkCategoryKeydown(event: KeyboardEvent) {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        addAfkCategory();
+    }
 </script>
 
 <div class="settings-view" transition:fade={{ duration: 200 }}>
@@ -411,6 +436,70 @@
                             <option value={String(opt.value)}>{opt.label}</option>
                         {/each}
                     </select>
+                </div>
+            </div>
+
+            <div class="setting-item setting-item-stack">
+                <div class="setting-info">
+                    <span class="setting-label" id="afk-categories-label"
+                        >AFK Categories</span
+                    >
+                    <span class="setting-desc">
+                        Used by the welcome-back screen to categorize away time.
+                        <strong>Current task related</strong> is always available
+                        when a timer exists.
+                    </span>
+                </div>
+
+                <div class="afk-category-manager" aria-labelledby="afk-categories-label">
+                    <div class="afk-built-in-pill">
+                        Built in: Current task related
+                    </div>
+
+                    {#if afkCategoryStore.customCategories.length > 0}
+                        <div class="afk-category-list">
+                            {#each afkCategoryStore.customCategories as category}
+                                <div class="afk-category-pill">
+                                    <span>{category}</span>
+                                    <button
+                                        type="button"
+                                        class="afk-remove-btn"
+                                        aria-label={`Remove ${category} AFK category`}
+                                        onclick={() => removeAfkCategory(category)}
+                                    >
+                                        Remove
+                                    </button>
+                                </div>
+                            {/each}
+                        </div>
+                    {:else}
+                        <p class="afk-category-empty">
+                            No custom AFK categories yet.
+                        </p>
+                    {/if}
+
+                    <div class="afk-category-add-row">
+                        <input
+                            class="input afk-category-input"
+                            type="text"
+                            placeholder="Add category like Meeting"
+                            bind:value={newAfkCategory}
+                            onkeydown={handleAfkCategoryKeydown}
+                        />
+                        <button
+                            type="button"
+                            class="btn btn-secondary btn-sm"
+                            onclick={addAfkCategory}
+                        >
+                            Add
+                        </button>
+                    </div>
+
+                    {#if afkCategoryError}
+                        <p class="afk-category-error" role="alert">
+                            {afkCategoryError}
+                        </p>
+                    {/if}
                 </div>
             </div>
 
@@ -747,6 +836,11 @@
         border-bottom: 1px solid var(--border-light);
     }
 
+    .setting-item-stack {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
     .setting-item:last-child {
         border-bottom: none;
     }
@@ -771,6 +865,11 @@
     .setting-desc {
         font-size: 11px;
         color: var(--text-tertiary);
+    }
+
+    .setting-desc strong {
+        color: var(--text-secondary);
+        font-weight: 600;
     }
 
     /* Toggle Switch */
@@ -853,6 +952,78 @@
     .setting-native-select {
         min-width: 140px;
         padding-right: 32px;
+    }
+
+    .afk-category-manager {
+        display: flex;
+        flex-direction: column;
+        gap: var(--spacing-sm);
+        width: 100%;
+    }
+
+    .afk-built-in-pill {
+        align-self: flex-start;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+        background: color-mix(in srgb, var(--accent) 10%, var(--bg-primary));
+        color: var(--text-secondary);
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .afk-category-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .afk-category-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: var(--bg-primary);
+        border: 1px solid var(--border);
+        color: var(--text-secondary);
+        font-size: 12px;
+    }
+
+    .afk-remove-btn {
+        border: none;
+        background: transparent;
+        color: var(--danger);
+        font-size: 11px;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 0;
+    }
+
+    .afk-remove-btn:hover {
+        color: var(--text-primary);
+    }
+
+    .afk-category-empty {
+        color: var(--text-tertiary);
+        font-size: 11px;
+    }
+
+    .afk-category-add-row {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        width: 100%;
+    }
+
+    .afk-category-input {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .afk-category-error {
+        color: var(--danger);
+        font-size: 11px;
     }
 
     .theme-select {

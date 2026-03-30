@@ -1,24 +1,72 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import { fade, scale } from "svelte/transition";
-    import { db } from "$lib/services/db";
     import { emit } from "@tauri-apps/api/event";
+    import { db } from "$lib/services/db";
+    import {
+        afkCategoryStore,
+        CURRENT_TASK_RELATED_CATEGORY_ID,
+    } from "$lib/stores/afk-categories.svelte";
 
     let taskId = $state<number | null>(null);
     let taskTitle = $state("");
     let awayTimeSeconds = $state(0);
+    let selectedCategoryId = $state("");
     let sending = $state(false);
     let mounted = $state(false);
 
+    let reasonOptions = $derived(afkCategoryStore.buildOptions(taskId !== null));
+    let selectedReason = $derived(
+        reasonOptions.find((option) => option.id === selectedCategoryId) ??
+            reasonOptions[0] ??
+            null,
+    );
+    let hasReasonOptions = $derived(reasonOptions.length > 0);
+    let isCurrentTaskRelated = $derived(
+        selectedReason?.id === CURRENT_TASK_RELATED_CATEGORY_ID,
+    );
+    let primaryActionLabel = $derived(
+        isCurrentTaskRelated
+            ? "Add to task and resume"
+            : "Log reason and resume task",
+    );
+    let openAppLabel = $derived(
+        hasReasonOptions
+            ? taskId !== null
+                ? "Save and open app"
+                : "Save and continue"
+            : "Open app",
+    );
+    let reasonHint = $derived.by(() => {
+        if (!selectedReason) {
+            return "No AFK categories are configured yet.";
+        }
+
+        if (selectedReason.id === CURRENT_TASK_RELATED_CATEGORY_ID) {
+            return "Use this when the away time still belongs to the task you were working on.";
+        }
+
+        return `This time will be tracked under ${selectedReason.label}.`;
+    });
+
     onMount(() => {
-        const theme = window.__RESUME_DATA__?.theme || localStorage.getItem("theme") || "light";
+        const theme =
+            window.__RESUME_DATA__?.theme ||
+            localStorage.getItem("theme") ||
+            "light";
         document.documentElement.setAttribute("data-theme", theme);
+
+        afkCategoryStore.init();
 
         if (window.__RESUME_DATA__) {
             taskId = window.__RESUME_DATA__.taskId;
             taskTitle = window.__RESUME_DATA__.taskTitle;
             awayTimeSeconds = window.__RESUME_DATA__.awayTimeSeconds;
         }
+
+        selectedCategoryId = afkCategoryStore.getDefaultSelection(
+            taskId !== null,
+        );
 
         requestAnimationFrame(() => {
             mounted = true;
@@ -29,62 +77,68 @@
         if (seconds < 60) {
             return `${seconds} sec`;
         }
-        const m = Math.floor(seconds / 60);
-        const s = seconds % 60;
-        if (m < 60) {
-            return `${m}m ${s}s`;
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+        if (minutes < 60) {
+            return `${minutes}m ${remainingSeconds}s`;
         }
-        const h = Math.floor(m / 60);
-        const remainingM = m % 60;
-        return `${h}h ${remainingM}m`;
+        const hours = Math.floor(minutes / 60);
+        const remainingMinutes = minutes % 60;
+        return `${hours}h ${remainingMinutes}m`;
     }
 
-    async function resumeTask() {
-        if (sending || !taskId) return;
+    async function logSelectedAwayTime() {
+        if (awayTimeSeconds <= 0 || !selectedReason) {
+            return;
+        }
+
+        if (
+            selectedReason.id === CURRENT_TASK_RELATED_CATEGORY_ID &&
+            taskId !== null
+        ) {
+            await db.timeEntries.createManualEntry(taskId, awayTimeSeconds);
+            await emit("timer:away-time-logged", {
+                affectsVisibleTaskTotals: true,
+            });
+            return;
+        }
+
+        await db.timeEntries.logAfkTime(selectedReason.label, awayTimeSeconds);
+        await emit("timer:away-time-logged", {
+            affectsVisibleTaskTotals: false,
+        });
+    }
+
+    async function completeAndResume() {
+        if (sending) return;
         sending = true;
-        
+
         try {
-            // Log the time away as a break
-            if (awayTimeSeconds > 0) {
-                try {
-                    await db.timeEntries.logBreakTime(awayTimeSeconds);
-                } catch (logErr) {
-                    console.error("[resume] Error logging break time:", logErr);
-                }
+            await logSelectedAwayTime();
+
+            if (taskId !== null) {
+                await db.timer.resume();
+                await emit("break:action", { action: "resume" });
             }
-            
-            // 1. Direct Backend Resume (Primary action)
-            await db.timer.resume();
-            
-            // 2. Emitting to main window (For frontend store synchronization)
-            await emit("break:action", { action: "resume" });
-            
-            // 3. Focus and Close
+
             await db.window.focusMain();
             await db.window.closeResume();
-        } catch (e) {
-            console.error("[resume] Error resuming task:", e);
+        } catch (error) {
+            console.error("[resume] Error saving away time and resuming:", error);
             sending = false;
         }
     }
 
-    async function switchTask() {
+    async function openApp() {
         if (sending) return;
         sending = true;
+
         try {
-            // Log the time away as a break
-            if (awayTimeSeconds > 0) {
-                try {
-                    await db.timeEntries.logBreakTime(awayTimeSeconds);
-                } catch (logErr) {
-                    // silently fail logging if it happens
-                }
-            }
-            
+            await logSelectedAwayTime();
             await db.window.focusMain();
             await db.window.closeResume();
-        } catch (e) {
-            console.error("[resume] Error switching task:", e);
+        } catch (error) {
+            console.error("[resume] Error saving away time:", error);
             sending = false;
         }
     }
@@ -99,7 +153,6 @@
 </script>
 
 <div class="shell" class:mounted>
-    <!-- Drag region -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="drag-bar" onmousedown={dragWindow} role="presentation">
         <div class="drag-dots">
@@ -107,9 +160,9 @@
         </div>
         <button
             class="close-btn"
-            onclick={switchTask}
-            title="Close"
-            aria-label="Close resume window"
+            onclick={openApp}
+            title="Open app"
+            aria-label="Open app"
         >
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                 <path
@@ -122,7 +175,6 @@
         </button>
     </div>
 
-    <!-- Content -->
     <div class="content">
         <div class="icon-ring" in:scale={{ duration: 400, delay: 100 }}>
             <span class="icon">👋</span>
@@ -131,22 +183,46 @@
         <div class="text-block">
             <h1 class="title">Welcome Back</h1>
             <p class="subtitle">
-                You have been away for <strong>{formatTime(awayTimeSeconds)}</strong>.
+                You were away for <strong>{formatTime(awayTimeSeconds)}</strong>.
+                Pick the best match so we can log the time correctly.
             </p>
         </div>
 
-        {#if taskId && taskTitle}
+        {#if taskId !== null && taskTitle}
             <div class="task-info" in:fade={{ duration: 200, delay: 150 }}>
                 <span class="task-label">Current Task</span>
                 <span class="task-title-text">{taskTitle}</span>
             </div>
         {/if}
 
-        <div class="actions" in:fade={{ duration: 200, delay: 200 }}>
-            {#if taskId}
+        {#if hasReasonOptions}
+            <div class="reason-panel" in:fade={{ duration: 200, delay: 175 }}>
+                <label class="reason-label" for="afk-reason-select">
+                    Why were you away?
+                </label>
+                <select
+                    id="afk-reason-select"
+                    class="reason-select"
+                    bind:value={selectedCategoryId}
+                    disabled={sending}
+                >
+                    {#each reasonOptions as option}
+                        <option value={option.id}>{option.label}</option>
+                    {/each}
+                </select>
+                <p class="reason-hint">{reasonHint}</p>
+            </div>
+        {:else}
+            <div class="reason-empty" in:fade={{ duration: 200, delay: 175 }}>
+                Add AFK categories in Settings to track this time here.
+            </div>
+        {/if}
+
+        <div class="actions" in:fade={{ duration: 200, delay: 220 }}>
+            {#if taskId !== null}
                 <button
                     class="btn btn-primary"
-                    onclick={resumeTask}
+                    onclick={completeAndResume}
                     disabled={sending}
                 >
                     <svg
@@ -155,15 +231,18 @@
                         viewBox="0 0 24 24"
                         fill="currentColor"><path d="M8 5v14l11-7z" /></svg
                     >
-                    Resume Task
+                    {primaryActionLabel}
                 </button>
             {/if}
+
             <button
-                class="btn btn-ghost"
-                onclick={switchTask}
+                class="btn"
+                class:btn-primary={taskId === null}
+                class:btn-ghost={taskId !== null}
+                onclick={openApp}
                 disabled={sending}
             >
-                Switch to different task
+                {openAppLabel}
             </button>
         </div>
     </div>
@@ -262,7 +341,7 @@
         align-items: center;
         justify-content: center;
         padding: 24px 28px 28px;
-        gap: 16px;
+        gap: 14px;
         text-align: center;
     }
 
@@ -270,7 +349,10 @@
         width: 64px;
         height: 64px;
         border-radius: 50%;
-        background: var(--accent-light, color-mix(in srgb, var(--accent) 12%, transparent));
+        background: var(
+            --accent-light,
+            color-mix(in srgb, var(--accent) 12%, transparent)
+        );
         display: flex;
         align-items: center;
         justify-content: center;
@@ -302,25 +384,27 @@
         line-height: 1.6;
         opacity: 0.85;
     }
-    
+
     .subtitle strong {
         color: var(--text-primary);
         font-weight: 600;
     }
 
-    .task-info {
+    .task-info,
+    .reason-panel {
         background: var(--bg-secondary);
         border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 10px 16px;
+        border-radius: 10px;
+        padding: 12px 14px;
         display: flex;
         flex-direction: column;
-        gap: 4px;
+        gap: 6px;
         width: 100%;
         text-align: left;
     }
 
-    .task-label {
+    .task-label,
+    .reason-label {
         font-size: 11px;
         text-transform: uppercase;
         letter-spacing: 0.05em;
@@ -337,12 +421,38 @@
         text-overflow: ellipsis;
     }
 
+    .reason-select {
+        width: 100%;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        padding: 10px 12px;
+        font-size: 13px;
+        font-family: inherit;
+    }
+
+    .reason-hint,
+    .reason-empty {
+        font-size: 12px;
+        color: var(--text-secondary);
+        line-height: 1.5;
+    }
+
+    .reason-empty {
+        width: 100%;
+        padding: 12px 14px;
+        border-radius: 10px;
+        border: 1px dashed var(--border);
+        background: color-mix(in srgb, var(--bg-secondary) 60%, transparent);
+    }
+
     .actions {
         display: flex;
         flex-direction: column;
         gap: 8px;
         width: 100%;
-        margin-top: 4px;
+        margin-top: 2px;
     }
 
     .btn {
