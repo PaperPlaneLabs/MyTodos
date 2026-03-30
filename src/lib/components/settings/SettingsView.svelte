@@ -465,9 +465,23 @@
                                         type="button"
                                         class="afk-remove-btn"
                                         aria-label={`Remove ${category} AFK category`}
+                                        title={`Remove ${category}`}
                                         onclick={() => removeAfkCategory(category)}
                                     >
-                                        Remove
+                                        <svg
+                                            width="10"
+                                            height="10"
+                                            viewBox="0 0 10 10"
+                                            fill="none"
+                                            aria-hidden="true"
+                                        >
+                                            <path
+                                                d="M1 1l8 8M9 1l-8 8"
+                                                stroke="currentColor"
+                                                stroke-width="1.5"
+                                                stroke-linecap="round"
+                                            />
+                                        </svg>
                                     </button>
                                 </div>
                             {/each}
@@ -991,16 +1005,25 @@
     }
 
     .afk-remove-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 18px;
+        height: 18px;
+        border-radius: 999px;
         border: none;
         background: transparent;
         color: var(--danger);
-        font-size: 11px;
-        font-weight: 600;
         cursor: pointer;
         padding: 0;
+        flex-shrink: 0;
+        transition:
+            background-color var(--transition-fast),
+            color var(--transition-fast);
     }
 
     .afk-remove-btn:hover {
+        background: color-mix(in srgb, var(--danger) 14%, transparent);
         color: var(--text-primary);
     }
 
