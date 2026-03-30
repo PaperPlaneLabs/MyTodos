@@ -178,6 +178,16 @@ export const db = {
   },
 
   timeEntries: {
+    createManualEntry: (
+      taskId: number,
+      durationSeconds: number,
+      note?: string,
+    ) =>
+      invoke<TimeEntry>("create_manual_entry", {
+        taskId,
+        durationSeconds,
+        note,
+      }),
     getWithTasks: (startDate: string, endDate: string) =>
       invoke<TimeEntryWithTask[]>("get_time_entries_with_tasks", { startDate, endDate }),
     delete: (id: number) => invoke<void>("delete_time_entry", { id }),
@@ -187,6 +197,11 @@ export const db = {
       invoke<TimeStats>("get_time_stats", { includeActiveTimer }),
     logBreakTime: (seconds: number) =>
       invoke<void>("log_break_time", { durationSeconds: seconds }),
+    logAfkTime: (categoryName: string, seconds: number) =>
+      invoke<void>("log_afk_time", {
+        categoryName,
+        durationSeconds: seconds,
+      }),
   },
 
   window: {

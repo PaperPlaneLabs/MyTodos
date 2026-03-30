@@ -119,7 +119,7 @@
     font-family: var(--font-mono);
     font-size: 20px;
     font-weight: 700;
-    color: var(--success-contrast);
+    color: var(--text-primary);
     letter-spacing: 0.5px;
   }
 
