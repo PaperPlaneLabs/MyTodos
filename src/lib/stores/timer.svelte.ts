@@ -19,6 +19,19 @@ async function refreshDailyTotal(): Promise<void> {
   );
 }
 
+async function syncVisibleTimeData(): Promise<void> {
+  const projectId = projectStore.selectedId;
+
+  await projectStore.loadAll();
+  if (projectId !== null) {
+    await taskStore.loadByProject(projectId);
+  } else {
+    await taskStore.loadByProject(null);
+  }
+
+  await refreshDailyTotal();
+}
+
 const timerRuntime = createTimerRuntimeController({
   getActiveTimer: () => activeTimer,
   getCurrentProjectId: () => currentProjectId,
@@ -295,4 +308,11 @@ registerTimerEventHandlers({
   onDismiss: () => timerStore.dismissBreakReminder(),
   onSnooze: () => timerStore.snoozeBreakReminder(),
   onResume: () => timerStore.resume(),
+  onAwayTimeLogged: async ({ affectsVisibleTaskTotals }) => {
+    if (affectsVisibleTaskTotals) {
+      await syncVisibleTimeData();
+    }
+
+    timerChangeCounter++;
+  },
 });

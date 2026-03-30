@@ -37,3 +37,29 @@
 - The original six Svelte accessibility warnings are resolved.
 - I did not run live screen-reader testing in this pass, so the remaining risk is behavioral rather than lint-level:
   Focus order, announcement quality, and keyboard reordering should still be spot-checked manually with NVDA/VoiceOver in the running Tauri app.
+
+# Welcome-Back AFK Categories Walkthrough
+
+## What Changed
+- Added a shared AFK category store in [afk-categories.svelte.ts](/f:/personal_projects/MyTodos/src/lib/stores/afk-categories.svelte.ts) backed by `localStorage`, with default categories of `Meeting`, `Lunch`, and `Snack`, plus a built-in `Current task related` option for the welcome-back flow.
+- Expanded Settings in [SettingsView.svelte](/f:/personal_projects/MyTodos/src/lib/components/settings/SettingsView.svelte) so AFK categories can be added and removed without editing code.
+- Reworked the welcome-back experience in [ResumeView.svelte](/f:/personal_projects/MyTodos/src/lib/components/resume/ResumeView.svelte):
+  The window now asks why the user was away, can attribute the away time back to the active task, or log it under a named AFK category before resuming or returning to the app.
+- Extended the backend time-logging path in [timer_service.rs](/f:/personal_projects/MyTodos/src-tauri/src/services/timer_service.rs), [timer.rs](/f:/personal_projects/MyTodos/src-tauri/src/commands/timer.rs), and [db.ts](/f:/personal_projects/MyTodos/src/lib/services/db.ts):
+  Named AFK categories now use the existing system-project/task pattern under an `Away` system project, while current-task-related away time uses a normal manual entry against the active task.
+- Added a cross-window sync event in [timer-events.ts](/f:/personal_projects/MyTodos/src/lib/stores/timer-events.ts) and [timer.svelte.ts](/f:/personal_projects/MyTodos/src/lib/stores/timer.svelte.ts) so stats and visible task/project totals refresh after the resume window logs away time.
+
+## Verification
+- `cargo test test_log_afk_time -- --nocapture`
+  Result: passed, including the new named-AFK logging regression tests in [timer_tests.rs](/f:/personal_projects/MyTodos/src-tauri/tests/timer_tests.rs)
+- `npm run check`
+  Result: 0 errors, 0 warnings
+
+## Notes
+- I increased the resume window height in [window.rs](/f:/personal_projects/MyTodos/src-tauri/src/commands/window.rs) so the new reason picker fits without crowding.
+- Follow-up stabilization:
+  The AFK category store now loads its initial state without mutating Svelte state during derived/template evaluation, and [+page.svelte](/f:/personal_projects/MyTodos/src/routes/+page.svelte) now skips the main-app bootstrap for the `break` and `resume` windows so child windows stay isolated.
+- Layout refinement:
+  The welcome-back window now keeps its action buttons pinned at the bottom, moves overflow into the content/chip area, and uses a slightly taller resume window so `Resume Task` and `Switch to different task` stay reachable without full-window scrolling in normal use.
+- I did not run a live Tauri interaction test for the full lock/unlock workflow in this pass, so the remaining risk is manual UX validation:
+  The welcome-back window should still be clicked through once to confirm the reason picker, resume button, and “save and open app” path all feel right in the desktop app.

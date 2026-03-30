@@ -1,18 +1,48 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import { fade, scale } from "svelte/transition";
-    import { db } from "$lib/services/db";
     import { emit } from "@tauri-apps/api/event";
+    import { db } from "$lib/services/db";
+    import {
+        afkCategoryStore,
+        CURRENT_TASK_RELATED_CATEGORY_ID,
+    } from "$lib/stores/afk-categories.svelte";
 
     let taskId = $state<number | null>(null);
     let taskTitle = $state("");
     let awayTimeSeconds = $state(0);
+    let selectedCategoryId = $state("");
     let sending = $state(false);
     let mounted = $state(false);
 
+    let hasSelectableReasons = $derived(
+        taskId !== null || afkCategoryStore.customCategories.length > 0,
+    );
+    let isCurrentTaskRelated = $derived(
+        selectedCategoryId === CURRENT_TASK_RELATED_CATEGORY_ID,
+    );
+    let reasonHint = $derived.by(() => {
+        if (isCurrentTaskRelated) {
+            return taskTitle
+                ? `Away time will be added to ${taskTitle} before you continue.`
+                : "Away time will be added to the current task before you continue.";
+        }
+
+        if (selectedCategoryId) {
+            return `Away time will be tracked under ${selectedCategoryId}.`;
+        }
+
+        return "If you leave this unselected, the away time will be logged as Break.";
+    });
+
     onMount(() => {
-        const theme = window.__RESUME_DATA__?.theme || localStorage.getItem("theme") || "light";
+        const theme =
+            window.__RESUME_DATA__?.theme ||
+            localStorage.getItem("theme") ||
+            "light";
         document.documentElement.setAttribute("data-theme", theme);
+
+        afkCategoryStore.init();
 
         if (window.__RESUME_DATA__) {
             taskId = window.__RESUME_DATA__.taskId;
@@ -29,41 +59,65 @@
         if (seconds < 60) {
             return `${seconds} sec`;
         }
-        const m = Math.floor(seconds / 60);
-        const s = seconds % 60;
-        if (m < 60) {
-            return `${m}m ${s}s`;
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+        if (minutes < 60) {
+            return `${minutes}m ${remainingSeconds}s`;
         }
-        const h = Math.floor(m / 60);
-        const remainingM = m % 60;
-        return `${h}h ${remainingM}m`;
+        const hours = Math.floor(minutes / 60);
+        const remainingMinutes = minutes % 60;
+        return `${hours}h ${remainingMinutes}m`;
+    }
+
+    function toggleCategory(categoryId: string) {
+        if (sending) return;
+        selectedCategoryId =
+            selectedCategoryId === categoryId ? "" : categoryId;
+    }
+
+    async function logSelectedAwayTime() {
+        if (awayTimeSeconds <= 0) {
+            return;
+        }
+
+        if (isCurrentTaskRelated && taskId !== null) {
+            await db.timeEntries.createManualEntry(taskId, awayTimeSeconds);
+            await emit("timer:away-time-logged", {
+                affectsVisibleTaskTotals: true,
+            });
+            return;
+        }
+
+        if (selectedCategoryId) {
+            await db.timeEntries.logAfkTime(selectedCategoryId, awayTimeSeconds);
+            await emit("timer:away-time-logged", {
+                affectsVisibleTaskTotals: false,
+            });
+            return;
+        }
+
+        await db.timeEntries.logBreakTime(awayTimeSeconds);
+        await emit("timer:away-time-logged", {
+            affectsVisibleTaskTotals: false,
+        });
     }
 
     async function resumeTask() {
-        if (sending || !taskId) return;
+        if (sending) return;
         sending = true;
-        
+
         try {
-            // Log the time away as a break
-            if (awayTimeSeconds > 0) {
-                try {
-                    await db.timeEntries.logBreakTime(awayTimeSeconds);
-                } catch (logErr) {
-                    console.error("[resume] Error logging break time:", logErr);
-                }
+            await logSelectedAwayTime();
+
+            if (taskId !== null) {
+                await db.timer.resume();
+                await emit("break:action", { action: "resume" });
             }
-            
-            // 1. Direct Backend Resume (Primary action)
-            await db.timer.resume();
-            
-            // 2. Emitting to main window (For frontend store synchronization)
-            await emit("break:action", { action: "resume" });
-            
-            // 3. Focus and Close
+
             await db.window.focusMain();
             await db.window.closeResume();
-        } catch (e) {
-            console.error("[resume] Error resuming task:", e);
+        } catch (error) {
+            console.error("[resume] Error saving away time and resuming:", error);
             sending = false;
         }
     }
@@ -71,20 +125,13 @@
     async function switchTask() {
         if (sending) return;
         sending = true;
+
         try {
-            // Log the time away as a break
-            if (awayTimeSeconds > 0) {
-                try {
-                    await db.timeEntries.logBreakTime(awayTimeSeconds);
-                } catch (logErr) {
-                    // silently fail logging if it happens
-                }
-            }
-            
+            await logSelectedAwayTime();
             await db.window.focusMain();
             await db.window.closeResume();
-        } catch (e) {
-            console.error("[resume] Error switching task:", e);
+        } catch (error) {
+            console.error("[resume] Error saving away time:", error);
             sending = false;
         }
     }
@@ -99,7 +146,6 @@
 </script>
 
 <div class="shell" class:mounted>
-    <!-- Drag region -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="drag-bar" onmousedown={dragWindow} role="presentation">
         <div class="drag-dots">
@@ -122,28 +168,70 @@
         </button>
     </div>
 
-    <!-- Content -->
     <div class="content">
-        <div class="icon-ring" in:scale={{ duration: 400, delay: 100 }}>
-            <span class="icon">👋</span>
-        </div>
-
-        <div class="text-block">
-            <h1 class="title">Welcome Back</h1>
-            <p class="subtitle">
-                You have been away for <strong>{formatTime(awayTimeSeconds)}</strong>.
-            </p>
-        </div>
-
-        {#if taskId && taskTitle}
-            <div class="task-info" in:fade={{ duration: 200, delay: 150 }}>
-                <span class="task-label">Current Task</span>
-                <span class="task-title-text">{taskTitle}</span>
+        <div class="content-main">
+            <div class="icon-ring" in:scale={{ duration: 400, delay: 100 }}>
+                <span class="icon">👋</span>
             </div>
-        {/if}
 
-        <div class="actions" in:fade={{ duration: 200, delay: 200 }}>
-            {#if taskId}
+            <div class="text-block">
+                <h1 class="title">Welcome Back</h1>
+                <p class="subtitle">
+                    You were away for
+                    <strong>{formatTime(awayTimeSeconds)}</strong>.
+                </p>
+            </div>
+
+            {#if taskId !== null && taskTitle}
+                <div class="task-info" in:fade={{ duration: 200, delay: 150 }}>
+                    <span class="task-label">Current Task</span>
+                    <span class="task-title-text">{taskTitle}</span>
+                </div>
+            {/if}
+
+            {#if hasSelectableReasons}
+                <div class="reason-panel" in:fade={{ duration: 200, delay: 175 }}>
+                    <span class="reason-label">AFK Category</span>
+                    <div class="break-default-pill">Default: Break</div>
+                    <div class="reason-chip-list">
+                        {#if taskId !== null}
+                            <button
+                                type="button"
+                                class="reason-chip reason-chip-current"
+                                class:active={isCurrentTaskRelated}
+                                onclick={() =>
+                                    toggleCategory(
+                                        CURRENT_TASK_RELATED_CATEGORY_ID,
+                                    )}
+                                disabled={sending}
+                            >
+                                Current task related
+                            </button>
+                        {/if}
+
+                        {#each afkCategoryStore.customCategories as category}
+                            <button
+                                type="button"
+                                class="reason-chip"
+                                class:active={selectedCategoryId === category}
+                                onclick={() => toggleCategory(category)}
+                                disabled={sending}
+                            >
+                                {category}
+                            </button>
+                        {/each}
+                    </div>
+                    <p class="reason-hint">{reasonHint}</p>
+                </div>
+            {:else}
+                <div class="reason-empty" in:fade={{ duration: 200, delay: 175 }}>
+                    No AFK categories yet. Away time will be logged as Break.
+                </div>
+            {/if}
+        </div>
+
+        <div class="actions" in:fade={{ duration: 200, delay: 220 }}>
+            {#if taskId !== null}
                 <button
                     class="btn btn-primary"
                     onclick={resumeTask}
@@ -158,12 +246,15 @@
                     Resume Task
                 </button>
             {/if}
+
             <button
-                class="btn btn-ghost"
+                class="btn"
+                class:btn-primary={taskId === null}
+                class:btn-ghost={taskId !== null}
                 onclick={switchTask}
                 disabled={sending}
             >
-                Switch to different task
+                {taskId !== null ? "Switch to different task" : "Open app"}
             </button>
         </div>
     </div>
@@ -260,17 +351,32 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
-        padding: 24px 28px 28px;
-        gap: 16px;
+        padding: 18px 22px 22px;
+        gap: 12px;
         text-align: center;
+        overflow: hidden;
+        min-height: 0;
+    }
+
+    .content-main {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 2px 4px 0 0;
     }
 
     .icon-ring {
-        width: 64px;
-        height: 64px;
+        width: 56px;
+        height: 56px;
         border-radius: 50%;
-        background: var(--accent-light, color-mix(in srgb, var(--accent) 12%, transparent));
+        background: var(
+            --accent-light,
+            color-mix(in srgb, var(--accent) 12%, transparent)
+        );
         display: flex;
         align-items: center;
         justify-content: center;
@@ -278,14 +384,14 @@
     }
 
     .icon {
-        font-size: 30px;
+        font-size: 28px;
         line-height: 1;
     }
 
     .text-block {
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        gap: 4px;
     }
 
     .title {
@@ -302,25 +408,27 @@
         line-height: 1.6;
         opacity: 0.85;
     }
-    
+
     .subtitle strong {
         color: var(--text-primary);
         font-weight: 600;
     }
 
-    .task-info {
+    .task-info,
+    .reason-panel {
         background: var(--bg-secondary);
         border: 1px solid var(--border);
-        border-radius: 8px;
-        padding: 10px 16px;
+        border-radius: 10px;
+        padding: 11px 13px;
         display: flex;
         flex-direction: column;
-        gap: 4px;
+        gap: 8px;
         width: 100%;
         text-align: left;
     }
 
-    .task-label {
+    .task-label,
+    .reason-label {
         font-size: 11px;
         text-transform: uppercase;
         letter-spacing: 0.05em;
@@ -337,12 +445,93 @@
         text-overflow: ellipsis;
     }
 
+    .break-default-pill {
+        align-self: flex-start;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+        background: color-mix(in srgb, var(--accent) 10%, var(--bg-primary));
+        color: var(--text-secondary);
+        font-size: 11px;
+        font-weight: 600;
+    }
+
+    .reason-chip-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        max-height: 110px;
+        overflow-y: auto;
+        padding-right: 4px;
+    }
+
+    .reason-chip {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 6px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: var(--bg-primary);
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-weight: 500;
+        cursor: pointer;
+        transition:
+            background-color 0.15s,
+            border-color 0.15s,
+            color 0.15s,
+            transform 0.1s;
+    }
+
+    .reason-chip:hover:not(:disabled) {
+        border-color: var(--accent);
+        color: var(--text-primary);
+    }
+
+    .reason-chip:active:not(:disabled) {
+        transform: scale(0.98);
+    }
+
+    .reason-chip:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .reason-chip.active {
+        border-color: var(--accent);
+        background: color-mix(in srgb, var(--accent) 15%, var(--bg-primary));
+        color: var(--text-primary);
+    }
+
+    .reason-chip-current {
+        font-weight: 600;
+    }
+
+    .reason-hint,
+    .reason-empty {
+        font-size: 12px;
+        color: var(--text-secondary);
+        line-height: 1.5;
+    }
+
+    .reason-empty {
+        width: 100%;
+        padding: 12px 14px;
+        border-radius: 10px;
+        border: 1px dashed var(--border);
+        background: color-mix(in srgb, var(--bg-secondary) 60%, transparent);
+    }
+
     .actions {
         display: flex;
         flex-direction: column;
         gap: 8px;
         width: 100%;
-        margin-top: 4px;
+        margin-top: auto;
+        padding-top: 12px;
+        border-top: 1px solid var(--border-light, var(--border));
+        flex-shrink: 0;
     }
 
     .btn {
