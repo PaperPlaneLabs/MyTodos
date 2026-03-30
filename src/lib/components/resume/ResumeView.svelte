@@ -169,63 +169,66 @@
     </div>
 
     <div class="content">
-        <div class="icon-ring" in:scale={{ duration: 400, delay: 100 }}>
-            <span class="icon">👋</span>
-        </div>
-
-        <div class="text-block">
-            <h1 class="title">Welcome Back</h1>
-            <p class="subtitle">
-                You were away for <strong>{formatTime(awayTimeSeconds)}</strong>.
-            </p>
-        </div>
-
-        {#if taskId !== null && taskTitle}
-            <div class="task-info" in:fade={{ duration: 200, delay: 150 }}>
-                <span class="task-label">Current Task</span>
-                <span class="task-title-text">{taskTitle}</span>
+        <div class="content-main">
+            <div class="icon-ring" in:scale={{ duration: 400, delay: 100 }}>
+                <span class="icon">👋</span>
             </div>
-        {/if}
 
-        {#if hasSelectableReasons}
-            <div class="reason-panel" in:fade={{ duration: 200, delay: 175 }}>
-                <span class="reason-label">AFK Category</span>
-                <div class="break-default-pill">Default: Break</div>
-                <div class="reason-chip-list">
-                    {#if taskId !== null}
-                        <button
-                            type="button"
-                            class="reason-chip reason-chip-current"
-                            class:active={isCurrentTaskRelated}
-                            onclick={() =>
-                                toggleCategory(
-                                    CURRENT_TASK_RELATED_CATEGORY_ID,
-                                )}
-                            disabled={sending}
-                        >
-                            Current task related
-                        </button>
-                    {/if}
+            <div class="text-block">
+                <h1 class="title">Welcome Back</h1>
+                <p class="subtitle">
+                    You were away for
+                    <strong>{formatTime(awayTimeSeconds)}</strong>.
+                </p>
+            </div>
 
-                    {#each afkCategoryStore.customCategories as category}
-                        <button
-                            type="button"
-                            class="reason-chip"
-                            class:active={selectedCategoryId === category}
-                            onclick={() => toggleCategory(category)}
-                            disabled={sending}
-                        >
-                            {category}
-                        </button>
-                    {/each}
+            {#if taskId !== null && taskTitle}
+                <div class="task-info" in:fade={{ duration: 200, delay: 150 }}>
+                    <span class="task-label">Current Task</span>
+                    <span class="task-title-text">{taskTitle}</span>
                 </div>
-                <p class="reason-hint">{reasonHint}</p>
-            </div>
-        {:else}
-            <div class="reason-empty" in:fade={{ duration: 200, delay: 175 }}>
-                No AFK categories yet. Away time will be logged as Break.
-            </div>
-        {/if}
+            {/if}
+
+            {#if hasSelectableReasons}
+                <div class="reason-panel" in:fade={{ duration: 200, delay: 175 }}>
+                    <span class="reason-label">AFK Category</span>
+                    <div class="break-default-pill">Default: Break</div>
+                    <div class="reason-chip-list">
+                        {#if taskId !== null}
+                            <button
+                                type="button"
+                                class="reason-chip reason-chip-current"
+                                class:active={isCurrentTaskRelated}
+                                onclick={() =>
+                                    toggleCategory(
+                                        CURRENT_TASK_RELATED_CATEGORY_ID,
+                                    )}
+                                disabled={sending}
+                            >
+                                Current task related
+                            </button>
+                        {/if}
+
+                        {#each afkCategoryStore.customCategories as category}
+                            <button
+                                type="button"
+                                class="reason-chip"
+                                class:active={selectedCategoryId === category}
+                                onclick={() => toggleCategory(category)}
+                                disabled={sending}
+                            >
+                                {category}
+                            </button>
+                        {/each}
+                    </div>
+                    <p class="reason-hint">{reasonHint}</p>
+                </div>
+            {:else}
+                <div class="reason-empty" in:fade={{ duration: 200, delay: 175 }}>
+                    No AFK categories yet. Away time will be logged as Break.
+                </div>
+            {/if}
+        </div>
 
         <div class="actions" in:fade={{ duration: 200, delay: 220 }}>
             {#if taskId !== null}
@@ -348,16 +351,27 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: flex-start;
-        padding: 24px 28px 28px;
-        gap: 14px;
+        padding: 18px 22px 22px;
+        gap: 12px;
         text-align: center;
+        overflow: hidden;
+        min-height: 0;
+    }
+
+    .content-main {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        min-height: 0;
         overflow-y: auto;
+        padding: 2px 4px 0 0;
     }
 
     .icon-ring {
-        width: 64px;
-        height: 64px;
+        width: 56px;
+        height: 56px;
         border-radius: 50%;
         background: var(
             --accent-light,
@@ -370,14 +384,14 @@
     }
 
     .icon {
-        font-size: 30px;
+        font-size: 28px;
         line-height: 1;
     }
 
     .text-block {
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        gap: 4px;
     }
 
     .title {
@@ -405,10 +419,10 @@
         background: var(--bg-secondary);
         border: 1px solid var(--border);
         border-radius: 10px;
-        padding: 12px 14px;
+        padding: 11px 13px;
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        gap: 8px;
         width: 100%;
         text-align: left;
     }
@@ -446,6 +460,9 @@
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
+        max-height: 110px;
+        overflow-y: auto;
+        padding-right: 4px;
     }
 
     .reason-chip {
@@ -511,7 +528,10 @@
         flex-direction: column;
         gap: 8px;
         width: 100%;
-        margin-top: 2px;
+        margin-top: auto;
+        padding-top: 12px;
+        border-top: 1px solid var(--border-light, var(--border));
+        flex-shrink: 0;
     }
 
     .btn {

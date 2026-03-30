@@ -59,5 +59,7 @@
 - I increased the resume window height in [window.rs](/f:/personal_projects/MyTodos/src-tauri/src/commands/window.rs) so the new reason picker fits without crowding.
 - Follow-up stabilization:
   The AFK category store now loads its initial state without mutating Svelte state during derived/template evaluation, and [+page.svelte](/f:/personal_projects/MyTodos/src/routes/+page.svelte) now skips the main-app bootstrap for the `break` and `resume` windows so child windows stay isolated.
+- Layout refinement:
+  The welcome-back window now keeps its action buttons pinned at the bottom, moves overflow into the content/chip area, and uses a slightly taller resume window so `Resume Task` and `Switch to different task` stay reachable without full-window scrolling in normal use.
 - I did not run a live Tauri interaction test for the full lock/unlock workflow in this pass, so the remaining risk is manual UX validation:
   The welcome-back window should still be clicked through once to confirm the reason picker, resume button, and “save and open app” path all feel right in the desktop app.
