@@ -63,7 +63,10 @@
       "Bash(python:*)",
       "Bash(powershell:*)",
       "Bash(del \"F:\\\\personal_projects\\\\MyTodos\\\\_test_env.ps1\")",
-      "Bash(del \"F:\\\\personal_projects\\\\MyTodos\\\\_sign_and_upload.ps1\")"
+      "Bash(del \"F:\\\\personal_projects\\\\MyTodos\\\\_sign_and_upload.ps1\")",
+      "Bash(git -C \"F:\\\\personal_projects\\\\MyTodos\" log --oneline --all)",
+      "Bash(git -C \"F:\\\\personal_projects\\\\MyTodos\" log --all --full-history -- .env)",
+      "Bash(git -C \"F:\\\\personal_projects\\\\MyTodos\" log --all --full-history -- \"~/.tauri/myapp.key\")"
     ]
   }
 }
