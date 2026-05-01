@@ -8,6 +8,7 @@ pub mod time_entries;
 pub mod time_stats;
 pub mod timer;
 pub mod window;
+pub mod window_tracking;
 
 pub use calendar::*;
 pub use google_calendar::*;
@@ -18,3 +19,4 @@ pub use time_entries::*;
 pub use time_stats::*;
 pub use timer::*;
 pub use window::*;
+pub use window_tracking::*;

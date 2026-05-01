@@ -77,6 +77,31 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
             updated_at INTEGER NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS app_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
+            updated_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS window_activity_entries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            app_identifier TEXT NOT NULL,
+            app_name TEXT NOT NULL,
+            started_at INTEGER NOT NULL,
+            ended_at INTEGER NOT NULL,
+            duration_seconds INTEGER NOT NULL,
+            created_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS active_window_tracking (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            app_identifier TEXT NOT NULL,
+            app_name TEXT NOT NULL,
+            app_started_at INTEGER NOT NULL,
+            work_started_at INTEGER NOT NULL,
+            last_seen_at INTEGER NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS calendar_events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT NOT NULL,
@@ -173,6 +198,14 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
     );
     let _ = conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_tasks_is_system ON tasks(is_system)",
+        [],
+    );
+    let _ = conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_window_activity_started_at ON window_activity_entries(started_at)",
+        [],
+    );
+    let _ = conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_window_activity_app ON window_activity_entries(app_identifier)",
         [],
     );
 

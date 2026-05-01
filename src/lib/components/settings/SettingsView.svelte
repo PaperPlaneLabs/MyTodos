@@ -9,6 +9,7 @@
     import { googleCalendarStore } from "$lib/stores/google-calendar.svelte";
     import { projectStore } from "$lib/stores/projects.svelte";
     import { timerStore } from "$lib/stores/timer.svelte";
+    import { windowTrackingStore } from "$lib/stores/window-tracking.svelte";
     import { afkCategoryStore } from "$lib/stores/afk-categories.svelte";
     import { db } from "$lib/services/db";
     import { getVersion } from "@tauri-apps/api/app";
@@ -43,6 +44,7 @@
     );
 
     let isAutoStartEnabled = $state(false);
+    let togglingWindowTracking = $state(false);
     let loading = $state(true);
     let toggling = $state(false);
     let showResetConfirm = $state(false);
@@ -67,6 +69,7 @@
 
     onMount(async () => {
         afkCategoryStore.init();
+        await windowTrackingStore.init();
         breakIntervalSelectValue = String(
             timerStore.breakReminderIntervalMinutes,
         );
@@ -167,7 +170,10 @@
 
     async function handleClearData() {
         try {
-            await timerStore.stop();
+            if (timerStore.active) {
+                await timerStore.stop();
+            }
+            await windowTrackingStore.clearActivity();
             const projects = [...projectStore.projects];
             for (const p of projects) {
                 await projectStore.delete(p.id);
@@ -176,6 +182,24 @@
             showResetConfirm = false;
         } catch (e) {
             console.error("Failed to clear data:", e);
+        }
+    }
+
+    async function toggleWindowTracking() {
+        if (togglingWindowTracking) return;
+        togglingWindowTracking = true;
+
+        try {
+            const nextEnabled = !windowTrackingStore.enabled;
+            if (nextEnabled && timerStore.active) {
+                await timerStore.stop();
+            }
+
+            await windowTrackingStore.setEnabled(nextEnabled);
+        } catch (e) {
+            console.error("Failed to toggle window tracking:", e);
+        } finally {
+            togglingWindowTracking = false;
         }
     }
 
@@ -403,6 +427,34 @@
                     title={timerStore.breakReminderEnabled
                         ? "Disable break reminders"
                         : "Enable break reminders"}
+                >
+                    <span class="toggle-knob"></span>
+                </button>
+            </div>
+
+            <div class="setting-item">
+                <div class="setting-info">
+                    <span class="setting-label" id="window-track-label"
+                        >Window Track</span
+                    >
+                    <span class="setting-desc">
+                        Track active foreground application time. Project/task
+                        timers are disabled while this is on.
+                    </span>
+                </div>
+                <button
+                    type="button"
+                    class="toggle-switch"
+                    class:active={windowTrackingStore.enabled}
+                    class:loading={togglingWindowTracking}
+                    role="switch"
+                    aria-checked={windowTrackingStore.enabled}
+                    aria-labelledby="window-track-label"
+                    onclick={toggleWindowTracking}
+                    disabled={togglingWindowTracking}
+                    title={windowTrackingStore.enabled
+                        ? "Disable window tracking"
+                        : "Enable window tracking"}
                 >
                     <span class="toggle-knob"></span>
                 </button>

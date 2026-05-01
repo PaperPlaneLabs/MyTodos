@@ -160,6 +160,11 @@ unsafe extern "system" fn wnd_proc(
                         &state.db,
                         AutoPauseReason::SystemSleep,
                     );
+                    if let Err(error) =
+                        crate::services::window_tracking_service::set_paused(&state.db, true)
+                    {
+                        eprintln!("Failed to pause window tracking for sleep: {}", error);
+                    }
                 }
             } else if wparam.0 as u32 == PBT_POWERSETTINGCHANGE {
                 let setting = lparam.0 as *const POWERBROADCAST_SETTING;
@@ -210,6 +215,11 @@ unsafe extern "system" fn wnd_proc(
             if !state_ptr.is_null() {
                 let state = unsafe { &*state_ptr };
                 auto_pause_if_running(&state.app_handle, &state.db, AutoPauseReason::Shutdown);
+                if let Err(error) =
+                    crate::services::window_tracking_service::pause_tracking(&state.db)
+                {
+                    eprintln!("Failed to pause window tracking for shutdown: {}", error);
+                }
             }
             LRESULT(1)
         }

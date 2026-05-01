@@ -83,6 +83,15 @@ pub struct WindowState {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ActiveWindowTracking {
+    pub app_identifier: String,
+    pub app_name: String,
+    pub app_started_at: i64,
+    pub work_started_at: i64,
+    pub last_seen_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectStats {
     pub task_count: i32,
     pub completed_count: i32,

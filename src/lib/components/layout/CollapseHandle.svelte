@@ -1,11 +1,18 @@
 <script lang="ts">
   import { uiStore } from "$lib/stores/ui.svelte";
   import { timerStore } from "$lib/stores/timer.svelte";
+  import { windowTrackingStore } from "$lib/stores/window-tracking.svelte";
   import { db } from "$lib/services/db";
   import TimeDisplay from "$lib/components/common/TimeDisplay.svelte";
   import { fly, fade } from "svelte/transition";
 
-  let elapsed = $derived(Math.floor(timerStore.elapsed));
+  let elapsed = $derived(
+    Math.floor(
+      windowTrackingStore.enabled
+        ? windowTrackingStore.dailyTotal
+        : timerStore.elapsed,
+    ),
+  );
   let isDragging = $state(false);
   let hasMoved = $state(false);
   let startY = $state(0);
@@ -103,11 +110,17 @@
     >
       <div class="handle-content">
         <div class="timer-vertical">
-          {#if timerStore.active}
-            <div class="timer-text" class:running={timerStore.isRunning}>
+          {#if timerStore.active || windowTrackingStore.enabled}
+            <div
+              class="timer-text"
+              class:running={timerStore.isRunning || windowTrackingStore.isWorkActive}
+            >
               <TimeDisplay seconds={elapsed} format="short" />
             </div>
-            <div class="timer-dot" class:running={timerStore.isRunning}></div>
+            <div
+              class="timer-dot"
+              class:running={timerStore.isRunning || windowTrackingStore.isWorkActive}
+            ></div>
           {:else}
             <span class="idle-icon">⏱</span>
           {/if}
