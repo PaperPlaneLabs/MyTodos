@@ -1,10 +1,16 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$v,
-    [switch]$Online = $false
+    [switch]$Online = $false,
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$RemainingArgs
 )
 
 $ErrorActionPreference = "Stop"
+
+if ($RemainingArgs -and ($RemainingArgs -contains "--online")) {
+    $Online = $true
+}
 
 $ReleasesRepo = "SujithChristopher/MyTodos"
 $ReleaseBody = "See the assets to download this version and install."
