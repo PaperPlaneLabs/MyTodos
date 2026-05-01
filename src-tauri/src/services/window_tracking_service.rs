@@ -490,7 +490,90 @@ fn get_foreground_app() -> Option<ForegroundApp> {
     }
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(target_os = "macos")]
+fn get_foreground_app() -> Option<ForegroundApp> {
+    use std::ffi::{c_char, c_void, CStr};
+
+    type ObjcId = *mut c_void;
+    type ObjcSel = *mut c_void;
+
+    #[link(name = "AppKit", kind = "framework")]
+    extern "C" {}
+
+    #[link(name = "objc")]
+    extern "C" {
+        fn objc_getClass(name: *const c_char) -> ObjcId;
+        fn sel_registerName(name: *const c_char) -> ObjcSel;
+        fn objc_msgSend();
+    }
+
+    unsafe fn send_id(receiver: ObjcId, selector: ObjcSel) -> ObjcId {
+        let function: extern "C" fn(ObjcId, ObjcSel) -> ObjcId =
+            std::mem::transmute(objc_msgSend as *const ());
+        function(receiver, selector)
+    }
+
+    unsafe fn nsstring_to_string(value: ObjcId) -> Option<String> {
+        if value.is_null() {
+            return None;
+        }
+
+        let utf8_selector = sel_registerName(c"UTF8String".as_ptr());
+        let function: extern "C" fn(ObjcId, ObjcSel) -> *const c_char =
+            std::mem::transmute(objc_msgSend as *const ());
+        let raw = function(value, utf8_selector);
+        if raw.is_null() {
+            return None;
+        }
+
+        CStr::from_ptr(raw).to_str().ok().map(ToOwned::to_owned)
+    }
+
+    unsafe {
+        let workspace_class = objc_getClass(c"NSWorkspace".as_ptr());
+        if workspace_class.is_null() {
+            return None;
+        }
+
+        let shared_workspace = send_id(
+            workspace_class,
+            sel_registerName(c"sharedWorkspace".as_ptr()),
+        );
+        if shared_workspace.is_null() {
+            return None;
+        }
+
+        let app = send_id(
+            shared_workspace,
+            sel_registerName(c"frontmostApplication".as_ptr()),
+        );
+        if app.is_null() {
+            return None;
+        }
+
+        let bundle_identifier =
+            nsstring_to_string(send_id(app, sel_registerName(c"bundleIdentifier".as_ptr())));
+        let app_name =
+            nsstring_to_string(send_id(app, sel_registerName(c"localizedName".as_ptr())))
+                .or_else(|| bundle_identifier.clone())
+                .unwrap_or_else(|| "Unknown".to_string());
+
+        let app_identifier = bundle_identifier
+            .unwrap_or_else(|| app_name.clone())
+            .trim()
+            .to_ascii_lowercase();
+        if app_identifier.is_empty() {
+            return None;
+        }
+
+        Some(ForegroundApp {
+            app_identifier,
+            app_name,
+        })
+    }
+}
+
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
 fn get_foreground_app() -> Option<ForegroundApp> {
     None
 }

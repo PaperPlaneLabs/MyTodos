@@ -48,6 +48,7 @@
     let loading = $state(true);
     let toggling = $state(false);
     let showResetConfirm = $state(false);
+    let showWindowTrackConfirm = $state(false);
     let showBreakIntervalConfirm = $state(false);
     let pendingBreakInterval = $state<number | null>(null);
     let breakIntervalSelectValue = $state("30");
@@ -187,20 +188,35 @@
 
     async function toggleWindowTracking() {
         if (togglingWindowTracking) return;
+
+        if (!windowTrackingStore.enabled) {
+            showWindowTrackConfirm = true;
+            return;
+        }
+
+        await setWindowTrackingEnabled(false);
+    }
+
+    async function setWindowTrackingEnabled(enabled: boolean) {
         togglingWindowTracking = true;
 
         try {
-            const nextEnabled = !windowTrackingStore.enabled;
-            if (nextEnabled && timerStore.active) {
+            if (enabled && timerStore.active) {
                 await timerStore.stop();
             }
 
-            await windowTrackingStore.setEnabled(nextEnabled);
+            await windowTrackingStore.setEnabled(enabled);
+            showWindowTrackConfirm = false;
         } catch (e) {
             console.error("Failed to toggle window tracking:", e);
         } finally {
             togglingWindowTracking = false;
         }
+    }
+
+    function cancelWindowTrackingEnable() {
+        if (togglingWindowTracking) return;
+        showWindowTrackConfirm = false;
     }
 
     function selectTheme(id: Theme) {
@@ -810,6 +826,45 @@
     {/snippet}
 </Modal>
 
+<Modal
+    open={showWindowTrackConfirm}
+    title="Enable Window Track?"
+    onClose={cancelWindowTrackingEnable}
+>
+    {#snippet children()}
+        <div class="reset-confirm-content">
+            <p class="window-track-confirm-text">
+                Window Track records time spent in the active foreground
+                application, such as VS Code, Chrome, or Excel. It stores app
+                names only, not window titles.
+            </p>
+            <div class="window-track-confirm-list">
+                <p>When enabled:</p>
+                <ul>
+                    <li>Project and task timers are disabled.</li>
+                    <li>Stats and graphs switch to application time.</li>
+                    <li>Break reminders continue from active work time.</li>
+                    <li>AFK categories still work when you return.</li>
+                </ul>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button
+                    class="btn btn-secondary"
+                    onclick={cancelWindowTrackingEnable}
+                    disabled={togglingWindowTracking}>Cancel</button
+                >
+                <button
+                    class="btn btn-primary"
+                    onclick={() => setWindowTrackingEnabled(true)}
+                    disabled={togglingWindowTracking}
+                >
+                    {togglingWindowTracking ? "Enabling..." : "Enable Window Track"}
+                </button>
+            </div>
+        </div>
+    {/snippet}
+</Modal>
+
 <style>
     .settings-view {
         display: flex;
@@ -1167,5 +1222,34 @@
     .version {
         font-size: 11px;
         color: var(--text-tertiary);
+    }
+
+    .window-track-confirm-text {
+        margin-bottom: 14px;
+        color: var(--text-secondary);
+        line-height: 1.5;
+        font-size: 13px;
+    }
+
+    .window-track-confirm-list {
+        margin-bottom: 20px;
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--bg-secondary);
+        color: var(--text-secondary);
+        font-size: 12px;
+        line-height: 1.6;
+    }
+
+    .window-track-confirm-list p {
+        margin-bottom: 6px;
+        color: var(--text-primary);
+        font-weight: 600;
+    }
+
+    .window-track-confirm-list ul {
+        margin: 0;
+        padding-left: 18px;
     }
 </style>
