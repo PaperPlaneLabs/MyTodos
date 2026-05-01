@@ -113,6 +113,7 @@
                 await db.timer.resume();
                 await emit("break:action", { action: "resume" });
             }
+            await db.windowTracking.setPaused(false);
 
             await db.window.focusMain();
             await db.window.closeResume();
@@ -128,6 +129,7 @@
 
         try {
             await logSelectedAwayTime();
+            await db.windowTracking.setPaused(false);
             await db.window.focusMain();
             await db.window.closeResume();
         } catch (error) {

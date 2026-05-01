@@ -1,6 +1,9 @@
 name: Release
 
 on:
+  push:
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
       tag:
@@ -20,15 +23,18 @@ on:
 
 jobs:
   release-macos-aarch64:
-    if: ${{ github.event.inputs.build_macos_aarch64 == 'true' }}
+    if: ${{ github.event_name == 'push' || github.event.inputs.build_macos_aarch64 == 'true' }}
     permissions:
       contents: write
     runs-on: macos-latest
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || github.event.inputs.tag }}
+      CHECKOUT_REF: ${{ github.event_name == 'push' && github.ref || format('refs/tags/{0}', github.event.inputs.tag) }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: refs/tags/${{ github.event.inputs.tag }}
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -53,33 +59,36 @@ jobs:
       - name: Build the app
         uses: tauri-apps/tauri-action@v0
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASES_REPO_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
         with:
-          tagName: ${{ github.event.inputs.tag }}
-          releaseName: MyTodos ${{ github.event.inputs.tag }}
+          tagName: ${{ env.RELEASE_TAG }}
+          releaseName: MyTodos ${{ env.RELEASE_TAG }}
           releaseBody: See the assets to download this version and install.
           releaseDraft: false
           prerelease: false
           owner: SujithChristopher
-          repo: MyTodos-releases
+          repo: MyTodos
           releaseCommitish: main
           args: --target aarch64-apple-darwin
           updaterJsonKeepUniversal: true
 
   release-macos-x86_64:
-    if: ${{ github.event.inputs.build_macos_x86_64 == 'true' }}
+    if: ${{ github.event_name == 'push' || github.event.inputs.build_macos_x86_64 == 'true' }}
     permissions:
       contents: write
     runs-on: macos-latest
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || github.event.inputs.tag }}
+      CHECKOUT_REF: ${{ github.event_name == 'push' && github.ref || format('refs/tags/{0}', github.event.inputs.tag) }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: refs/tags/${{ github.event.inputs.tag }}
+          ref: ${{ env.CHECKOUT_REF }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -104,19 +113,19 @@ jobs:
       - name: Build the app
         uses: tauri-apps/tauri-action@v0
         env:
-          GITHUB_TOKEN: ${{ secrets.RELEASES_REPO_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
         with:
-          tagName: ${{ github.event.inputs.tag }}
-          releaseName: MyTodos ${{ github.event.inputs.tag }}
+          tagName: ${{ env.RELEASE_TAG }}
+          releaseName: MyTodos ${{ env.RELEASE_TAG }}
           releaseBody: See the assets to download this version and install.
           releaseDraft: false
           prerelease: false
           owner: SujithChristopher
-          repo: MyTodos-releases
+          repo: MyTodos
           releaseCommitish: main
           args: --target x86_64-apple-darwin
           updaterJsonKeepUniversal: true

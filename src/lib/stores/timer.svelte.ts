@@ -4,6 +4,7 @@ import { taskStore } from "./tasks.svelte";
 import { createBreakReminderController } from "./timer-break-reminders.svelte";
 import { registerTimerEventHandlers } from "./timer-events";
 import { createTimerRuntimeController } from "./timer-runtime.svelte";
+import { windowTrackingStore } from "./window-tracking.svelte";
 
 let activeTimer = $state<ActiveTimer | null>(null);
 let dailyTotalBeforeActive = $state(0);
@@ -40,8 +41,12 @@ const timerRuntime = createTimerRuntimeController({
 });
 
 const breakReminderController = createBreakReminderController({
-  getIsRunning: () => activeTimer?.is_running ?? false,
-  getContinuousElapsedSeconds: () => timerRuntime.getContinuousElapsedSeconds(),
+  getIsRunning: () =>
+    (activeTimer?.is_running ?? false) || windowTrackingStore.isWorkActive,
+  getContinuousElapsedSeconds: () =>
+    activeTimer?.is_running
+      ? timerRuntime.getContinuousElapsedSeconds()
+      : windowTrackingStore.continuousWorkElapsed,
 });
 
 export interface TimerStore {
@@ -62,6 +67,7 @@ export interface TimerStore {
   setBreakReminderInterval(minutes: number): void;
   dismissBreakReminder(): void;
   snoozeBreakReminder(minutes?: number): void;
+  syncBreakReminderSchedule(): void;
   loadActive(): Promise<void>;
   start(taskId: number): Promise<ActiveTimer>;
   pause(): Promise<void>;
@@ -139,6 +145,13 @@ export const timerStore: TimerStore = {
     breakReminderController.snooze(minutes);
   },
 
+  syncBreakReminderSchedule() {
+    breakReminderController.init();
+    if (breakReminderController.enabled && !breakReminderController.open) {
+      breakReminderController.scheduleAligned();
+    }
+  },
+
   async loadActive() {
     breakReminderController.init();
 
@@ -169,6 +182,12 @@ export const timerStore: TimerStore = {
   },
 
   async start(taskId: number) {
+    if (windowTrackingStore.enabled) {
+      throw new Error(
+        "Window tracking is on, so project/task timers are disabled.",
+      );
+    }
+
     breakReminderController.init();
 
     try {
@@ -304,15 +323,32 @@ registerTimerEventHandlers({
     void refreshDailyTotal();
     timerChangeCounter++;
   },
-  onTakeBreak: () => timerStore.pause(),
+  onTakeBreak: async () => {
+    if (windowTrackingStore.enabled) {
+      await windowTrackingStore.setPaused(true);
+      breakReminderController.deactivate();
+      return;
+    }
+
+    await timerStore.pause();
+  },
   onDismiss: () => timerStore.dismissBreakReminder(),
   onSnooze: () => timerStore.snoozeBreakReminder(),
-  onResume: () => timerStore.resume(),
+  onResume: async () => {
+    if (windowTrackingStore.enabled) {
+      await windowTrackingStore.setPaused(false);
+      breakReminderController.scheduleFromCurrentInterval();
+      return;
+    }
+
+    await timerStore.resume();
+  },
   onAwayTimeLogged: async ({ affectsVisibleTaskTotals }) => {
     if (affectsVisibleTaskTotals) {
       await syncVisibleTimeData();
     }
 
+    await windowTrackingStore.refresh();
     timerChangeCounter++;
   },
 });

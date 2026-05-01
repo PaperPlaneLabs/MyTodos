@@ -110,6 +110,12 @@ pub fn heartbeat_active_timer(db: &DbConnection) -> Result<bool> {
 }
 
 pub fn start_timer(db: &DbConnection, task_id: i64) -> Result<ActiveTimer> {
+    if crate::services::window_tracking_service::is_enabled(db)? {
+        return Err(AppError::TimerActive(
+            "Window tracking is enabled, so project/task timers are disabled".to_string(),
+        ));
+    }
+
     if let Some(existing) = get_active_timer(db)? {
         return Err(AppError::TimerActive(format!(
             "Timer already running for task {}",

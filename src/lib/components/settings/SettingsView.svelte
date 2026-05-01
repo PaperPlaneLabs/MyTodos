@@ -9,6 +9,7 @@
     import { googleCalendarStore } from "$lib/stores/google-calendar.svelte";
     import { projectStore } from "$lib/stores/projects.svelte";
     import { timerStore } from "$lib/stores/timer.svelte";
+    import { windowTrackingStore } from "$lib/stores/window-tracking.svelte";
     import { afkCategoryStore } from "$lib/stores/afk-categories.svelte";
     import { db } from "$lib/services/db";
     import { getVersion } from "@tauri-apps/api/app";
@@ -43,9 +44,11 @@
     );
 
     let isAutoStartEnabled = $state(false);
+    let togglingWindowTracking = $state(false);
     let loading = $state(true);
     let toggling = $state(false);
     let showResetConfirm = $state(false);
+    let showWindowTrackConfirm = $state(false);
     let showBreakIntervalConfirm = $state(false);
     let pendingBreakInterval = $state<number | null>(null);
     let breakIntervalSelectValue = $state("30");
@@ -67,6 +70,7 @@
 
     onMount(async () => {
         afkCategoryStore.init();
+        await windowTrackingStore.init();
         breakIntervalSelectValue = String(
             timerStore.breakReminderIntervalMinutes,
         );
@@ -167,7 +171,10 @@
 
     async function handleClearData() {
         try {
-            await timerStore.stop();
+            if (timerStore.active) {
+                await timerStore.stop();
+            }
+            await windowTrackingStore.clearActivity();
             const projects = [...projectStore.projects];
             for (const p of projects) {
                 await projectStore.delete(p.id);
@@ -177,6 +184,39 @@
         } catch (e) {
             console.error("Failed to clear data:", e);
         }
+    }
+
+    async function toggleWindowTracking() {
+        if (togglingWindowTracking) return;
+
+        if (!windowTrackingStore.enabled) {
+            showWindowTrackConfirm = true;
+            return;
+        }
+
+        await setWindowTrackingEnabled(false);
+    }
+
+    async function setWindowTrackingEnabled(enabled: boolean) {
+        togglingWindowTracking = true;
+
+        try {
+            if (enabled && timerStore.active) {
+                await timerStore.stop();
+            }
+
+            await windowTrackingStore.setEnabled(enabled);
+            showWindowTrackConfirm = false;
+        } catch (e) {
+            console.error("Failed to toggle window tracking:", e);
+        } finally {
+            togglingWindowTracking = false;
+        }
+    }
+
+    function cancelWindowTrackingEnable() {
+        if (togglingWindowTracking) return;
+        showWindowTrackConfirm = false;
     }
 
     function selectTheme(id: Theme) {
@@ -403,6 +443,34 @@
                     title={timerStore.breakReminderEnabled
                         ? "Disable break reminders"
                         : "Enable break reminders"}
+                >
+                    <span class="toggle-knob"></span>
+                </button>
+            </div>
+
+            <div class="setting-item">
+                <div class="setting-info">
+                    <span class="setting-label" id="window-track-label"
+                        >Window Track</span
+                    >
+                    <span class="setting-desc">
+                        Track active foreground application time. Project/task
+                        timers are disabled while this is on.
+                    </span>
+                </div>
+                <button
+                    type="button"
+                    class="toggle-switch"
+                    class:active={windowTrackingStore.enabled}
+                    class:loading={togglingWindowTracking}
+                    role="switch"
+                    aria-checked={windowTrackingStore.enabled}
+                    aria-labelledby="window-track-label"
+                    onclick={toggleWindowTracking}
+                    disabled={togglingWindowTracking}
+                    title={windowTrackingStore.enabled
+                        ? "Disable window tracking"
+                        : "Enable window tracking"}
                 >
                     <span class="toggle-knob"></span>
                 </button>
@@ -753,6 +821,45 @@
                     class="btn btn-primary"
                     onclick={confirmBreakIntervalChange}>Yes</button
                 >
+            </div>
+        </div>
+    {/snippet}
+</Modal>
+
+<Modal
+    open={showWindowTrackConfirm}
+    title="Enable Window Track?"
+    onClose={cancelWindowTrackingEnable}
+>
+    {#snippet children()}
+        <div class="reset-confirm-content">
+            <p class="window-track-confirm-text">
+                Window Track records time spent in the active foreground
+                application, such as VS Code, Chrome, or Excel. It stores app
+                names only, not window titles.
+            </p>
+            <div class="window-track-confirm-list">
+                <p>When enabled:</p>
+                <ul>
+                    <li>Project and task timers are disabled.</li>
+                    <li>Stats and graphs switch to application time.</li>
+                    <li>Break reminders continue from active work time.</li>
+                    <li>AFK categories still work when you return.</li>
+                </ul>
+            </div>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button
+                    class="btn btn-secondary"
+                    onclick={cancelWindowTrackingEnable}
+                    disabled={togglingWindowTracking}>Cancel</button
+                >
+                <button
+                    class="btn btn-primary"
+                    onclick={() => setWindowTrackingEnabled(true)}
+                    disabled={togglingWindowTracking}
+                >
+                    {togglingWindowTracking ? "Enabling..." : "Enable Window Track"}
+                </button>
             </div>
         </div>
     {/snippet}
@@ -1115,5 +1222,34 @@
     .version {
         font-size: 11px;
         color: var(--text-tertiary);
+    }
+
+    .window-track-confirm-text {
+        margin-bottom: 14px;
+        color: var(--text-secondary);
+        line-height: 1.5;
+        font-size: 13px;
+    }
+
+    .window-track-confirm-list {
+        margin-bottom: 20px;
+        padding: 12px 14px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--bg-secondary);
+        color: var(--text-secondary);
+        font-size: 12px;
+        line-height: 1.6;
+    }
+
+    .window-track-confirm-list p {
+        margin-bottom: 6px;
+        color: var(--text-primary);
+        font-weight: 600;
+    }
+
+    .window-track-confirm-list ul {
+        margin: 0;
+        padding-left: 18px;
     }
 </style>

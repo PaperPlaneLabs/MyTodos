@@ -118,6 +118,12 @@ pub fn run() {
             commands::open_resume_window,
             commands::close_resume_window,
             commands::focus_main_window,
+            commands::get_window_tracking_settings,
+            commands::set_window_tracking_enabled,
+            commands::get_window_tracking_state,
+            commands::set_window_tracking_paused,
+            commands::get_window_activity_stats,
+            commands::clear_window_activity,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
