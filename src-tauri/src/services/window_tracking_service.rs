@@ -11,6 +11,8 @@ const WINDOW_TRACKING_PAUSED_KEY: &str = "window_tracking_paused";
 const TRACKER_POLL_SECONDS: u64 = 5;
 const MIN_SEGMENT_SECONDS: i64 = 1;
 const AFK_PROJECT_NAME: &str = "Away";
+const BREAK_PROJECT_NAME: &str = "Breaks";
+const BREAK_TASK_TITLE: &str = "Break";
 const AFK_FALLBACK_COLOR: &str = "#f59e0b";
 
 #[derive(Debug, Clone, Serialize)]
@@ -381,22 +383,34 @@ fn get_afk_entries_since(conn: &Connection, since: i64) -> Result<Vec<AppTimeEnt
          WHERE te.created_at >= ?
            AND p.is_system = 1
            AND t.is_system = 1
-           AND p.name = ?
+           AND (
+                p.name = ?
+                OR (p.name = ? AND t.title = ?)
+           )
          GROUP BY t.id, t.title, p.color
          HAVING total_seconds > 0",
     )?;
 
     let entries = stmt
-        .query_map((AFK_FALLBACK_COLOR, since, AFK_PROJECT_NAME), |row| {
-            let task_id: i64 = row.get(0)?;
-            Ok(AppTimeEntry {
-                kind: ActivityEntryKind::Afk,
-                app_identifier: format!("afk:{task_id}"),
-                app_name: row.get(1)?,
-                color: row.get(2)?,
-                total_seconds: row.get(3)?,
-            })
-        })?
+        .query_map(
+            (
+                AFK_FALLBACK_COLOR,
+                since,
+                AFK_PROJECT_NAME,
+                BREAK_PROJECT_NAME,
+                BREAK_TASK_TITLE,
+            ),
+            |row| {
+                let task_id: i64 = row.get(0)?;
+                Ok(AppTimeEntry {
+                    kind: ActivityEntryKind::Afk,
+                    app_identifier: format!("afk:{task_id}"),
+                    app_name: row.get(1)?,
+                    color: row.get(2)?,
+                    total_seconds: row.get(3)?,
+                })
+            },
+        )?
         .collect::<std::result::Result<Vec<_>, _>>()?;
 
     Ok(entries)
@@ -416,18 +430,29 @@ fn merge_afk_week_daily(
          WHERE te.created_at >= ?
            AND p.is_system = 1
            AND t.is_system = 1
-           AND p.name = ?
+           AND (
+                p.name = ?
+                OR (p.name = ? AND t.title = ?)
+           )
          GROUP BY entry_date
          ORDER BY entry_date ASC",
     )?;
 
     let afk_daily = stmt
-        .query_map((since, AFK_PROJECT_NAME), |row| {
-            Ok(WindowDailyAggregate {
-                date: row.get(0)?,
-                total_seconds: row.get(1)?,
-            })
-        })?
+        .query_map(
+            (
+                since,
+                AFK_PROJECT_NAME,
+                BREAK_PROJECT_NAME,
+                BREAK_TASK_TITLE,
+            ),
+            |row| {
+                Ok(WindowDailyAggregate {
+                    date: row.get(0)?,
+                    total_seconds: row.get(1)?,
+                })
+            },
+        )?
         .collect::<std::result::Result<Vec<_>, _>>()?;
 
     for afk_day in afk_daily {

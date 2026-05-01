@@ -210,6 +210,36 @@ fn test_window_tracking_stats_include_logged_afk_categories() {
 }
 
 #[test]
+fn test_window_tracking_stats_include_default_break_away_time() {
+    let db = setup_test_db();
+    insert_window_activity(&db, "code", "Visual Studio Code", 300);
+    timer_service::log_break_time(&db, 600).unwrap();
+
+    let stats = window_tracking_service::get_stats(&db).unwrap();
+
+    let break_time = stats
+        .today_apps
+        .iter()
+        .find(|entry| entry.app_name == "Break")
+        .expect("Default resume-window break time should be visible");
+    assert!(matches!(
+        &break_time.kind,
+        window_tracking_service::ActivityEntryKind::Afk
+    ));
+    assert!(break_time.app_identifier.starts_with("afk:"));
+    assert_eq!(break_time.total_seconds, 600);
+
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+    let today_total = stats
+        .week_daily
+        .iter()
+        .find(|entry| entry.date == today)
+        .expect("Today's weekly aggregate should be present")
+        .total_seconds;
+    assert_eq!(today_total, 900);
+}
+
+#[test]
 fn test_window_tracking_stats_skip_unused_afk_categories() {
     let db = setup_test_db();
     create_unused_afk_category(&db, "Snack");
