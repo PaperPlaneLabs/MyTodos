@@ -108,7 +108,7 @@ function Publish-Release {
     $maxTries = 10
     $tryCount = 0
     while ($tryCount -lt $maxTries) {
-        $release = gh release view $tag --repo SujithChristopher/MyTodos-releases 2>&1
+        $release = gh release view $tag --repo SujithChristopher/MyTodos 2>&1
         if ($release -match "tag: $tag") {
             Write-Success "Release $tag found."
             break
@@ -124,7 +124,7 @@ function Publish-Release {
     }
 
     Write-Step "Uploading $($files.Count) files..."
-    gh release upload $tag $files --repo SujithChristopher/MyTodos-releases --clobber
+    gh release upload $tag $files --repo SujithChristopher/MyTodos --clobber
     Write-Success "All local artifacts uploaded successfully!"
 }
 
