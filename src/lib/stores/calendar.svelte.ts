@@ -1,15 +1,12 @@
 import { db, type Task, type CalendarEvent } from '$lib/services/db';
 import type { CalendarDay, TimeEntryWithTask } from '$lib/types/calendar';
 
-type CalendarViewMode = 'month' | 'week' | 'deadline';
-
 let currentDate = $state<Date>(new Date());
 let selectedDate = $state<Date | null>(null);
-let viewMode = $state<CalendarViewMode>('month');
+let viewMode = $state<'month' | 'week'>('month');
 let tasksByDate = $state<Map<string, Task[]>>(new Map());
 let eventsByDate = $state<Map<string, CalendarEvent[]>>(new Map());
 let timeEntriesByDate = $state<Map<string, TimeEntryWithTask[]>>(new Map());
-let deadlineTasks = $state<Task[]>([]);
 let isLoading = $state(false);
 let lastLoadedRangeKey = $state<string | null>(null);
 let activeLoadId = 0;
@@ -21,7 +18,6 @@ export const calendarStore = {
     get tasksByDate() { return tasksByDate; },
     get eventsByDate() { return eventsByDate; },
     get timeEntriesByDate() { return timeEntriesByDate; },
-    get deadlineTasks() { return deadlineTasks; },
     get isLoading() { return isLoading; },
 
     setCurrentDate(date: Date) {
@@ -37,7 +33,7 @@ export const calendarStore = {
         }
     },
 
-    setViewMode(mode: CalendarViewMode) {
+    setViewMode(mode: 'month' | 'week') {
         viewMode = mode;
         void this.ensureCurrentRangeLoaded();
     },
@@ -60,18 +56,6 @@ export const calendarStore = {
         isLoading = true;
 
         try {
-            if (viewMode === 'deadline') {
-                const tasks = await db.tasks.getUpcomingDeadlines(startDate);
-
-                if (loadId !== activeLoadId) {
-                    return;
-                }
-
-                deadlineTasks = tasks;
-                lastLoadedRangeKey = rangeKey;
-                return;
-            }
-
             const [tasks, events, timeEntries] = await Promise.all([
                 db.tasks.getByDeadlineRange(startDate, endDate),
                 db.calendarEvents.getInRange(startDate, endDate),
@@ -111,7 +95,6 @@ export const calendarStore = {
             tasksByDate = nextTasksByDate;
             eventsByDate = nextEventsByDate;
             timeEntriesByDate = nextTimeEntriesByDate;
-            deadlineTasks = [];
             lastLoadedRangeKey = rangeKey;
         } finally {
             if (loadId === activeLoadId) {
@@ -141,11 +124,7 @@ export const calendarStore = {
         let start: Date;
         let end: Date;
 
-        if (viewMode === 'deadline') {
-            start = new Date();
-            start.setHours(0, 0, 0, 0);
-            end = new Date(start);
-        } else if (viewMode === 'week') {
+        if (viewMode === 'week') {
             start = this.getWeekStart(currentDate);
             end = new Date(start);
             end.setDate(start.getDate() + 6);

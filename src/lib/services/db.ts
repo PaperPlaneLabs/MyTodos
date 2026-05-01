@@ -151,8 +151,6 @@ export const db = {
     getUnassigned: () => invoke<Task[]>("get_unassigned_tasks"),
     getByDeadlineRange: (startDate: string, endDate: string) =>
       invoke<Task[]>("get_tasks_by_deadline_range", { startDate, endDate }),
-    getUpcomingDeadlines: (startDate: string) =>
-      invoke<Task[]>("get_upcoming_deadline_tasks", { startDate }),
     create: (projectId: number | null, sectionId: number | null, title: string, description?: string) =>
       invoke<Task>("create_task", { projectId, sectionId, title, description }),
     update: (id: number, title?: string, description?: string, completed?: boolean) =>

@@ -29,6 +29,10 @@
     calendarStore.setCurrentDate(newDate);
   }
 
+  function goToToday() {
+    calendarStore.setCurrentDate(new Date());
+  }
+
   function previousWeek() {
     const newDate = new Date(calendarStore.currentDate);
     newDate.setDate(newDate.getDate() - 7);
@@ -41,16 +45,10 @@
     calendarStore.setCurrentDate(newDate);
   }
 
-  function goToToday() {
-    calendarStore.setCurrentDate(new Date());
-  }
-
   function getNavFunctions() {
     switch (calendarStore.viewMode) {
       case "week":
         return { prev: previousWeek, next: nextWeek };
-      case "deadline":
-        return null;
       default:
         return { prev: previousMonth, next: nextMonth };
     }
@@ -61,33 +59,20 @@
     uiStore.windowOrientation === "left" ||
       uiStore.windowOrientation === "right",
   );
-  let activeViewIndex = $derived(
-    calendarStore.viewMode === "month"
-      ? 0
-      : calendarStore.viewMode === "week"
-        ? 1
-        : 2,
-  );
-  let canUsePicker = $derived(calendarStore.viewMode !== "deadline");
 
   let isCurrent = $derived.by(() => {
     const today = new Date();
-
-    if (calendarStore.viewMode === "deadline") {
-      return true;
-    }
-
     if (calendarStore.viewMode === "month") {
       return (
         calendarStore.currentDate.getMonth() === today.getMonth() &&
         calendarStore.currentDate.getFullYear() === today.getFullYear()
       );
+    } else {
+      const weekStart = calendarStore.getWeekStart(calendarStore.currentDate);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
+      return today >= weekStart && today <= weekEnd;
     }
-
-    const weekStart = calendarStore.getWeekStart(calendarStore.currentDate);
-    const weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekEnd.getDate() + 6);
-    return today >= weekStart && today <= weekEnd;
   });
 
   let showPicker = $state(false);
@@ -95,52 +80,38 @@
   const pickerId = `calendar-month-picker-${Math.random().toString(36).slice(2, 10)}`;
 
   function togglePicker() {
-    if (!canUsePicker) return;
     pickerYear = calendarStore.currentDate.getFullYear();
     showPicker = !showPicker;
   }
 
-  function closePicker() {
-    showPicker = false;
-  }
-
   function selectPickerMonth(monthIdx: number) {
-    if (!canUsePicker) return;
     const newDate = new Date(calendarStore.currentDate);
     newDate.setFullYear(pickerYear);
     newDate.setMonth(monthIdx);
     calendarStore.setCurrentDate(newDate);
-    closePicker();
+    showPicker = false;
   }
-
-  $effect(() => {
-    if (!canUsePicker && showPicker) {
-      showPicker = false;
-    }
-  });
 </script>
 
 <div class="calendar-header">
   <div class="header-nav">
-    {#if navFunctions}
-      <button
-        type="button"
-        class="nav-btn"
-        onclick={navFunctions.prev}
-        aria-label="Previous"
+    <button
+      type="button"
+      class="nav-btn"
+      onclick={navFunctions.prev}
+      aria-label="Previous"
+    >
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
       >
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <path d="m15 18-6-6 6-6" />
-        </svg>
-      </button>
-    {/if}
+        <path d="m15 18-6-6 6-6" />
+      </svg>
+    </button>
 
     <div class="selector-container">
       {#if calendarStore.viewMode === "month"}
@@ -159,7 +130,7 @@
           {/if}
           <span class="chevron"></span>
         </button>
-      {:else if calendarStore.viewMode === "week"}
+      {:else}
         <button
           type="button"
           class="month-label"
@@ -175,13 +146,8 @@
           {#if !isCurrent}
             <span class="not-current-dot" title="Not current week"></span>
           {/if}
-          <span class="chevron"></span>
+          <span class="chevron">▼</span>
         </button>
-      {:else}
-        <div class="month-label static">
-          <span>Upcoming Deadlines</span>
-          <span class="deadline-subtitle">Open tasks with deadlines</span>
-        </div>
       {/if}
 
       {#if showPicker}
@@ -189,15 +155,9 @@
           type="button"
           class="calendar-view-backdrop"
           aria-label="Close calendar month picker"
-          onclick={closePicker}
+          onclick={() => (showPicker = false)}
         ></button>
-        <div
-          id={pickerId}
-          class="picker-dropdown"
-          role="dialog"
-          aria-modal="false"
-          aria-label="Choose month and year"
-        >
+        <div id={pickerId} class="picker-dropdown" role="dialog" aria-modal="false" aria-label="Choose month and year">
           <div class="year-stepper">
             <button
               type="button"
@@ -211,10 +171,8 @@
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                stroke-width="2"
+                stroke-width="2"><path d="m15 18-6-6 6-6" /></svg
               >
-                <path d="m15 18-6-6 6-6" />
-              </svg>
             </button>
             <span class="year-display">{pickerYear}</span>
             <button
@@ -229,10 +187,8 @@
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
-                stroke-width="2"
+                stroke-width="2"><path d="m9 18 6-6-6-6" /></svg
               >
-                <path d="m9 18 6-6-6-6" />
-              </svg>
             </button>
           </div>
 
@@ -256,66 +212,49 @@
               class="today-btn"
               onclick={() => {
                 goToToday();
-                closePicker();
-              }}
+                showPicker = false;
+              }}>Jump to Today</button
             >
-              Jump to Today
-            </button>
           </div>
         </div>
       {/if}
     </div>
 
-    {#if navFunctions}
-      <button
-        type="button"
-        class="nav-btn"
-        onclick={navFunctions.next}
-        aria-label="Next"
+    <button
+      type="button"
+      class="nav-btn"
+      onclick={navFunctions.next}
+      aria-label="Next"
+    >
+      <svg
+        width="20"
+        height="20"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
       >
-        <svg
-          width="20"
-          height="20"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <path d="m9 18 6-6-6-6" />
-        </svg>
-      </button>
-    {/if}
+        <path d="m9 18 6-6-6-6" />
+      </svg>
+    </button>
   </div>
 
-  <div class="view-toggle" style={`--active-index: ${activeViewIndex};`}>
+  <div class="view-toggle" class:is-week={calendarStore.viewMode === "week"}>
     <div class="active-bg"></div>
     <button
       type="button"
       class:active={calendarStore.viewMode === "month"}
       aria-pressed={calendarStore.viewMode === "month"}
       onclick={() => calendarStore.setViewMode("month")}
-      title="Month View"
+      title="Month View">{isPortrait ? "M" : "Month"}</button
     >
-      {isPortrait ? "M" : "Month"}
-    </button>
     <button
       type="button"
       class:active={calendarStore.viewMode === "week"}
       aria-pressed={calendarStore.viewMode === "week"}
       onclick={() => calendarStore.setViewMode("week")}
-      title="Week View"
+      title="Week View">{isPortrait ? "W" : "Week"}</button
     >
-      {isPortrait ? "W" : "Week"}
-    </button>
-    <button
-      type="button"
-      class:active={calendarStore.viewMode === "deadline"}
-      aria-pressed={calendarStore.viewMode === "deadline"}
-      onclick={() => calendarStore.setViewMode("deadline")}
-      title="Deadline View"
-    >
-      {isPortrait ? "DL" : "Deadline"}
-    </button>
   </div>
 </div>
 
@@ -327,17 +266,12 @@
     padding: var(--spacing-md);
     border-bottom: 1px solid var(--border);
     background: var(--bg-secondary);
-    gap: var(--spacing-md);
   }
 
   .header-nav {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
-  }
-
-  .selector-container {
-    position: relative;
   }
 
   .month-label {
@@ -358,34 +292,14 @@
     transition: background 0.15s;
   }
 
-  .month-label:hover {
-    background: var(--bg-hover);
-  }
-
-  .month-label.static {
-    flex-direction: column;
-    align-items: flex-start;
-    cursor: default;
-    min-width: 220px;
-  }
-
-  .month-label.static:hover {
-    background: none;
-  }
-
-  .deadline-subtitle {
-    font-size: 11px;
-    font-weight: 500;
-    color: var(--text-tertiary);
-  }
-
   .chevron {
-    width: 8px;
-    height: 8px;
-    border-right: 1.5px solid currentColor;
-    border-bottom: 1.5px solid currentColor;
+    font-size: 10px;
     color: var(--text-secondary);
-    transform: rotate(45deg) translateY(-1px);
+    transition: transform 0.2s;
+  }
+
+  .selector-container {
+    position: relative;
   }
 
   .picker-dropdown {
@@ -499,6 +413,10 @@
     background-color: var(--accent);
   }
 
+  .month-label:hover {
+    background: var(--bg-hover);
+  }
+
   .nav-btn {
     background: none;
     border: none;
@@ -521,13 +439,12 @@
 
   .view-toggle {
     position: relative;
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    display: flex;
+    gap: var(--spacing-xs);
     background: var(--bg-primary);
     padding: 3px;
     border-radius: var(--radius-md);
     border: 1px solid var(--border);
-    min-width: 220px;
   }
 
   .active-bg {
@@ -535,12 +452,15 @@
     top: 3px;
     bottom: 3px;
     left: 3px;
-    width: calc((100% - 6px) / 3);
+    width: calc(50% - 4px); /* Account for gap and padding */
     background: var(--accent);
     border-radius: var(--radius-sm);
-    transform: translateX(calc(var(--active-index, 0) * 100%));
     transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     z-index: 0;
+  }
+
+  .view-toggle.is-week .active-bg {
+    transform: translateX(calc(100% + 2px));
   }
 
   .view-toggle button {
@@ -554,12 +474,14 @@
     font-size: var(--text-sm);
     color: var(--text-secondary);
     transition: color 0.2s;
+    flex: 1;
   }
 
   .view-toggle button.active {
     color: var(--accent-contrast);
   }
 
+  /* Global backdrop for clicking outside dropdowns */
   :global(.calendar-view-backdrop) {
     position: fixed;
     top: 0;
@@ -570,21 +492,5 @@
     border: none;
     padding: 0;
     background: transparent;
-  }
-
-  @media (max-width: 860px) {
-    .calendar-header {
-      flex-direction: column;
-      align-items: stretch;
-    }
-
-    .header-nav {
-      justify-content: center;
-    }
-
-    .view-toggle {
-      width: 100%;
-      min-width: 0;
-    }
   }
 </style>

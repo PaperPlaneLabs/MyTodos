@@ -79,19 +79,3 @@ For timer-focused backend changes, the fast verification path is:
 ## Notes
 - Behavior was kept stable during extraction work; the refactor focused on boundaries and ownership, not feature redesign.
 - The remaining maintainability follow-up after this phase is to automate the documented quality-gate sequence in CI if desired.
-
-## Feature Addendum: Calendar `DL` Mode
-
-### What Changed
-- Added a third calendar mode, `DL`, next to month and week.
-- Added a dedicated deadline list view that renders upcoming incomplete deadlines in a serial, grouped-by-day layout.
-- Hid the selected-date side panel while `DL` is active so the layout matches the global backlog-style view.
-- Added a backend command for upcoming deadlines and tightened the existing date-range query so timed deadlines on the range end date are included.
-
-### Verification
-- `npm run check`
-  - Passed with `0 errors` and `0 warnings`
-- `cargo test deadline_`
-  - Passed with `2 passed; 0 failed`
-- `cargo check`
-  - Passed
