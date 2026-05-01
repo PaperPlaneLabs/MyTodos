@@ -3,16 +3,25 @@
     import { fade, fly } from "svelte/transition";
     import { uiStore } from "$lib/stores/ui.svelte";
     import { timerStore } from "$lib/stores/timer.svelte";
-    import { db, type TimeStats } from "$lib/services/db";
+    import { windowTrackingStore } from "$lib/stores/window-tracking.svelte";
+    import { db, type TimeStats, type WindowActivityStats } from "$lib/services/db";
 
     let stats = $state<TimeStats | null>(null);
+    let windowStats = $state<WindowActivityStats | null>(null);
     let loading = $state(true);
     let error = $state<string | null>(null);
     let refreshIntervalId: number | null = null;
 
     async function loadStats() {
         try {
-            stats = await db.timeEntries.getTimeStats(true); // include_active_timer
+            if (windowTrackingStore.enabled) {
+                await windowTrackingStore.refresh();
+                windowStats = await db.windowTracking.getStats();
+                stats = null;
+            } else {
+                stats = await db.timeEntries.getTimeStats(true); // include_active_timer
+                windowStats = null;
+            }
         } catch (e) {
             console.error("Failed to load stats:", e);
             error = "Failed to load statistics";
@@ -30,6 +39,7 @@
     $effect(() => {
         // Watch timer change signal
         timerStore.changeSignal;
+        windowTrackingStore.changeSignal;
 
         // Reload stats (but not on initial mount)
         if (!loading) {
@@ -39,7 +49,7 @@
 
     // Periodic refresh while timer is running
     $effect(() => {
-        if (timerStore.isRunning) {
+        if (timerStore.isRunning || windowTrackingStore.enabled) {
             refreshIntervalId = window.setInterval(() => {
                 loadStats();
             }, 5000); // Refresh every 5 seconds
@@ -59,21 +69,31 @@
 
     // Derived values for charts
     let maxTodaySeconds = $derived(
-        stats?.today_tasks.reduce(
-            (max, t) => Math.max(max, t.total_seconds),
-            0,
-        ) || 0,
+        windowTrackingStore.enabled
+            ? windowStats?.today_apps.reduce(
+                  (max, app) => Math.max(max, app.total_seconds),
+                  0,
+              ) || 0
+            : stats?.today_tasks.reduce(
+                  (max, t) => Math.max(max, t.total_seconds),
+                  0,
+              ) || 0,
     );
 
     let totalProjectSeconds = $derived(
-        stats?.projects.reduce((sum, p) => sum + p.total_seconds, 0) || 0,
+        windowTrackingStore.enabled
+            ? windowStats?.apps.reduce((sum, app) => sum + app.total_seconds, 0) || 0
+            : stats?.projects.reduce((sum, p) => sum + p.total_seconds, 0) || 0,
     );
 
     // Week days for the bar chart (Mon-Sun)
     const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
     let weekData = $derived.by(() => {
-        if (!stats) return weekDays.map((d) => ({ day: d, seconds: 0 }));
+        const dailyData = windowTrackingStore.enabled
+            ? windowStats?.week_daily
+            : stats?.week_daily;
+        if (!dailyData) return weekDays.map((d) => ({ day: d, seconds: 0 }));
 
         const today = new Date();
         const dayOfWeek = today.getDay(); // 0 = Sunday
@@ -86,7 +106,7 @@
             const date = new Date(monday);
             date.setDate(monday.getDate() + i);
             const dateStr = date.toISOString().split("T")[0];
-            const entry = stats?.week_daily.find((d) => d.date === dateStr);
+            const entry = dailyData.find((d) => d.date === dateStr);
             return { day, seconds: entry?.total_seconds || 0 };
         });
     });
@@ -199,7 +219,7 @@
         <div class="error-state">
             <p>{error}</p>
         </div>
-    {:else if stats}
+    {:else if stats || windowStats}
         <div class="stats-content">
             <!-- Today's Activity Section -->
             <section
@@ -208,13 +228,51 @@
             >
                 <h3>
                     <span class="section-icon">📅</span>
-                    Today's Activity
+                    {windowTrackingStore.enabled
+                        ? "Today's Applications"
+                        : "Today's Activity"}
                 </h3>
-                {#if stats.today_tasks.length === 0}
+                {#if windowTrackingStore.enabled && windowStats}
+                    {#if windowStats.today_apps.length === 0}
+                        <div class="empty-state">
+                            <p>No active-window time tracked today</p>
+                        </div>
+                    {:else}
+                        <div class="bar-chart horizontal">
+                            {#each windowStats.today_apps as app}
+                                <div class="bar-item">
+                                    <div class="bar-label">
+                                        <span class="task-name" title={app.app_name}
+                                            >{app.app_name}</span
+                                        >
+                                        <span class="task-time"
+                                            >{formatDuration(
+                                                app.total_seconds,
+                                            )}</span
+                                        >
+                                    </div>
+                                    <div class="bar-track">
+                                        <div
+                                            class="bar-fill"
+                                            style="width: {(app.total_seconds /
+                                                maxTodaySeconds) *
+                                                100}%; background-color: {app.color}"
+                                        ></div>
+                                    </div>
+                                    <span
+                                        class="project-tag"
+                                        style="color: {app.color}"
+                                        >Active window</span
+                                    >
+                                </div>
+                            {/each}
+                        </div>
+                    {/if}
+                {:else if stats && stats.today_tasks.length === 0}
                     <div class="empty-state">
                         <p>No time tracked today</p>
                     </div>
-                {:else}
+                {:else if stats}
                     <div class="bar-chart horizontal">
                         {#each stats.today_tasks as task}
                             <div class="bar-item">
@@ -292,13 +350,73 @@
             >
                 <h3>
                     <span class="section-icon">📁</span>
-                    By Project
+                    {windowTrackingStore.enabled ? "By Application" : "By Project"}
                 </h3>
-                {#if stats.projects.length === 0}
+                {#if windowTrackingStore.enabled && windowStats}
+                    {#if windowStats.apps.length === 0}
+                        <div class="empty-state">
+                            <p>No application data yet</p>
+                        </div>
+                    {:else}
+                        <div class="pie-section">
+                            <svg class="pie-chart" viewBox="0 0 100 100">
+                                {#each getPieSlices(windowStats.apps) as slice}
+                                    <path
+                                        d={describeArc(
+                                            50,
+                                            50,
+                                            45,
+                                            slice.startAngle,
+                                            slice.endAngle,
+                                        )}
+                                        fill={slice.color}
+                                        class="pie-slice"
+                                    />
+                                {/each}
+                                <circle
+                                    cx="50"
+                                    cy="50"
+                                    r="25"
+                                    fill="var(--bg-primary)"
+                                />
+                                <text
+                                    x="50"
+                                    y="48"
+                                    text-anchor="middle"
+                                    class="pie-total-label">Total</text
+                                >
+                                <text
+                                    x="50"
+                                    y="56"
+                                    text-anchor="middle"
+                                    class="pie-total-value"
+                                >
+                                    {formatDuration(totalProjectSeconds)}
+                                </text>
+                            </svg>
+                            <div class="pie-legend">
+                                {#each windowStats.apps as app}
+                                    <div class="legend-item">
+                                        <span
+                                            class="legend-color"
+                                            style="background-color: {app.color}"
+                                        ></span>
+                                        <span class="legend-name">{app.app_name}</span>
+                                        <span class="legend-time"
+                                            >{formatDuration(
+                                                app.total_seconds,
+                                            )}</span
+                                        >
+                                    </div>
+                                {/each}
+                            </div>
+                        </div>
+                    {/if}
+                {:else if stats && stats.projects.length === 0}
                     <div class="empty-state">
                         <p>No project data yet</p>
                     </div>
-                {:else}
+                {:else if stats}
                     <div class="pie-section">
                         <svg class="pie-chart" viewBox="0 0 100 100">
                             {#each getPieSlices(stats.projects) as slice}

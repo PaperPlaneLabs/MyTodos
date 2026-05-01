@@ -91,6 +91,9 @@ pub fn handle_away_started(app_handle: &AppHandle, db: &DbConnection) {
 
         // Auto-pause if running
         auto_pause_if_running(app_handle, db, AutoPauseReason::ScreenLock);
+        if let Err(error) = crate::services::window_tracking_service::set_paused(db, true) {
+            eprintln!("Failed to pause window tracking for away time: {}", error);
+        }
     }
 }
 

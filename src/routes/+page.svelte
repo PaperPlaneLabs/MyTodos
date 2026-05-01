@@ -21,6 +21,7 @@
   import { timerStore } from "$lib/stores/timer.svelte";
   import { uiStore } from "$lib/stores/ui.svelte";
   import { googleCalendarStore } from "$lib/stores/google-calendar.svelte";
+  import { windowTrackingStore } from "$lib/stores/window-tracking.svelte";
 
   // ── Multi-window: check if this is the break reminder window ──────────
   const isBreakWindow =
@@ -110,6 +111,7 @@
     } catch (error) {
       console.error("Failed to initialize window orientation:", error);
     }
+    await windowTrackingStore.init();
     timerStore.initBreakReminders();
     await projectStore.loadAll();
     await timerStore.loadActive();
@@ -124,7 +126,22 @@
     taskStore.loadByProject(projectStore.selectedId);
   });
 
+  $effect(() => {
+    if (isBreakWindow || isResumeWindow) {
+      return;
+    }
+
+    windowTrackingStore.changeSignal;
+    if (windowTrackingStore.isWorkActive) {
+      timerStore.syncBreakReminderSchedule();
+    }
+  });
+
   async function handleToggleTimer(taskId: number) {
+    if (windowTrackingStore.enabled) {
+      return;
+    }
+
     if (timerStore.active && timerStore.active.task_id === taskId) {
       if (timerStore.isRunning) {
         await timerStore.pause();

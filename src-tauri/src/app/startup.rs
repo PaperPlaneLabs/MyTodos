@@ -40,6 +40,7 @@ pub fn initialize_database_state(db_conn: &DbConnection) -> Result<(), String> {
 
 pub fn initialize_runtime(app_handle: AppHandle, db: DbConnection) {
     events::initialize_system_listeners(app_handle, db.clone());
+    services::window_tracking_service::initialize_tracker(db.clone());
 
     match services::timer_service::recover_stale_active_timer(&db) {
         Ok(true) => println!("Recovered stale active timer during startup."),

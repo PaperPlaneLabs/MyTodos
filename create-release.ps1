@@ -1,11 +1,12 @@
 param(
     [Parameter(Mandatory = $true)]
-    [string]$v
+    [string]$v,
+    [switch]$Online = $false
 )
 
 $ErrorActionPreference = "Stop"
 
-$ReleasesRepo = "SujithChristopher/MyTodos-releases"
+$ReleasesRepo = "SujithChristopher/MyTodos"
 $ReleaseBody = "See the assets to download this version and install."
 $SupportedPlatforms = @(
     "windows-x86_64",
@@ -182,18 +183,21 @@ if ($v -notmatch '^\d+\.\d+\.\d+$') {
 }
 
 $tag = "v$v"
-$releaseUrl = "https://github.com/SujithChristopher/MyTodos-releases/releases/download/$tag"
+$releaseUrl = "https://github.com/SujithChristopher/MyTodos/releases/download/$tag"
 $preserveDir = Join-Path ([System.IO.Path]::GetTempPath()) "mytodos-release-preserve-$v"
 
 Write-Host "`n=== MyTodos Windows Release Automation ===" -ForegroundColor Magenta
 Write-Host "Version: $tag" -ForegroundColor Magenta
 
-Write-Step "Capturing previous updater manifests..."
-$platformStates = Get-PreservedPlatformStates -tempDir $preserveDir
-if ($platformStates.Count -gt 0) {
-    Write-Success "Preserved $($platformStates.Count) existing platform manifest(s)"
-} else {
-    Write-Warn "No previous per-platform updater state was available to preserve."
+$platformStates = @{}
+if (-not $Online) {
+    Write-Step "Capturing previous updater manifests..."
+    $platformStates = Get-PreservedPlatformStates -tempDir $preserveDir
+    if ($platformStates.Count -gt 0) {
+        Write-Success "Preserved $($platformStates.Count) existing platform manifest(s)"
+    } else {
+        Write-Warn "No previous per-platform updater state was available to preserve."
+    }
 }
 
 Write-Step "Updating version in config files..."
@@ -254,12 +258,21 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Success "Pushed commit to origin/$currentBranch"
 
-git push origin $tag
+git push origin --tags
 if ($LASTEXITCODE -ne 0) {
-    Write-Fail "Failed to push tag"
+    Write-Fail "Failed to push tags"
     exit 1
 }
-Write-Success "Pushed tag $tag"
+Write-Success "Pushed tags to origin"
+
+if ($Online) {
+    Write-Step "Online mode enabled; skipping local build/sign/upload steps."
+    Write-Host "Use these commands to monitor and verify the release:" -ForegroundColor Yellow
+    Write-Host "  gh run list --workflow release.yml --repo SujithChristopher/MyTodos --limit 5"
+    Write-Host "  gh run watch <run-id> --repo SujithChristopher/MyTodos"
+    Write-Host "  gh release view $tag --repo SujithChristopher/MyTodos"
+    exit 0
+}
 
 Write-Step "Cleaning dist and bundle folders..."
 if (Test-Path "dist") {
@@ -374,5 +387,5 @@ if ($LASTEXITCODE -ne 0) {
 Write-Success "Uploaded $($manifestUploadFiles.Count) updater manifest file(s)"
 
 Write-Host "`n=== Release $tag Complete! ===" -ForegroundColor Green
-Write-Host "View at: https://github.com/SujithChristopher/MyTodos-releases/releases/tag/$tag" -ForegroundColor Yellow
+Write-Host "View at: https://github.com/SujithChristopher/MyTodos/releases/tag/$tag" -ForegroundColor Yellow
 Write-Host "macOS builds are now manual via GitHub Actions workflow dispatch when you want to publish them." -ForegroundColor Yellow

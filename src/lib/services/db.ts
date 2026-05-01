@@ -75,6 +75,43 @@ export interface WindowState {
   updated_at: number;
 }
 
+export interface ActiveWindowTracking {
+  app_identifier: string;
+  app_name: string;
+  app_started_at: number;
+  work_started_at: number;
+  last_seen_at: number;
+}
+
+export interface WindowTrackingSettings {
+  enabled: boolean;
+}
+
+export interface WindowTrackingState {
+  enabled: boolean;
+  paused: boolean;
+  active?: ActiveWindowTracking | null;
+  today_total_seconds: number;
+}
+
+export interface AppTimeEntry {
+  app_identifier: string;
+  app_name: string;
+  total_seconds: number;
+  color: string;
+}
+
+export interface WindowDailyAggregate {
+  date: string;
+  total_seconds: number;
+}
+
+export interface WindowActivityStats {
+  today_apps: AppTimeEntry[];
+  week_daily: WindowDailyAggregate[];
+  apps: AppTimeEntry[];
+}
+
 export interface ProjectStats {
   task_count: number;
   completed_count: number;
@@ -223,6 +260,20 @@ export const db = {
     startDragging: () => invoke<void>("start_window_drag"),
     focusMain: () => invoke<void>("focus_main_window"),
 
+  },
+
+  windowTracking: {
+    getSettings: () =>
+      invoke<WindowTrackingSettings>("get_window_tracking_settings"),
+    setEnabled: (enabled: boolean) =>
+      invoke<WindowTrackingSettings>("set_window_tracking_enabled", {
+        enabled,
+      }),
+    getState: () => invoke<WindowTrackingState>("get_window_tracking_state"),
+    setPaused: (paused: boolean) =>
+      invoke<WindowTrackingState>("set_window_tracking_paused", { paused }),
+    getStats: () => invoke<WindowActivityStats>("get_window_activity_stats"),
+    clearActivity: () => invoke<void>("clear_window_activity"),
   },
 
   googleCalendar: {

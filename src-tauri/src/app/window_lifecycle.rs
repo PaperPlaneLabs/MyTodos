@@ -27,6 +27,11 @@ pub fn register_main_window_close_behavior(
                         &db,
                         events::AutoPauseReason::Shutdown,
                     );
+                    if let Err(error) =
+                        crate::services::window_tracking_service::pause_tracking(&db)
+                    {
+                        eprintln!("Failed to pause window tracking during shutdown: {}", error);
+                    }
                 }
             }
         });
