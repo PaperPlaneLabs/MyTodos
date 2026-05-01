@@ -95,6 +95,7 @@ export interface WindowTrackingState {
 }
 
 export interface AppTimeEntry {
+  kind: "app" | "afk";
   app_identifier: string;
   app_name: string;
   total_seconds: number;

@@ -228,9 +228,7 @@
             >
                 <h3>
                     <span class="section-icon">📅</span>
-                    {windowTrackingStore.enabled
-                        ? "Today's Applications"
-                        : "Today's Activity"}
+                    Today's Activity
                 </h3>
                 {#if windowTrackingStore.enabled && windowStats}
                     {#if windowStats.today_apps.length === 0}
@@ -262,7 +260,9 @@
                                     <span
                                         class="project-tag"
                                         style="color: {app.color}"
-                                        >Active window</span
+                                        >{app.kind === "afk"
+                                            ? "Away time"
+                                            : "Active window"}</span
                                     >
                                 </div>
                             {/each}
@@ -350,12 +350,12 @@
             >
                 <h3>
                     <span class="section-icon">📁</span>
-                    {windowTrackingStore.enabled ? "By Application" : "By Project"}
+                    {windowTrackingStore.enabled ? "By Activity" : "By Project"}
                 </h3>
                 {#if windowTrackingStore.enabled && windowStats}
                     {#if windowStats.apps.length === 0}
                         <div class="empty-state">
-                            <p>No application data yet</p>
+                            <p>No activity data yet</p>
                         </div>
                     {:else}
                         <div class="pie-section">

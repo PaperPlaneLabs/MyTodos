@@ -10,6 +10,8 @@ const WINDOW_TRACKING_ENABLED_KEY: &str = "window_tracking_enabled";
 const WINDOW_TRACKING_PAUSED_KEY: &str = "window_tracking_paused";
 const TRACKER_POLL_SECONDS: u64 = 5;
 const MIN_SEGMENT_SECONDS: i64 = 1;
+const AFK_PROJECT_NAME: &str = "Away";
+const AFK_FALLBACK_COLOR: &str = "#f59e0b";
 
 #[derive(Debug, Clone, Serialize)]
 pub struct WindowTrackingSettings {
@@ -25,7 +27,15 @@ pub struct WindowTrackingState {
 }
 
 #[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ActivityEntryKind {
+    App,
+    Afk,
+}
+
+#[derive(Debug, Clone, Serialize)]
 pub struct AppTimeEntry {
+    pub kind: ActivityEntryKind,
     pub app_identifier: String,
     pub app_name: String,
     pub total_seconds: i64,
@@ -343,20 +353,93 @@ fn add_active_to_apps(apps: &mut Vec<AppTimeEntry>, active: &ActiveWindowTrackin
         return;
     }
 
-    if let Some(item) = apps
-        .iter_mut()
-        .find(|item| item.app_identifier == active.app_identifier)
-    {
+    if let Some(item) = apps.iter_mut().find(|item| {
+        matches!(item.kind, ActivityEntryKind::App) && item.app_identifier == active.app_identifier
+    }) {
         item.total_seconds += duration;
         return;
     }
 
     apps.push(AppTimeEntry {
+        kind: ActivityEntryKind::App,
         app_identifier: active.app_identifier.clone(),
         app_name: active.app_name.clone(),
         total_seconds: duration,
         color: app_color(&active.app_identifier),
     });
+}
+
+fn get_afk_entries_since(conn: &Connection, since: i64) -> Result<Vec<AppTimeEntry>> {
+    let mut stmt = conn.prepare(
+        "SELECT t.id,
+                t.title,
+                COALESCE(NULLIF(p.color, ''), ?) as color,
+                SUM(te.duration_seconds) as total_seconds
+         FROM time_entries te
+         JOIN tasks t ON t.id = te.task_id
+         JOIN projects p ON p.id = t.project_id
+         WHERE te.created_at >= ?
+           AND p.is_system = 1
+           AND t.is_system = 1
+           AND p.name = ?
+         GROUP BY t.id, t.title, p.color
+         HAVING total_seconds > 0",
+    )?;
+
+    let entries = stmt
+        .query_map((AFK_FALLBACK_COLOR, since, AFK_PROJECT_NAME), |row| {
+            let task_id: i64 = row.get(0)?;
+            Ok(AppTimeEntry {
+                kind: ActivityEntryKind::Afk,
+                app_identifier: format!("afk:{task_id}"),
+                app_name: row.get(1)?,
+                color: row.get(2)?,
+                total_seconds: row.get(3)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    Ok(entries)
+}
+
+fn merge_afk_week_daily(
+    conn: &Connection,
+    week_daily: &mut Vec<WindowDailyAggregate>,
+    since: i64,
+) -> Result<()> {
+    let mut stmt = conn.prepare(
+        "SELECT date(te.created_at, 'unixepoch', 'localtime') as entry_date,
+                SUM(te.duration_seconds) as total_seconds
+         FROM time_entries te
+         JOIN tasks t ON t.id = te.task_id
+         JOIN projects p ON p.id = t.project_id
+         WHERE te.created_at >= ?
+           AND p.is_system = 1
+           AND t.is_system = 1
+           AND p.name = ?
+         GROUP BY entry_date
+         ORDER BY entry_date ASC",
+    )?;
+
+    let afk_daily = stmt
+        .query_map((since, AFK_PROJECT_NAME), |row| {
+            Ok(WindowDailyAggregate {
+                date: row.get(0)?,
+                total_seconds: row.get(1)?,
+            })
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    for afk_day in afk_daily {
+        if let Some(day) = week_daily.iter_mut().find(|day| day.date == afk_day.date) {
+            day.total_seconds += afk_day.total_seconds;
+        } else {
+            week_daily.push(afk_day);
+        }
+    }
+
+    week_daily.sort_by(|a, b| a.date.cmp(&b.date));
+    Ok(())
 }
 
 pub fn get_stats(db: &DbConnection) -> Result<WindowActivityStats> {
@@ -377,6 +460,7 @@ pub fn get_stats(db: &DbConnection) -> Result<WindowActivityStats> {
         .query_map([today_start], |row| {
             let app_identifier: String = row.get(0)?;
             Ok(AppTimeEntry {
+                kind: ActivityEntryKind::App,
                 color: app_color(&app_identifier),
                 app_identifier,
                 app_name: row.get(1)?,
@@ -384,6 +468,9 @@ pub fn get_stats(db: &DbConnection) -> Result<WindowActivityStats> {
             })
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    let afk_today = get_afk_entries_since(&conn, today_start)?;
+    today_apps.extend(afk_today);
 
     let mut stmt = conn.prepare(
         "SELECT date(ended_at, 'unixepoch', 'localtime') as entry_date,
@@ -401,6 +488,8 @@ pub fn get_stats(db: &DbConnection) -> Result<WindowActivityStats> {
             })
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    merge_afk_week_daily(&conn, &mut week_daily, week_start)?;
 
     let mut apps = today_apps.clone();
 
