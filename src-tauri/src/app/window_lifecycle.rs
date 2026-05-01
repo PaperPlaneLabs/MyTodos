@@ -3,6 +3,17 @@ use crate::events;
 use std::sync::atomic::Ordering;
 use tauri::{App, AppHandle, Manager, Wry};
 
+#[cfg(target_os = "windows")]
+fn is_os_shutting_down() -> bool {
+    use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_SHUTTINGDOWN};
+    unsafe { GetSystemMetrics(SM_SHUTTINGDOWN) != 0 }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn is_os_shutting_down() -> bool {
+    false
+}
+
 pub fn register_main_window_close_behavior(
     app: &App<Wry>,
     app_handle: AppHandle,
@@ -11,8 +22,7 @@ pub fn register_main_window_close_behavior(
     if let Some(window) = app.get_webview_window("main") {
         window.on_window_event(move |event| {
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                use windows::Win32::UI::WindowsAndMessaging::{GetSystemMetrics, SM_SHUTTINGDOWN};
-                let is_os_shutting_down = unsafe { GetSystemMetrics(SM_SHUTTINGDOWN) } != 0;
+                let is_os_shutting_down = is_os_shutting_down();
 
                 if !events::is_shutting_down() && !is_os_shutting_down {
                     api.prevent_close();
