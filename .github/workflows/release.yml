@@ -78,8 +78,6 @@ jobs:
           releaseBody: See the assets to download this version and install.
           releaseDraft: false
           prerelease: false
-          owner: SujithChristopher
-          repo: MyTodos
           releaseCommitish: main
           updaterJsonKeepUniversal: true
 
@@ -134,8 +132,6 @@ jobs:
           releaseBody: See the assets to download this version and install.
           releaseDraft: false
           prerelease: false
-          owner: SujithChristopher
-          repo: MyTodos
           releaseCommitish: main
           updaterJsonKeepUniversal: true
 
@@ -187,8 +183,6 @@ jobs:
           releaseBody: See the assets to download this version and install.
           releaseDraft: false
           prerelease: false
-          owner: SujithChristopher
-          repo: MyTodos
           releaseCommitish: main
           args: --target aarch64-apple-darwin
           updaterJsonKeepUniversal: true
@@ -241,8 +235,6 @@ jobs:
           releaseBody: See the assets to download this version and install.
           releaseDraft: false
           prerelease: false
-          owner: SujithChristopher
-          repo: MyTodos
           releaseCommitish: main
           args: --target x86_64-apple-darwin
           updaterJsonKeepUniversal: true
