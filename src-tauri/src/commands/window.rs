@@ -3,8 +3,8 @@ use crate::db::{DbConnection, WindowState};
 use crate::error::{AppError, Result};
 use serde::{Deserialize, Serialize};
 use tauri::{
-    AppHandle, LogicalPosition, LogicalSize, Manager, PhysicalPosition, PhysicalSize, State,
-    WebviewWindow, WebviewWindowBuilder,
+    AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, PhysicalPosition, PhysicalSize,
+    State, WebviewWindow, WebviewWindowBuilder,
 };
 
 const DOCK_WIDTH_LOGICAL: f64 = 380.0;
@@ -504,10 +504,18 @@ pub async fn open_resume_window(
     away_time_seconds: i64,
     theme: Option<String>,
 ) -> Result<()> {
+    // If a resume window is already open, update its data and bring it to front
+    // rather than silently focusing the stale window with old away time.
     if let Some(existing) = app.get_webview_window("resume") {
-        existing
-            .set_focus()
-            .map_err(|e| AppError::Other(e.to_string()))?;
+        let _ = existing.emit(
+            "resume:update",
+            serde_json::json!({
+                "taskId": task_id,
+                "taskTitle": task_title,
+                "awayTimeSeconds": away_time_seconds,
+            }),
+        );
+        let _ = existing.set_focus();
         return Ok(());
     }
 
@@ -540,8 +548,8 @@ pub async fn open_resume_window(
         .map_err(|e| AppError::Other(format!("Failed to serialize task_title: {}", e)))?;
     let away_time_json = serde_json::to_string(&away_time_seconds)
         .map_err(|e| AppError::Other(format!("Failed to serialize away_time: {}", e)))?;
-    let theme_str = theme.as_deref().unwrap_or("light");
-    let theme_json = serde_json::to_string(theme_str)
+    // Serialize theme as null when absent so the frontend falls back to localStorage.
+    let theme_json = serde_json::to_string(&theme)
         .map_err(|e| AppError::Other(format!("Failed to serialize theme: {}", e)))?;
 
     let init_script = format!(

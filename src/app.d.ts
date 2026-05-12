@@ -8,7 +8,7 @@ interface Window {
         taskId: number | null;
         taskTitle: string;
         awayTimeSeconds: number;
-        theme: string;
+        theme: string | null;
     };
     __TAURI_INTERNALS__?: {
         metadata?: {

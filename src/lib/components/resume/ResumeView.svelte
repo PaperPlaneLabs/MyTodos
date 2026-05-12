@@ -1,7 +1,7 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import { fade, scale } from "svelte/transition";
-    import { emit } from "@tauri-apps/api/event";
+    import { emit, listen } from "@tauri-apps/api/event";
     import { db } from "$lib/services/db";
     import {
         afkCategoryStore,
@@ -37,7 +37,7 @@
 
     onMount(() => {
         const theme =
-            window.__RESUME_DATA__?.theme ||
+            (typeof window.__RESUME_DATA__?.theme === "string" && window.__RESUME_DATA__.theme) ||
             localStorage.getItem("theme") ||
             "light";
         document.documentElement.setAttribute("data-theme", theme);
@@ -50,9 +50,26 @@
             awayTimeSeconds = window.__RESUME_DATA__.awayTimeSeconds;
         }
 
+        const unlistenPromise = listen<{
+            taskId: number | null;
+            taskTitle: string;
+            awayTimeSeconds: number;
+        }>("resume:update", (event) => {
+            if (!sending) {
+                taskId = event.payload.taskId;
+                taskTitle = event.payload.taskTitle;
+                awayTimeSeconds = event.payload.awayTimeSeconds;
+                selectedCategoryId = "";
+            }
+        });
+
         requestAnimationFrame(() => {
             mounted = true;
         });
+
+        return () => {
+            unlistenPromise.then((unlisten) => unlisten());
+        };
     });
 
     function formatTime(seconds: number): string {
