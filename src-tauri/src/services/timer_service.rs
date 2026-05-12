@@ -5,14 +5,12 @@ use rusqlite::Connection;
 
 pub const ACTIVE_TIMER_HEARTBEAT_INTERVAL_SECONDS: u64 = 30;
 const ACTIVE_TIMER_STALE_AFTER_SECONDS: i64 = 120;
-const BREAK_PROJECT_NAME: &str = "Breaks";
+use super::{AFK_PROJECT_COLOR, AFK_PROJECT_NAME, BREAK_PROJECT_NAME, BREAK_TASK_TITLE};
+
 const BREAK_PROJECT_DESCRIPTION: &str = "Automatically tracked break time";
 const BREAK_PROJECT_COLOR: &str = "#10b981";
-const BREAK_TASK_TITLE: &str = "Break";
 const BREAK_TASK_DESCRIPTION: &str = "Auto-generated task for break time";
-const AFK_PROJECT_NAME: &str = "Away";
 const AFK_PROJECT_DESCRIPTION: &str = "Automatically tracked away-from-keyboard time";
-const AFK_PROJECT_COLOR: &str = "#f59e0b";
 
 fn get_active_timer_from_conn(conn: &Connection) -> Result<Option<ActiveTimer>> {
     let result = conn.query_row(

@@ -20,7 +20,7 @@ fn insert_window_activity(db: &common::DbConnection, identifier: &str, name: &st
     .unwrap();
 }
 
-fn create_unused_afk_category(db: &common::DbConnection, title: &str) {
+fn insert_afk_project_no_entries(db: &common::DbConnection, title: &str) {
     let now = get_timestamp();
     let conn = db.lock();
     conn.execute(
@@ -242,7 +242,7 @@ fn test_window_tracking_stats_include_default_break_away_time() {
 #[test]
 fn test_window_tracking_stats_skip_unused_afk_categories() {
     let db = setup_test_db();
-    create_unused_afk_category(&db, "Snack");
+    insert_afk_project_no_entries(&db, "Snack");
     insert_window_activity(&db, "excel", "Excel", 600);
 
     let stats = window_tracking_service::get_stats(&db).unwrap();

@@ -6,14 +6,12 @@ use serde::Serialize;
 use std::path::Path;
 use std::time::Duration;
 
+use super::{AFK_PROJECT_COLOR, AFK_PROJECT_NAME, BREAK_PROJECT_NAME, BREAK_TASK_TITLE};
+
 const WINDOW_TRACKING_ENABLED_KEY: &str = "window_tracking_enabled";
 const WINDOW_TRACKING_PAUSED_KEY: &str = "window_tracking_paused";
 const TRACKER_POLL_SECONDS: u64 = 5;
 const MIN_SEGMENT_SECONDS: i64 = 1;
-const AFK_PROJECT_NAME: &str = "Away";
-const BREAK_PROJECT_NAME: &str = "Breaks";
-const BREAK_TASK_TITLE: &str = "Break";
-const AFK_FALLBACK_COLOR: &str = "#f59e0b";
 
 #[derive(Debug, Clone, Serialize)]
 pub struct WindowTrackingSettings {
@@ -394,7 +392,7 @@ fn get_afk_entries_since(conn: &Connection, since: i64) -> Result<Vec<AppTimeEnt
     let entries = stmt
         .query_map(
             (
-                AFK_FALLBACK_COLOR,
+                AFK_PROJECT_COLOR,
                 since,
                 AFK_PROJECT_NAME,
                 BREAK_PROJECT_NAME,
