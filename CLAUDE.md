@@ -1,6 +1,6 @@
 # MyTodos - Portrait Todo App with Time Tracking
 
-A desktop todo application built with Tauri 2, SvelteKit, and SQLite. Features a portrait-style window optimized for side-of-screen placement with integrated time tracking.
+A desktop todo application built with Tauri 2, SvelteKit, and SQLite. Features a portrait-style window optimized for side-of-screen placement with integrated time tracking, window activity monitoring, and Google Calendar integration.
 
 ## Tech Stack
 
@@ -9,27 +9,24 @@ A desktop todo application built with Tauri 2, SvelteKit, and SQLite. Features a
 - **Database**: SQLite (via rusqlite)
 - **Styling**: Custom CSS with CSS variables for theming
 
-## Architecture Overview
+## Commands
 
-### Frontend (SvelteKit)
+```bash
+# Development
+npm install
+npm run tauri dev          # Full app (frontend + Rust backend)
+npm run dev                # Frontend only (no Tauri)
 
-The frontend is a single-page application using Svelte 5's runes-based reactivity system. It communicates with the Rust backend via Tauri's IPC (Inter-Process Communication).
+# Type checking
+npm run check              # svelte-check + tsc
 
-**Key Patterns:**
-- **State Management**: Svelte 5 runes (`$state`, `$derived`, `$effect`)
-- **Store Pattern**: Reactive stores with getters and async methods
-- **Service Layer**: Tauri command wrappers in `src/lib/services/db.ts`
-- **Component Architecture**: Presentational components with smart containers
+# Testing
+npm test                   # Vitest (frontend unit tests)
+cargo test --manifest-path src-tauri/Cargo.toml  # Rust integration tests
 
-### Backend (Rust + Tauri)
-
-The backend handles all data persistence and business logic using SQLite.
-
-**Key Patterns:**
-- **Command-Based API**: Tauri commands for frontend-backend communication
-- **Shared State**: Database connection wrapped in `Arc<Mutex<Connection>>`
-- **Error Handling**: Custom error types with Serde serialization
-- **Modular Commands**: Separate command modules for each domain (projects, tasks, timer, etc.)
+# Build
+npm run tauri build        # Production bundle → src-tauri/target/release/bundle/
+```
 
 ## Project Structure
 
@@ -38,277 +35,193 @@ MyTodos/
 ├── src/                          # Frontend (SvelteKit)
 │   ├── lib/
 │   │   ├── components/
-│   │   │   ├── common/          # Reusable UI components
-│   │   │   │   ├── Modal.svelte
-│   │   │   │   └── TimeDisplay.svelte
-│   │   │   └── layout/          # Layout components
-│   │   │       └── AppHeader.svelte
+│   │   │   ├── calendar/        # CalendarTabView, CalendarMonth, CalendarWeek, etc.
+│   │   │   ├── common/          # Modal, BreakView, ContextMenu, TimeDisplay, etc.
+│   │   │   ├── layout/          # AppHeader, CollapseHandle
+│   │   │   ├── modals/          # PageModalHost
+│   │   │   ├── projects/        # ProjectListSection
+│   │   │   ├── resume/          # ResumeView
+│   │   │   ├── settings/        # SettingsView
+│   │   │   ├── stats/           # StatsView
+│   │   │   ├── tasks/           # TaskListSection
+│   │   │   └── timer/           # ActiveTimerWidget
+│   │   ├── controllers/
+│   │   │   └── page-interactions.svelte.ts  # Cross-component interaction logic
 │   │   ├── services/
-│   │   │   ├── db.ts            # Tauri command wrappers
-│   │   │   └── time-parser.ts  # Time parsing utilities
+│   │   │   ├── db.ts            # Tauri command wrappers (all invoke() calls)
+│   │   │   └── time-parser.ts   # Time string parsing utilities
 │   │   ├── stores/
+│   │   │   ├── afk-categories.svelte.ts
+│   │   │   ├── calendar.svelte.ts
+│   │   │   ├── google-calendar.svelte.ts
 │   │   │   ├── projects.svelte.ts
 │   │   │   ├── tasks.svelte.ts
 │   │   │   ├── timer.svelte.ts
-│   │   │   └── ui.svelte.ts
-│   │   └── styles/
-│   │       ├── global.css
-│   │       └── theme.css
+│   │   │   ├── timer-break-reminders.svelte.ts
+│   │   │   ├── timer-events.ts
+│   │   │   ├── timer-runtime.svelte.ts
+│   │   │   ├── ui.svelte.ts
+│   │   │   └── window-tracking.svelte.ts
+│   │   ├── styles/
+│   │   │   ├── global.css
+│   │   │   └── theme.css
+│   │   ├── test-utils/
+│   │   │   └── tauri-mock.ts    # Vitest mock for invoke()
+│   │   └── types/
+│   │       └── calendar.ts
 │   └── routes/
 │       ├── +layout.js           # CSR config
 │       └── +page.svelte         # Main app
 │
 ├── src-tauri/                    # Backend (Rust)
 │   ├── src/
-│   │   ├── commands/            # Tauri commands
-│   │   │   ├── mod.rs
+│   │   ├── app/                 # App lifecycle
+│   │   │   ├── startup.rs       # Initialization sequence
+│   │   │   ├── tray.rs          # System tray menu
+│   │   │   └── window_lifecycle.rs  # Close/minimize behavior
+│   │   ├── commands/            # Tauri IPC commands
+│   │   │   ├── calendar.rs
+│   │   │   ├── google_calendar.rs
 │   │   │   ├── projects.rs
 │   │   │   ├── sections.rs
 │   │   │   ├── tasks.rs
-│   │   │   ├── timer.rs
 │   │   │   ├── time_entries.rs
-│   │   │   └── window.rs
+│   │   │   ├── time_stats.rs
+│   │   │   ├── timer.rs
+│   │   │   ├── window.rs
+│   │   │   └── window_tracking.rs
 │   │   ├── db/                  # Database layer
-│   │   │   ├── mod.rs
 │   │   │   ├── connection.rs
 │   │   │   ├── models.rs
-│   │   │   └── schema.rs
-│   │   ├── error.rs             # Custom error types
-│   │   └── lib.rs               # Tauri app initialization
-│   ├── Cargo.toml
-│   └── tauri.conf.json
+│   │   │   └── schema.rs        # Schema + migrations
+│   │   ├── events/              # OS-level event handling (shutdown detection)
+│   │   │   ├── linux.rs
+│   │   │   ├── macos.rs
+│   │   │   ├── windows.rs
+│   │   │   └── system_events.rs
+│   │   ├── google/              # Google Calendar integration
+│   │   │   ├── calendar_api.rs
+│   │   │   ├── oauth.rs
+│   │   │   ├── sync.rs
+│   │   │   └── token_store.rs
+│   │   ├── services/
+│   │   │   ├── mod.rs           # Shared constants (system project names/colors)
+│   │   │   ├── timer_service.rs
+│   │   │   └── window_tracking_service.rs
+│   │   ├── error.rs             # Custom error types with Serde serialization
+│   │   └── lib.rs               # Tauri app initialization + command registration
+│   ├── tests/                   # Integration tests (run with cargo test)
+│   └── Cargo.toml
 │
-├── package.json
-└── vite.config.js
+└── package.json
 ```
 
 ## Database Schema
 
 ### Tables
 
-**projects**
-- Stores top-level project containers
-- Has color coding and position for ordering
-- Caches total time spent (`total_time_seconds`)
+**projects / tasks / sections** — core hierarchy. Both `projects` and `tasks` have `is_system BOOLEAN` for auto-generated system entries (AFK, Breaks).
 
-**sections** (optional)
-- Subdivisions within projects
-- Allows flexible 2-3 level hierarchy
-- Tasks can belong to sections or directly to projects
+**time_entries** — timer or manual records; `entry_type IN ('timer', 'manual')`
 
-**tasks**
-- Individual todo items
-- `section_id` is nullable (flexible hierarchy)
-- Tracks completion status and time spent
+**active_timer** (singleton, `id = 1`) — running timer state with pause/resume support
 
-**time_entries**
-- Records of time spent (timer or manual)
-- Links to tasks via foreign key
-- Stores start/end times for timer entries
+**window_state** (singleton, `id = 1`) — persisted window position and dock preference (`left`/`center`/`right`)
 
-**active_timer** (singleton)
-- Only one active timer at a time (enforced by `id = 1` constraint)
-- Stores running timer state with pause/resume support
+**app_settings** — key-value store for feature flags (e.g., `window_tracking_enabled`)
 
-**window_state** (singleton)
-- Persists window position and size between sessions
+**window_activity_entries** — foreground app segments; polled every 5 s by `window_tracking_service`
+
+**active_window_tracking** (singleton, `id = 1`) — currently-active foreground app segment
+
+**calendar_events** — local calendar events (separate from Google Calendar sync)
 
 ### Key Schema Features
 
-1. **Flexible Hierarchy**: Tasks can have `section_id = NULL` to belong directly to projects
-2. **Cascading Deletes**: Foreign keys with `ON DELETE CASCADE`
-3. **Denormalized Time**: `total_time_seconds` cached for performance
-4. **Position Fields**: Enable drag-and-drop reordering
+- **Cascading Deletes**: `ON DELETE CASCADE` on all foreign keys
+- **Denormalized Time**: `total_time_seconds` cached on projects/tasks for fast reads
+- **Migrations**: Additive-only `ALTER TABLE` at end of `schema.rs` — never destructive
 
 ## Core Concepts
 
-### 1. Svelte 5 Runes-Based Stores
-
-Stores use Svelte 5's runes for reactivity:
+### Svelte 5 Runes-Based Stores
 
 ```typescript
 let projects = $state<Project[]>([]);
-let selectedProjectId = $state<number | null>(null);
 
 export const projectStore = {
   get projects() { return projects; },
-  get selected() {
-    return projects.find(p => p.id === selectedProjectId) ?? null;
-  },
-  async loadAll() { /* ... */ }
+  get selected() { return projects.find(p => p.id === selectedProjectId) ?? null; },
+  async loadAll() { /* invoke + assign */ }
 };
 ```
 
-**Usage in components:**
+All stores live in `src/lib/stores/`. Components access via `$derived`:
+
 ```svelte
 <script>
   import { projectStore } from '$lib/stores/projects.svelte';
-
-  // Reactive access
   let currentProject = $derived(projectStore.selected);
 </script>
 ```
 
-### 2. Timer State Management
+### Tauri Command Pattern
 
-The timer uses client-side intervals for smooth UI updates while syncing with the backend:
+```typescript
+// src/lib/services/db.ts — all invoke() calls centralized here
+const project = await invoke<Project>('create_project', { name: 'My Project' });
+```
 
-- `start_timer(task_id)`: Creates active_timer record, starts interval
-- `pause_timer()`: Updates elapsed time, stops interval
-- `resume_timer()`: Updates started_at, restarts interval
-- `stop_timer()`: Creates time_entry, updates totals, deletes active_timer
+```rust
+// src-tauri/src/commands/projects.rs
+#[tauri::command]
+pub fn create_project(db: State<DbConnection>, name: String) -> Result<Project> { ... }
+// Register in lib.rs generate_handler![]
+```
 
-**Elapsed Time Calculation:**
+### Timer State Management
+
+Client-side interval for smooth UI; backend is source of truth:
+
+- `start_timer(task_id)` → inserts `active_timer`, starts interval
+- `pause_timer()` → updates `elapsed_seconds`, stops interval
+- `resume_timer()` → updates `started_at`, restarts interval
+- `stop_timer()` → creates `time_entry`, updates totals, deletes `active_timer`
+
 ```
 elapsed = elapsed_seconds + (now - started_at)
 ```
 
-### 3. Tauri Command Pattern
+### Window Tracking
 
-Frontend calls backend via Tauri's `invoke`:
+`window_tracking_service` polls foreground app every 5 s and writes `window_activity_entries`. Controlled via `app_settings` key `window_tracking_enabled`. AFK time (Away/Breaks system projects) is merged into stats alongside app activity; entries carry `kind: "app" | "afk"`.
 
-```typescript
-// Frontend (TypeScript)
-const project = await invoke<Project>('create_project', {
-  name: 'My Project'
-});
-
-// Backend (Rust)
-#[tauri::command]
-pub fn create_project(
-    db: State<DbConnection>,
-    name: String
-) -> Result<Project> {
-    // Implementation
-}
-```
-
-### 4. Theme System
-
-CSS variables enable dynamic theming:
+### Theme System
 
 ```css
-:root {
-  --bg-primary: #ffffff;
-  --text-primary: #1a1a1a;
-  --accent: #6366f1;
-}
-
-[data-theme="dark"] {
-  --bg-primary: #1a1a1a;
-  --text-primary: #f5f5f5;
-  --accent: #818cf8;
-}
+:root { --bg-primary: #ffffff; --accent: #6366f1; }
+[data-theme="dark"] { --bg-primary: #1a1a1a; --accent: #818cf8; }
 ```
 
-Theme toggled via `uiStore.toggleTheme()` which updates `data-theme` attribute.
+Toggle via `uiStore.toggleTheme()` → sets `data-theme` on `<body>`.
 
-## Development Workflow
+## Google Calendar Integration
 
-### Setup
+Requires OAuth credentials. Copy `.env.example` → `.env` and fill in:
 
-```bash
-# Install dependencies
-npm install
-
-# Run development server
-npm run tauri dev
+```
+GOOGLE_CLIENT_ID=your_client_id
+GOOGLE_CLIENT_SECRET=your_client_secret
 ```
 
-### Adding a New Feature
+These are baked into the binary at build time via Tauri's build script. The `src-tauri/src/google/` module handles OAuth flow, token refresh, and Calendar API sync.
 
-**Example: Adding Task Tags**
+## Adding a New Tauri Command
 
-1. **Update Database Schema** (`src-tauri/src/db/schema.rs`)
-   ```sql
-   CREATE TABLE tags (
-       id INTEGER PRIMARY KEY,
-       task_id INTEGER,
-       name TEXT,
-       FOREIGN KEY (task_id) REFERENCES tasks(id)
-   );
-   ```
-
-2. **Create Model** (`src-tauri/src/db/models.rs`)
-   ```rust
-   #[derive(Debug, Serialize, Deserialize)]
-   pub struct Tag {
-       pub id: i64,
-       pub task_id: i64,
-       pub name: String,
-   }
-   ```
-
-3. **Add Commands** (`src-tauri/src/commands/tags.rs`)
-   ```rust
-   #[tauri::command]
-   pub fn create_tag(db: State<DbConnection>, task_id: i64, name: String) -> Result<Tag> {
-       // Implementation
-   }
-   ```
-
-4. **Register Commands** (`src-tauri/src/lib.rs`)
-   ```rust
-   .invoke_handler(tauri::generate_handler![
-       // ... existing commands
-       commands::create_tag,
-   ])
-   ```
-
-5. **Add Service Wrapper** (`src/lib/services/db.ts`)
-   ```typescript
-   tags: {
-     create: (taskId: number, name: string) =>
-       invoke<Tag>('create_tag', { taskId, name }),
-   }
-   ```
-
-6. **Create Store** (`src/lib/stores/tags.svelte.ts`)
-   ```typescript
-   let tags = $state<Tag[]>([]);
-   export const tagStore = {
-     get tags() { return tags; },
-     async create(taskId: number, name: string) { /* ... */ }
-   };
-   ```
-
-7. **Build UI Components** (`src/lib/components/tags/`)
-
-## Common Tasks
-
-### Update Window Size
-
-Edit `src-tauri/tauri.conf.json`:
-```json
-{
-  "app": {
-    "windows": [{
-      "width": 400,
-      "height": 850
-    }]
-  }
-}
-```
-
-### Add New Theme Colors
-
-Edit `src/lib/styles/theme.css`:
-```css
-:root {
-  --custom-color: #abcdef;
-}
-
-[data-theme="dark"] {
-  --custom-color: #fedcba;
-}
-```
-
-### Create New Tauri Command
-
-1. Create function in appropriate command file
-2. Add `#[tauri::command]` attribute
-3. Register in `lib.rs`'s `generate_handler!` macro
-4. Add TypeScript wrapper in `db.ts`
+1. Add function with `#[tauri::command]` in the appropriate `src-tauri/src/commands/*.rs` file
+2. Register it in `lib.rs` → `generate_handler![]`
+3. Add `invoke<T>()` wrapper in `src/lib/services/db.ts`
+4. Create or update the relevant store in `src/lib/stores/`
 
 ## Database Location
 
@@ -316,71 +229,14 @@ Edit `src/lib/styles/theme.css`:
 - **macOS**: `~/Library/Application Support/my-todos/todos.db`
 - **Linux**: `~/.local/share/my-todos/todos.db`
 
-## Building for Production
-
-```bash
-# Build the app
-npm run tauri build
-
-# Output location:
-# src-tauri/target/release/bundle/
-```
-
 ## Debugging
 
-### Rust Backend
-- Logs appear in terminal running `npm run tauri dev`
-- Add `println!` or `dbg!` macros for debugging
-
-### Frontend
-- Open DevTools in the app window (F12)
-- Console logs appear in DevTools
-- Use Svelte DevTools extension for component inspection
-
-### Database
-- Use SQLite browser to inspect `todos.db`
-- Check foreign key constraints: `PRAGMA foreign_keys;`
+- **Rust**: logs in terminal running `npm run tauri dev`; use `println!` / `eprintln!`
+- **Frontend**: F12 DevTools in app window
+- **Database**: inspect with any SQLite browser; `PRAGMA foreign_keys;` to verify FK enforcement
 
 ## Known Limitations
 
-1. **Single Active Timer**: Only one timer can run at a time (by design)
-2. **No Multi-Window**: Single window application
-3. **Local Only**: No cloud sync (future enhancement)
-4. **Basic Error Handling**: Errors shown in console, minimal user feedback
-
-## Future Enhancements
-
-- [ ] Drag-and-drop reordering (UI + backend ready)
-- [ ] Manual time entry UI
-- [ ] Project/task edit and delete UI
-- [ ] Section management UI
-- [ ] Recurring tasks
-- [ ] Task dependencies
-- [ ] Export/import (JSON, CSV)
-- [ ] Cloud sync
-- [ ] Keyboard shortcuts
-- [ ] Rich text task notes
-- [ ] Weekly/monthly reports
-- [ ] Pomodoro mode
-
-## Performance Considerations
-
-1. **Cached Aggregates**: Time totals are denormalized for fast reads
-2. **Indexed Queries**: Foreign key columns have indexes
-3. **Minimal Re-renders**: Svelte 5 fine-grained reactivity
-4. **Client-Side Timer**: Reduces backend calls during active timing
-
-## Security Notes
-
-- SQLite injection prevented via parameterized queries
-- Foreign keys enforced at database level
-- No external network calls (fully offline)
-- User data stays local (no telemetry)
-
-## License
-
-MIT
-
-## Author
-
-Built with Claude Code
+- Single active timer at a time (by design, enforced via `id = 1` constraint)
+- Single window only
+- No cloud sync (Google Calendar is read/write but todos stay local)
