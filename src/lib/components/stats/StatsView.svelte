@@ -67,10 +67,37 @@
         };
     });
 
+    // Group apps under 10 min into "Others"
+    const OTHERS_THRESHOLD_SECONDS = 600;
+
+    function groupSmallApps(apps: WindowActivityStats["today_apps"]) {
+        const big = apps.filter((a) => a.total_seconds >= OTHERS_THRESHOLD_SECONDS);
+        const small = apps.filter((a) => a.total_seconds < OTHERS_THRESHOLD_SECONDS);
+        if (small.length === 0) return big;
+        const othersSeconds = small.reduce((sum, a) => sum + a.total_seconds, 0);
+        return [
+            ...big,
+            {
+                app_identifier: "others",
+                app_name: "Others",
+                total_seconds: othersSeconds,
+                color: "#6b7280",
+                kind: "app" as const,
+            },
+        ];
+    }
+
+    let groupedTodayApps = $derived(
+        windowStats ? groupSmallApps(windowStats.today_apps) : [],
+    );
+    let groupedApps = $derived(
+        windowStats ? groupSmallApps(windowStats.apps) : [],
+    );
+
     // Derived values for charts
     let maxTodaySeconds = $derived(
         windowTrackingStore.enabled
-            ? windowStats?.today_apps.reduce(
+            ? groupedTodayApps.reduce(
                   (max, app) => Math.max(max, app.total_seconds),
                   0,
               ) || 0
@@ -231,13 +258,13 @@
                     Today's Activity
                 </h3>
                 {#if windowTrackingStore.enabled && windowStats}
-                    {#if windowStats.today_apps.length === 0}
+                    {#if groupedTodayApps.length === 0}
                         <div class="empty-state">
                             <p>No active-window time tracked today</p>
                         </div>
                     {:else}
                         <div class="bar-chart horizontal">
-                            {#each windowStats.today_apps as app}
+                            {#each groupedTodayApps as app}
                                 <div class="bar-item">
                                     <div class="bar-label">
                                         <span class="task-name" title={app.app_name}
@@ -353,14 +380,14 @@
                     {windowTrackingStore.enabled ? "By Activity" : "By Project"}
                 </h3>
                 {#if windowTrackingStore.enabled && windowStats}
-                    {#if windowStats.apps.length === 0}
+                    {#if groupedApps.length === 0}
                         <div class="empty-state">
                             <p>No activity data yet</p>
                         </div>
                     {:else}
                         <div class="pie-section">
                             <svg class="pie-chart" viewBox="0 0 100 100">
-                                {#each getPieSlices(windowStats.apps) as slice}
+                                {#each getPieSlices(groupedApps) as slice}
                                     <path
                                         d={describeArc(
                                             50,
@@ -395,7 +422,7 @@
                                 </text>
                             </svg>
                             <div class="pie-legend">
-                                {#each windowStats.apps as app}
+                                {#each groupedApps as app}
                                     <div class="legend-item">
                                         <span
                                             class="legend-color"
