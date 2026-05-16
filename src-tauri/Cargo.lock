@@ -2273,7 +2273,7 @@ dependencies = [
 
 [[package]]
 name = "my-todos"
-version = "0.1.57"
+version = "0.1.58"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
