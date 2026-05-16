@@ -10,7 +10,7 @@ use super::{AFK_PROJECT_COLOR, AFK_PROJECT_NAME, BREAK_PROJECT_NAME, BREAK_TASK_
 
 const WINDOW_TRACKING_ENABLED_KEY: &str = "window_tracking_enabled";
 const WINDOW_TRACKING_PAUSED_KEY: &str = "window_tracking_paused";
-const TRACKER_POLL_SECONDS: u64 = 5;
+const TRACKER_POLL_SECONDS: u64 = 15;
 const MIN_SEGMENT_SECONDS: i64 = 1;
 
 #[derive(Debug, Clone, Serialize)]

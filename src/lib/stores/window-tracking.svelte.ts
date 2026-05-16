@@ -6,6 +6,7 @@ let active = $state<ActiveWindowTracking | null>(null);
 let todayTotalBeforeActive = $state(0);
 let changeCounter = $state(0);
 let refreshIntervalId: number | null = null;
+const WINDOW_TRACKING_REFRESH_MS = 15_000;
 
 function activeElapsedSeconds(): number {
   if (!active) return 0;
@@ -28,7 +29,7 @@ function startRefresh(): void {
   if (typeof window === "undefined" || refreshIntervalId !== null) return;
   refreshIntervalId = window.setInterval(() => {
     void windowTrackingStore.refresh();
-  }, 5000);
+  }, WINDOW_TRACKING_REFRESH_MS);
 }
 
 export const windowTrackingStore = {

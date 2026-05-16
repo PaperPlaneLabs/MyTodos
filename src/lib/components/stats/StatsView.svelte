@@ -11,6 +11,8 @@
     let loading = $state(true);
     let error = $state<string | null>(null);
     let refreshIntervalId: number | null = null;
+    const WINDOW_TRACKING_REFRESH_MS = 15_000;
+    const TIMER_REFRESH_MS = 5_000;
 
     async function loadStats() {
         try {
@@ -50,9 +52,12 @@
     $effect(() => {
         if (timerStore.isRunning || windowTrackingStore.enabled) {
             if (refreshIntervalId !== null) clearInterval(refreshIntervalId);
+            const refreshMs = windowTrackingStore.enabled
+                ? WINDOW_TRACKING_REFRESH_MS
+                : TIMER_REFRESH_MS;
             refreshIntervalId = window.setInterval(() => {
                 loadStats();
-            }, 5000); // Refresh every 5 seconds
+            }, refreshMs);
         } else {
             if (refreshIntervalId !== null) {
                 clearInterval(refreshIntervalId);
