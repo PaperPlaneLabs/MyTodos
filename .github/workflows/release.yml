@@ -238,3 +238,73 @@ jobs:
           releaseCommitish: main
           args: --target x86_64-apple-darwin
           updaterJsonKeepUniversal: true
+
+  upload-updater-jsons:
+    needs: [release-windows, release-linux-x86_64, release-macos-aarch64, release-macos-x86_64]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || github.event.inputs.tag }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Generate and upload platform-specific updater JSONs
+        run: |
+          set -e
+          VERSION="${RELEASE_TAG#v}"
+          REPO="PaperPlaneLabs/MyTodos"
+          PUB_DATE=$(gh release view "$RELEASE_TAG" --repo "$REPO" --json publishedAt --jq '.publishedAt')
+
+          make_json() {
+            local filename="$1" url="$2" sig="$3"
+            echo "{}" | jq \
+              --arg version "$VERSION" \
+              --arg notes "MyTodos $RELEASE_TAG" \
+              --arg pub_date "$PUB_DATE" \
+              --arg url "$url" \
+              --arg sig "$sig" \
+              '{version: $version, notes: $notes, pub_date: $pub_date, url: $url, signature: $sig}' > "$filename"
+          }
+
+          BASE="https://github.com/$REPO/releases/download/$RELEASE_TAG"
+
+          if sig=$(gh release download "$RELEASE_TAG" --repo "$REPO" --pattern "my-todos_${VERSION}_x64-setup.exe.sig" --output - 2>/dev/null); then
+            make_json latest-windows-x86_64.json "$BASE/my-todos_${VERSION}_x64-setup.exe" "$sig"
+          fi
+
+          if sig=$(gh release download "$RELEASE_TAG" --repo "$REPO" --pattern "my-todos_aarch64.app.tar.gz.sig" --output - 2>/dev/null); then
+            make_json latest-darwin-aarch64.json "$BASE/my-todos_aarch64.app.tar.gz" "$sig"
+          fi
+
+          if sig=$(gh release download "$RELEASE_TAG" --repo "$REPO" --pattern "my-todos_x64.app.tar.gz.sig" --output - 2>/dev/null); then
+            make_json latest-darwin-x86_64.json "$BASE/my-todos_x64.app.tar.gz" "$sig"
+          fi
+
+          if sig=$(gh release download "$RELEASE_TAG" --repo "$REPO" --pattern "my-todos_${VERSION}_amd64.AppImage.tar.gz.sig" --output - 2>/dev/null); then
+            make_json latest-linux-x86_64.json "$BASE/my-todos_${VERSION}_amd64.AppImage.tar.gz" "$sig"
+          fi
+
+          files=(latest-windows-x86_64.json latest-darwin-aarch64.json latest-darwin-x86_64.json latest-linux-x86_64.json)
+          existing=()
+          for f in "${files[@]}"; do [[ -f "$f" ]] && existing+=("$f"); done
+
+          if [[ ${#existing[@]} -gt 0 ]]; then
+            gh release upload "$RELEASE_TAG" "${existing[@]}" --repo "$REPO" --clobber
+          fi
+
+      - name: Create migration release in MyTodos-releases
+        if: ${{ needs.release-windows.result == 'success' && hashFiles('latest-windows-x86_64.json') != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_REPO_TOKEN }}
+        run: |
+          RELEASES_REPO="SujithChristopher/MyTodos-releases"
+          if gh release view "$RELEASE_TAG" --repo "$RELEASES_REPO" &>/dev/null; then
+            gh release upload "$RELEASE_TAG" latest-windows-x86_64.json --repo "$RELEASES_REPO" --clobber
+          else
+            gh release create "$RELEASE_TAG" latest-windows-x86_64.json \
+              --repo "$RELEASES_REPO" \
+              --title "MyTodos $RELEASE_TAG" \
+              --notes "MyTodos $RELEASE_TAG" \
+              --latest
+          fi
