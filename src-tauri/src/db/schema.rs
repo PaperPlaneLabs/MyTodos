@@ -205,6 +205,10 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
         [],
     );
     let _ = conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_window_activity_ended_at ON window_activity_entries(ended_at)",
+        [],
+    );
+    let _ = conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_window_activity_app ON window_activity_entries(app_identifier)",
         [],
     );

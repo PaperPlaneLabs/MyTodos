@@ -15,7 +15,6 @@
     async function loadStats() {
         try {
             if (windowTrackingStore.enabled) {
-                await windowTrackingStore.refresh();
                 windowStats = await db.windowTracking.getStats();
                 stats = null;
             } else {
@@ -50,6 +49,7 @@
     // Periodic refresh while timer is running
     $effect(() => {
         if (timerStore.isRunning || windowTrackingStore.enabled) {
+            if (refreshIntervalId !== null) clearInterval(refreshIntervalId);
             refreshIntervalId = window.setInterval(() => {
                 loadStats();
             }, 5000); // Refresh every 5 seconds
@@ -63,6 +63,7 @@
         return () => {
             if (refreshIntervalId !== null) {
                 clearInterval(refreshIntervalId);
+                refreshIntervalId = null;
             }
         };
     });
