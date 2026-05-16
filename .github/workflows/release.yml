@@ -292,19 +292,3 @@ jobs:
           if [[ ${#existing[@]} -gt 0 ]]; then
             gh release upload "$RELEASE_TAG" "${existing[@]}" --repo "$REPO" --clobber
           fi
-
-      - name: Create migration release in MyTodos-releases
-        if: ${{ needs.release-windows.result == 'success' && hashFiles('latest-windows-x86_64.json') != '' }}
-        env:
-          GH_TOKEN: ${{ secrets.RELEASES_REPO_TOKEN }}
-        run: |
-          RELEASES_REPO="SujithChristopher/MyTodos-releases"
-          if gh release view "$RELEASE_TAG" --repo "$RELEASES_REPO" &>/dev/null; then
-            gh release upload "$RELEASE_TAG" latest-windows-x86_64.json --repo "$RELEASES_REPO" --clobber
-          else
-            gh release create "$RELEASE_TAG" latest-windows-x86_64.json \
-              --repo "$RELEASES_REPO" \
-              --title "MyTodos $RELEASE_TAG" \
-              --notes "MyTodos $RELEASE_TAG" \
-              --latest
-          fi
