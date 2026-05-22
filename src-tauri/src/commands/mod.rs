@@ -1,3 +1,4 @@
+pub mod backup;
 pub mod calendar;
 pub mod common;
 pub mod google_calendar;
@@ -10,6 +11,7 @@ pub mod timer;
 pub mod window;
 pub mod window_tracking;
 
+pub use backup::*;
 pub use calendar::*;
 pub use google_calendar::*;
 pub use projects::*;

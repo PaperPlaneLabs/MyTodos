@@ -87,6 +87,13 @@ export interface WindowTrackingSettings {
   enabled: boolean;
 }
 
+export interface BackupSettings {
+  enabled: boolean;
+  folder: string;
+  interval_minutes: number;
+  last_backup_at: number | null;
+}
+
 export interface WindowTrackingState {
   enabled: boolean;
   paused: boolean;
@@ -273,6 +280,19 @@ export const db = {
       invoke<WindowTrackingState>("set_window_tracking_paused", { paused }),
     getStats: () => invoke<WindowActivityStats>("get_window_activity_stats"),
     clearActivity: () => invoke<void>("clear_window_activity"),
+  },
+
+  backup: {
+    getSettings: () => invoke<BackupSettings>("get_backup_settings"),
+    setSettings: (args: {
+      enabled: boolean;
+      folder: string;
+      interval_minutes: number;
+    }) => invoke<BackupSettings>("set_backup_settings", args),
+    backupNow: () => invoke<BackupSettings>("backup_now"),
+    restore: (backup_path: string) =>
+      invoke<void>("restore_backup", { backup_path }),
+    checkCloudFolders: () => invoke<string[]>("check_cloud_folders"),
   },
 
   googleCalendar: {

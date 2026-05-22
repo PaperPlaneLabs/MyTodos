@@ -11,8 +11,10 @@
     import { timerStore } from "$lib/stores/timer.svelte";
     import { windowTrackingStore } from "$lib/stores/window-tracking.svelte";
     import { afkCategoryStore } from "$lib/stores/afk-categories.svelte";
+    import { backupStore } from "$lib/stores/backup.svelte";
     import { db } from "$lib/services/db";
     import { getVersion } from "@tauri-apps/api/app";
+    import { open } from "@tauri-apps/plugin-dialog";
     import { check } from "@tauri-apps/plugin-updater";
     import { relaunch } from "@tauri-apps/plugin-process";
     import Modal from "$lib/components/common/Modal.svelte";
@@ -39,6 +41,12 @@
         { value: 45, label: "45 minutes" },
         { value: 60, label: "60 minutes" },
     ];
+    const backupIntervalOptions: { value: number; label: string }[] = [
+        { value: 1, label: "1 minute" },
+        { value: 15, label: "15 minutes" },
+        { value: 30, label: "30 minutes" },
+        { value: 60, label: "60 minutes" },
+    ];
     let currentThemePreview = $derived(
         themes.find((t) => t.id === uiStore.theme) ?? themes[0],
     );
@@ -48,9 +56,11 @@
     let loading = $state(true);
     let toggling = $state(false);
     let showResetConfirm = $state(false);
+    let showRestoreConfirm = $state(false);
     let showWindowTrackConfirm = $state(false);
     let showBreakIntervalConfirm = $state(false);
     let pendingBreakInterval = $state<number | null>(null);
+    let pendingRestorePath = $state("");
     let breakIntervalSelectValue = $state("30");
     let newAfkCategory = $state("");
     let afkCategoryError = $state("");
@@ -71,6 +81,7 @@
     onMount(async () => {
         afkCategoryStore.init();
         await windowTrackingStore.init();
+        await backupStore.init();
         breakIntervalSelectValue = String(
             timerStore.breakReminderIntervalMinutes,
         );
@@ -184,6 +195,71 @@
         } catch (e) {
             console.error("Failed to clear data:", e);
         }
+    }
+
+    function formatBackupTime(timestamp: number | null) {
+        if (!timestamp) return "Never";
+        return new Date(timestamp * 1000).toLocaleString();
+    }
+
+    async function chooseBackupFolder() {
+        const selected = await open({
+            directory: true,
+            multiple: false,
+            title: "Choose Backup Folder",
+        });
+        if (typeof selected !== "string") return;
+        await backupStore.save({ folder: selected });
+    }
+
+    async function chooseRestoreFile() {
+        const selected = await open({
+            multiple: false,
+            title: "Choose Backup File",
+            filters: [{ name: "SQLite", extensions: ["db"] }],
+        });
+        if (typeof selected !== "string") return;
+        pendingRestorePath = selected;
+        showRestoreConfirm = true;
+    }
+
+    async function toggleAutoBackup() {
+        if (backupStore.settings.enabled) {
+            await backupStore.save({ enabled: false });
+            return;
+        }
+
+        if (!backupStore.settings.folder) {
+            await chooseBackupFolder();
+        }
+
+        if (backupStore.settings.folder) {
+            await backupStore.save({ enabled: true });
+        }
+    }
+
+    async function setBackupFolder(folder: string) {
+        await backupStore.save({ folder });
+    }
+
+    async function updateBackupInterval(event: Event) {
+        const target = event.currentTarget as HTMLSelectElement;
+        const interval = Number(target.value);
+        if (!Number.isFinite(interval) || interval < 1) return;
+        await backupStore.save({ interval_minutes: interval });
+    }
+
+    async function confirmRestoreBackup() {
+        if (!pendingRestorePath) return;
+        await backupStore.restore(pendingRestorePath);
+        pendingRestorePath = "";
+        showRestoreConfirm = false;
+    }
+
+    function cancelRestoreBackup() {
+        if (backupStore.busy) return;
+        pendingRestorePath = "";
+        showRestoreConfirm = false;
     }
 
     async function toggleWindowTracking() {
@@ -737,6 +813,131 @@
             {/if}
         </section>
 
+        <!-- BACKUP SECTION -->
+        <section
+            class="settings-section"
+            transition:fly={{ y: 20, duration: 300, delay: 225 }}
+        >
+            <h3><span class="section-icon">☁️</span> Backup</h3>
+
+            <div class="setting-item">
+                <div class="setting-info">
+                    <span class="setting-label" id="backup-enabled-label"
+                        >Auto Backup</span
+                    >
+                    <span class="setting-desc">
+                        Copy the database to a local synced folder on a schedule
+                    </span>
+                </div>
+                <button
+                    type="button"
+                    class="toggle-switch"
+                    class:active={backupStore.settings.enabled}
+                    class:loading={backupStore.busy}
+                    role="switch"
+                    aria-checked={backupStore.settings.enabled}
+                    aria-labelledby="backup-enabled-label"
+                    onclick={toggleAutoBackup}
+                    disabled={backupStore.busy}
+                    title={backupStore.settings.enabled
+                        ? "Disable auto backup"
+                        : "Enable auto backup"}
+                >
+                    <span class="toggle-knob"></span>
+                </button>
+            </div>
+
+            <div class="setting-item setting-item-stack">
+                <div class="setting-info">
+                    <span class="setting-label">Backup Folder</span>
+                    <span class="setting-desc backup-folder-path">
+                        {backupStore.settings.folder || "No folder selected"}
+                    </span>
+                </div>
+                <div class="backup-actions">
+                    <button
+                        type="button"
+                        class="btn btn-secondary btn-sm"
+                        onclick={chooseBackupFolder}
+                        disabled={backupStore.busy}
+                    >
+                        Choose Folder
+                    </button>
+                    {#each backupStore.cloudFolders as folder}
+                        <button
+                            type="button"
+                            class="btn btn-secondary btn-sm"
+                            onclick={() => setBackupFolder(folder)}
+                            disabled={backupStore.busy}
+                        >
+                            {folder.includes("Dropbox") ? "Dropbox" : "OneDrive"}
+                        </button>
+                    {/each}
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <div class="setting-info">
+                    <span class="setting-label" id="backup-interval-label"
+                        >Interval</span
+                    >
+                    <span class="setting-desc">How often auto backup runs</span>
+                </div>
+                <div class="setting-select">
+                    <select
+                        class="input setting-native-select"
+                        value={String(backupStore.settings.interval_minutes)}
+                        aria-labelledby="backup-interval-label"
+                        onchange={updateBackupInterval}
+                    >
+                        {#each backupIntervalOptions as opt}
+                            <option value={String(opt.value)}>{opt.label}</option>
+                        {/each}
+                    </select>
+                </div>
+            </div>
+
+            <div class="setting-item">
+                <div class="setting-info">
+                    <span class="setting-label">Last Backup</span>
+                    <span class="setting-desc">
+                        {formatBackupTime(backupStore.settings.last_backup_at)}
+                    </span>
+                </div>
+                <button
+                    type="button"
+                    class="btn btn-primary btn-sm"
+                    onclick={() => backupStore.backupNow()}
+                    disabled={backupStore.busy || !backupStore.settings.folder}
+                >
+                    {backupStore.busy ? "Working..." : "Backup Now"}
+                </button>
+            </div>
+
+            <div class="setting-item">
+                <div class="setting-info">
+                    <span class="setting-label text-danger">Restore</span>
+                    <span class="setting-desc">
+                        Load a backup file and replace current data
+                    </span>
+                </div>
+                <button
+                    type="button"
+                    class="btn btn-danger btn-sm"
+                    onclick={chooseRestoreFile}
+                    disabled={backupStore.busy}
+                >
+                    Choose Backup File
+                </button>
+            </div>
+
+            {#if backupStore.error}
+                <div class="backup-error" role="alert">
+                    {backupStore.error}
+                </div>
+            {/if}
+        </section>
+
         <!-- DATA MANAGEMENT SECTION -->
         <section
             class="settings-section danger-zone"
@@ -794,6 +995,36 @@
                 <button class="btn btn-danger" onclick={handleClearData}
                     >Yes, Delete Everything</button
                 >
+            </div>
+        </div>
+    {/snippet}
+</Modal>
+
+<Modal
+    open={showRestoreConfirm}
+    title="Restore Backup?"
+    onClose={cancelRestoreBackup}
+>
+    {#snippet children()}
+        <div class="reset-confirm-content">
+            <p class="restore-confirm-text">
+                This will replace all current MyTodos data with the selected
+                backup file. This action cannot be undone.
+            </p>
+            <p class="restore-path">{pendingRestorePath}</p>
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button
+                    class="btn btn-secondary"
+                    onclick={cancelRestoreBackup}
+                    disabled={backupStore.busy}>Cancel</button
+                >
+                <button
+                    class="btn btn-danger"
+                    onclick={confirmRestoreBackup}
+                    disabled={backupStore.busy}
+                >
+                    {backupStore.busy ? "Restoring..." : "Restore Backup"}
+                </button>
             </div>
         </div>
     {/snippet}
@@ -1187,6 +1418,25 @@
         font-size: 11px;
     }
 
+    .backup-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .backup-folder-path {
+        overflow-wrap: anywhere;
+    }
+
+    .backup-error {
+        margin-top: var(--spacing-sm);
+        padding: var(--spacing-sm) var(--spacing-md);
+        background: var(--danger-light);
+        color: var(--danger);
+        border-radius: var(--radius-sm);
+        font-size: 11px;
+    }
+
     /* Update status */
     .update-error {
         color: var(--danger);
@@ -1251,5 +1501,22 @@
     .window-track-confirm-list ul {
         margin: 0;
         padding-left: 18px;
+    }
+
+    .restore-confirm-text {
+        margin-bottom: 12px;
+        color: var(--text-secondary);
+        line-height: 1.5;
+        font-size: 13px;
+    }
+
+    .restore-path {
+        margin-bottom: 20px;
+        padding: 8px 10px;
+        border-radius: var(--radius-sm);
+        background: var(--bg-secondary);
+        color: var(--text-tertiary);
+        font-size: 11px;
+        overflow-wrap: anywhere;
     }
 </style>

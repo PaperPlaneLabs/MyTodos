@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 pub type DbConnection = Arc<Mutex<Connection>>;
 
-fn get_database_path() -> PathBuf {
+pub fn get_database_dir() -> PathBuf {
     #[cfg(target_os = "android")]
     {
         // On Android, use the app's files directory which is writable
@@ -28,14 +28,18 @@ fn get_database_path() -> PathBuf {
     }
 }
 
+pub fn get_database_file_path() -> PathBuf {
+    get_database_dir().join("todos.db")
+}
+
 pub fn initialize_connection() -> Result<DbConnection> {
-    let db_dir = get_database_path();
+    let db_dir = get_database_dir();
 
     std::fs::create_dir_all(&db_dir).map_err(|e| {
         crate::error::AppError::InvalidInput(format!("Could not create database directory: {}", e))
     })?;
 
-    let db_path = db_dir.join("todos.db");
+    let db_path = get_database_file_path();
     let conn = Connection::open(db_path)?;
 
     conn.execute("PRAGMA foreign_keys = ON", [])?;

@@ -31,6 +31,7 @@ pub fn run() {
             LaunchAgent,
             Some(vec!["--hidden"]),
         ))
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
@@ -124,6 +125,11 @@ pub fn run() {
             commands::set_window_tracking_paused,
             commands::get_window_activity_stats,
             commands::clear_window_activity,
+            commands::get_backup_settings,
+            commands::set_backup_settings,
+            commands::backup_now,
+            commands::restore_backup,
+            commands::check_cloud_folders,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
