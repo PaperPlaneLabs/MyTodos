@@ -11,17 +11,18 @@
     let loading = $state(true);
     let error = $state<string | null>(null);
     let refreshIntervalId: number | null = null;
+    let activeTab = $state<"task" | "window">("task");
     const WINDOW_TRACKING_REFRESH_MS = 15_000;
     const TIMER_REFRESH_MS = 5_000;
 
     async function loadStats() {
         try {
-            if (windowTrackingStore.enabled) {
-                windowStats = await db.windowTracking.getStats();
-                stats = null;
-            } else {
-                stats = await db.timeEntries.getTimeStats(true); // include_active_timer
-                windowStats = null;
+            stats = await db.timeEntries.getTimeStats(true); // include_active_timer
+            windowStats = windowTrackingStore.enabled
+                ? await db.windowTracking.getStats()
+                : null;
+            if (!windowStats && activeTab === "window") {
+                activeTab = "task";
             }
         } catch (e) {
             console.error("Failed to load stats:", e);
@@ -52,9 +53,9 @@
     $effect(() => {
         if (timerStore.isRunning || windowTrackingStore.enabled) {
             if (refreshIntervalId !== null) clearInterval(refreshIntervalId);
-            const refreshMs = windowTrackingStore.enabled
-                ? WINDOW_TRACKING_REFRESH_MS
-                : TIMER_REFRESH_MS;
+            const refreshMs = timerStore.isRunning
+                ? TIMER_REFRESH_MS
+                : WINDOW_TRACKING_REFRESH_MS;
             refreshIntervalId = window.setInterval(() => {
                 loadStats();
             }, refreshMs);
@@ -100,32 +101,36 @@
         windowStats ? groupSmallApps(windowStats.apps) : [],
     );
 
-    // Derived values for charts
-    let maxTodaySeconds = $derived(
-        windowTrackingStore.enabled
-            ? groupedTodayApps.reduce(
-                  (max, app) => Math.max(max, app.total_seconds),
-                  0,
-              ) || 0
-            : stats?.today_tasks.reduce(
-                  (max, t) => Math.max(max, t.total_seconds),
-                  0,
-              ) || 0,
+    let maxTaskTodaySeconds = $derived(
+        stats?.today_tasks.reduce(
+            (max, task) => Math.max(max, task.total_seconds),
+            0,
+        ) || 0,
+    );
+
+    let maxWindowTodaySeconds = $derived(
+        groupedTodayApps.reduce(
+            (max, app) => Math.max(max, app.total_seconds),
+            0,
+        ) || 0,
     );
 
     let totalProjectSeconds = $derived(
-        windowTrackingStore.enabled
-            ? windowStats?.apps.reduce((sum, app) => sum + app.total_seconds, 0) || 0
-            : stats?.projects.reduce((sum, p) => sum + p.total_seconds, 0) || 0,
+        stats?.projects.reduce((sum, project) => sum + project.total_seconds, 0) || 0,
+    );
+
+    let totalWindowSeconds = $derived(
+        windowStats?.apps.reduce((sum, app) => sum + app.total_seconds, 0) || 0,
     );
 
     // Week days for the bar chart (Mon-Sun)
     const weekDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
-    let weekData = $derived.by(() => {
-        const dailyData = windowTrackingStore.enabled
-            ? windowStats?.week_daily
-            : stats?.week_daily;
+    function getWeekData(
+        dailyData:
+            | { date: string; total_seconds: number }[]
+            | undefined,
+    ) {
         if (!dailyData) return weekDays.map((d) => ({ day: d, seconds: 0 }));
 
         const today = new Date();
@@ -142,10 +147,17 @@
             const entry = dailyData.find((d) => d.date === dateStr);
             return { day, seconds: entry?.total_seconds || 0 };
         });
-    });
+    }
 
-    let maxWeekSeconds = $derived(
-        weekData.reduce((max, d) => Math.max(max, d.seconds), 0) || 1,
+    let taskWeekData = $derived.by(() => getWeekData(stats?.week_daily));
+    let windowWeekData = $derived.by(() => getWeekData(windowStats?.week_daily));
+
+    let maxTaskWeekSeconds = $derived(
+        taskWeekData.reduce((max, d) => Math.max(max, d.seconds), 0) || 1,
+    );
+
+    let maxWindowWeekSeconds = $derived(
+        windowWeekData.reduce((max, d) => Math.max(max, d.seconds), 0) || 1,
     );
 
     // Pie chart calculations
@@ -254,16 +266,194 @@
         </div>
     {:else if stats || windowStats}
         <div class="stats-content">
-            <!-- Today's Activity Section -->
-            <section
-                class="stats-section"
-                transition:fly={{ y: 20, duration: 300, delay: 100 }}
-            >
-                <h3>
-                    <span class="section-icon">📅</span>
-                    Today's Activity
-                </h3>
-                {#if windowTrackingStore.enabled && windowStats}
+            {#if windowStats}
+                <div class="stats-tabs" role="tablist" aria-label="Statistics views">
+                    <button
+                        type="button"
+                        role="tab"
+                        class:active={activeTab === "task"}
+                        aria-selected={activeTab === "task"}
+                        onclick={() => (activeTab = "task")}
+                    >
+                        Task Time
+                    </button>
+                    <button
+                        type="button"
+                        role="tab"
+                        class:active={activeTab === "window"}
+                        aria-selected={activeTab === "window"}
+                        onclick={() => (activeTab = "window")}
+                    >
+                        Window Activity
+                    </button>
+                </div>
+            {/if}
+
+            {#if activeTab === "task" && stats}
+                <section
+                    class="stats-section"
+                    transition:fly={{ y: 20, duration: 300, delay: 100 }}
+                >
+                    <h3>
+                        <span class="section-icon">📅</span>
+                        Today's Tasks
+                    </h3>
+                    {#if stats.today_tasks.length === 0}
+                        <div class="empty-state">
+                            <p>No task time tracked today</p>
+                        </div>
+                    {:else}
+                        <div class="bar-chart horizontal">
+                            {#each stats.today_tasks as task}
+                                <div class="bar-item">
+                                    <div class="bar-label">
+                                        <span
+                                            class="task-name"
+                                            title={task.task_title}
+                                            >{task.task_title}</span
+                                        >
+                                        <span class="task-time"
+                                            >{formatDuration(
+                                                task.total_seconds,
+                                            )}</span
+                                        >
+                                    </div>
+                                    <div class="bar-track">
+                                        <div
+                                            class="bar-fill"
+                                            style="width: {maxTaskTodaySeconds > 0
+                                                ? (task.total_seconds /
+                                                      maxTaskTodaySeconds) *
+                                                  100
+                                                : 0}%; background-color: {task.project_color ||
+                                                'var(--accent)'}"
+                                        ></div>
+                                    </div>
+                                    {#if task.project_name}
+                                        <span
+                                            class="project-tag"
+                                            style="color: {task.project_color ||
+                                                'var(--text-tertiary)'}"
+                                            >{task.project_name}</span
+                                        >
+                                    {/if}
+                                </div>
+                            {/each}
+                        </div>
+                    {/if}
+                </section>
+
+                <section
+                    class="stats-section"
+                    transition:fly={{ y: 20, duration: 300, delay: 200 }}
+                >
+                    <h3>
+                        <span class="section-icon">📊</span>
+                        Task Time This Week
+                    </h3>
+                    <div class="week-chart">
+                        {#each taskWeekData as dayData}
+                            <div class="week-bar-container">
+                                <div class="week-bar-value">
+                                    {#if dayData.seconds > 0}
+                                        {formatDuration(dayData.seconds)}
+                                    {/if}
+                                </div>
+                                <div class="week-bar-track">
+                                    <div
+                                        class="week-bar-fill"
+                                        style="height: {maxTaskWeekSeconds > 0
+                                            ? (dayData.seconds /
+                                                  maxTaskWeekSeconds) *
+                                              100
+                                            : 0}%"
+                                    ></div>
+                                </div>
+                                <div class="week-bar-label">{dayData.day}</div>
+                            </div>
+                        {/each}
+                    </div>
+                </section>
+
+                <section
+                    class="stats-section"
+                    transition:fly={{ y: 20, duration: 300, delay: 300 }}
+                >
+                    <h3>
+                        <span class="section-icon">📁</span>
+                        By Project
+                    </h3>
+                    {#if stats.projects.length === 0}
+                        <div class="empty-state">
+                            <p>No project data yet</p>
+                        </div>
+                    {:else}
+                        <div class="pie-section">
+                            <svg class="pie-chart" viewBox="0 0 100 100">
+                                {#each getPieSlices(stats.projects) as slice}
+                                    <path
+                                        d={describeArc(
+                                            50,
+                                            50,
+                                            45,
+                                            slice.startAngle,
+                                            slice.endAngle,
+                                        )}
+                                        fill={slice.color}
+                                        class="pie-slice"
+                                    />
+                                {/each}
+                                <circle
+                                    cx="50"
+                                    cy="50"
+                                    r="25"
+                                    fill="var(--bg-primary)"
+                                />
+                                <text
+                                    x="50"
+                                    y="48"
+                                    text-anchor="middle"
+                                    class="pie-total-label">Total</text
+                                >
+                                <text
+                                    x="50"
+                                    y="56"
+                                    text-anchor="middle"
+                                    class="pie-total-value"
+                                >
+                                    {formatDuration(totalProjectSeconds)}
+                                </text>
+                            </svg>
+                            <div class="pie-legend">
+                                {#each stats.projects as project}
+                                    <div class="legend-item">
+                                        <span
+                                            class="legend-color"
+                                            style="background-color: {project.color}"
+                                        ></span>
+                                        <span class="legend-name"
+                                            >{project.name}</span
+                                        >
+                                        <span class="legend-time"
+                                            >{formatDuration(
+                                                project.total_seconds,
+                                            )}</span
+                                        >
+                                    </div>
+                                {/each}
+                            </div>
+                        </div>
+                    {/if}
+                </section>
+            {:else if activeTab === "window" && windowStats}
+                <section
+                    class="stats-section"
+                    transition:fly={{ y: 20, duration: 300, delay: 100 }}
+                >
+                    <h3>
+                        <span class="section-icon">📅</span>
+                        Today's Windows
+                    </h3>
                     {#if groupedTodayApps.length === 0}
                         <div class="empty-state">
                             <p>No active-window time tracked today</p>
@@ -285,9 +475,12 @@
                                     <div class="bar-track">
                                         <div
                                             class="bar-fill"
-                                            style="width: {(app.total_seconds /
-                                                maxTodaySeconds) *
-                                                100}%; background-color: {app.color}"
+                                            style="width: {maxWindowTodaySeconds >
+                                            0
+                                                ? (app.total_seconds /
+                                                      maxWindowTodaySeconds) *
+                                                  100
+                                                : 0}%; background-color: {app.color}"
                                         ></div>
                                     </div>
                                     <span
@@ -301,91 +494,48 @@
                             {/each}
                         </div>
                     {/if}
-                {:else if stats && stats.today_tasks.length === 0}
-                    <div class="empty-state">
-                        <p>No time tracked today</p>
-                    </div>
-                {:else if stats}
-                    <div class="bar-chart horizontal">
-                        {#each stats.today_tasks as task}
-                            <div class="bar-item">
-                                <div class="bar-label">
-                                    <span
-                                        class="task-name"
-                                        title={task.task_title}
-                                        >{task.task_title}</span
-                                    >
-                                    <span class="task-time"
-                                        >{formatDuration(
-                                            task.total_seconds,
-                                        )}</span
-                                    >
+                </section>
+
+                <section
+                    class="stats-section"
+                    transition:fly={{ y: 20, duration: 300, delay: 200 }}
+                >
+                    <h3>
+                        <span class="section-icon">📊</span>
+                        Window Time This Week
+                    </h3>
+                    <div class="week-chart">
+                        {#each windowWeekData as dayData}
+                            <div class="week-bar-container">
+                                <div class="week-bar-value">
+                                    {#if dayData.seconds > 0}
+                                        {formatDuration(dayData.seconds)}
+                                    {/if}
                                 </div>
-                                <div class="bar-track">
+                                <div class="week-bar-track">
                                     <div
-                                        class="bar-fill"
-                                        style="width: {(task.total_seconds /
-                                            maxTodaySeconds) *
-                                            100}%; background-color: {task.project_color ||
-                                            'var(--accent)'}"
+                                        class="week-bar-fill"
+                                        style="height: {maxWindowWeekSeconds > 0
+                                            ? (dayData.seconds /
+                                                  maxWindowWeekSeconds) *
+                                              100
+                                            : 0}%"
                                     ></div>
                                 </div>
-                                {#if task.project_name}
-                                    <span
-                                        class="project-tag"
-                                        style="color: {task.project_color ||
-                                            'var(--text-tertiary)'}"
-                                        >{task.project_name}</span
-                                    >
-                                {/if}
+                                <div class="week-bar-label">{dayData.day}</div>
                             </div>
                         {/each}
                     </div>
-                {/if}
-            </section>
+                </section>
 
-            <!-- This Week Section -->
-            <section
-                class="stats-section"
-                transition:fly={{ y: 20, duration: 300, delay: 200 }}
-            >
-                <h3>
-                    <span class="section-icon">📊</span>
-                    This Week
-                </h3>
-                <div class="week-chart">
-                    {#each weekData as dayData, i}
-                        <div class="week-bar-container">
-                            <div class="week-bar-value">
-                                {#if dayData.seconds > 0}
-                                    {formatDuration(dayData.seconds)}
-                                {/if}
-                            </div>
-                            <div class="week-bar-track">
-                                <div
-                                    class="week-bar-fill"
-                                    style="height: {maxWeekSeconds > 0
-                                        ? (dayData.seconds / maxWeekSeconds) *
-                                          100
-                                        : 0}%"
-                                ></div>
-                            </div>
-                            <div class="week-bar-label">{dayData.day}</div>
-                        </div>
-                    {/each}
-                </div>
-            </section>
-
-            <!-- By Project Section -->
-            <section
-                class="stats-section"
-                transition:fly={{ y: 20, duration: 300, delay: 300 }}
-            >
-                <h3>
-                    <span class="section-icon">📁</span>
-                    {windowTrackingStore.enabled ? "By Activity" : "By Project"}
-                </h3>
-                {#if windowTrackingStore.enabled && windowStats}
+                <section
+                    class="stats-section"
+                    transition:fly={{ y: 20, duration: 300, delay: 300 }}
+                >
+                    <h3>
+                        <span class="section-icon">▣</span>
+                        By Activity
+                    </h3>
                     {#if groupedApps.length === 0}
                         <div class="empty-state">
                             <p>No activity data yet</p>
@@ -424,7 +574,7 @@
                                     text-anchor="middle"
                                     class="pie-total-value"
                                 >
-                                    {formatDuration(totalProjectSeconds)}
+                                    {formatDuration(totalWindowSeconds)}
                                 </text>
                             </svg>
                             <div class="pie-legend">
@@ -445,68 +595,8 @@
                             </div>
                         </div>
                     {/if}
-                {:else if stats && stats.projects.length === 0}
-                    <div class="empty-state">
-                        <p>No project data yet</p>
-                    </div>
-                {:else if stats}
-                    <div class="pie-section">
-                        <svg class="pie-chart" viewBox="0 0 100 100">
-                            {#each getPieSlices(stats.projects) as slice}
-                                <path
-                                    d={describeArc(
-                                        50,
-                                        50,
-                                        45,
-                                        slice.startAngle,
-                                        slice.endAngle,
-                                    )}
-                                    fill={slice.color}
-                                    class="pie-slice"
-                                />
-                            {/each}
-                            <circle
-                                cx="50"
-                                cy="50"
-                                r="25"
-                                fill="var(--bg-primary)"
-                            />
-                            <text
-                                x="50"
-                                y="48"
-                                text-anchor="middle"
-                                class="pie-total-label">Total</text
-                            >
-                            <text
-                                x="50"
-                                y="56"
-                                text-anchor="middle"
-                                class="pie-total-value"
-                            >
-                                {formatDuration(totalProjectSeconds)}
-                            </text>
-                        </svg>
-                        <div class="pie-legend">
-                            {#each stats.projects as project}
-                                <div class="legend-item">
-                                    <span
-                                        class="legend-color"
-                                        style="background-color: {project.color}"
-                                    ></span>
-                                    <span class="legend-name"
-                                        >{project.name}</span
-                                    >
-                                    <span class="legend-time"
-                                        >{formatDuration(
-                                            project.total_seconds,
-                                        )}</span
-                                    >
-                                </div>
-                            {/each}
-                        </div>
-                    </div>
-                {/if}
-            </section>
+                </section>
+            {/if}
         </div>
     {/if}
 </div>
@@ -561,6 +651,36 @@
         display: flex;
         flex-direction: column;
         gap: var(--spacing-lg);
+    }
+
+    .stats-tabs {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 4px;
+        padding: 4px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background-color: var(--bg-secondary);
+    }
+
+    .stats-tabs button {
+        min-width: 0;
+        padding: 7px 10px;
+        border-radius: var(--radius-sm);
+        color: var(--text-secondary);
+        font-size: 12px;
+        font-weight: 700;
+        transition: all var(--transition-fast);
+    }
+
+    .stats-tabs button:hover {
+        background-color: var(--bg-hover);
+        color: var(--text-primary);
+    }
+
+    .stats-tabs button.active {
+        background-color: var(--accent);
+        color: var(--accent-contrast);
     }
 
     .stats-section {

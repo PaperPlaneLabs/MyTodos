@@ -7,7 +7,6 @@
   import { taskStore } from "$lib/stores/tasks.svelte";
   import { timerStore } from "$lib/stores/timer.svelte";
   import { uiStore } from "$lib/stores/ui.svelte";
-  import { windowTrackingStore } from "$lib/stores/window-tracking.svelte";
 
   let {
     isDragging,
@@ -32,21 +31,6 @@
     onStopTimer: () => void | Promise<void>;
     onOpenResetModal: (taskId: number) => void;
   } = $props();
-
-  let windowTrackingNoticeVisible = $state(false);
-  let windowTrackingNoticeTimeout: number | null = null;
-
-  function showWindowTrackingNotice(): void {
-    windowTrackingNoticeVisible = true;
-    if (windowTrackingNoticeTimeout !== null) {
-      clearTimeout(windowTrackingNoticeTimeout);
-    }
-
-    windowTrackingNoticeTimeout = window.setTimeout(() => {
-      windowTrackingNoticeVisible = false;
-      windowTrackingNoticeTimeout = null;
-    }, 3200);
-  }
 
   function handleTaskBodyPointerDown(event: PointerEvent, taskId: number, index: number): void {
     const target = event.target as HTMLElement;
@@ -120,11 +104,6 @@
   }
 
   function handleStartTimerClick(taskId: number): void {
-    if (windowTrackingStore.enabled) {
-      showWindowTrackingNotice();
-      return;
-    }
-
     void onToggleTimer(taskId);
   }
 </script>
@@ -142,12 +121,6 @@
   </div>
 
   <div class="tasks-list" role="list">
-    {#if windowTrackingNoticeVisible}
-      <div class="window-tracking-notice" role="status">
-        Window tracking is on, so project/task timers are disabled.
-      </div>
-    {/if}
-
     {#each taskStore.activeTasks as task, index (task.id)}
       <div
         animate:flip={{ duration: 300 }}
@@ -262,12 +235,9 @@
               <button
                 type="button"
                 class="btn-icon-compact"
-                class:window-tracking-disabled={windowTrackingStore.enabled}
                 onclick={() => handleStartTimerClick(task.id)}
                 aria-label={getTimerActionLabel("start", task.title)}
-                title={windowTrackingStore.enabled
-                  ? "Window tracking is on, so project/task timers are disabled."
-                  : "Start timer"}
+                title="Start timer"
               >
                 ⏱
               </button>
@@ -442,16 +412,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--spacing-sm);
-  }
-
-  .window-tracking-notice {
-    padding: 8px 10px;
-    border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
-    border-radius: var(--radius-md);
-    background: color-mix(in srgb, var(--accent) 10%, var(--bg-secondary));
-    color: var(--text-secondary);
-    font-size: 12px;
-    font-weight: 600;
   }
 
   .completed-separator {
@@ -778,11 +738,6 @@
     background-color: var(--accent-light);
     color: var(--accent);
     border-color: var(--accent);
-  }
-
-  .btn-icon-compact.window-tracking-disabled {
-    opacity: 0.65;
-    border-color: var(--border);
   }
 
   .btn-icon-compact.btn-stop:hover {

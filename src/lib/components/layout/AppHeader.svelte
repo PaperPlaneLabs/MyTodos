@@ -2,7 +2,6 @@
   import { onMount } from "svelte";
   import { uiStore } from "$lib/stores/ui.svelte";
   import { timerStore } from "$lib/stores/timer.svelte";
-  import { windowTrackingStore } from "$lib/stores/window-tracking.svelte";
   import { db } from "$lib/services/db";
   import TimeDisplay from "$lib/components/common/TimeDisplay.svelte";
   import { fly } from "svelte/transition";
@@ -247,20 +246,13 @@
 
     <div
       class="timer-badge"
-      class:running={timerStore.isRunning || windowTrackingStore.isWorkActive}
-      class:window-tracking={windowTrackingStore.enabled}
+      class:running={timerStore.isRunning}
       aria-live="polite"
-      title={windowTrackingStore.enabled
-        ? `Today's active-window time${windowTrackingStore.active ? `: ${windowTrackingStore.active.app_name}` : ""}`
-        : "Today's work time"}
+      title="Today's task time"
     >
-      <span class="timer-icon">{windowTrackingStore.enabled ? "▣" : ""}</span>
+      <span class="timer-icon"></span>
       <TimeDisplay
-        seconds={Math.floor(
-          windowTrackingStore.enabled
-            ? windowTrackingStore.dailyTotal
-            : timerStore.dailyTotal,
-        )}
+        seconds={Math.floor(timerStore.dailyTotal)}
         format="hm"
       />
     </div>
@@ -477,10 +469,6 @@
     border-color: var(--success);
     box-shadow: 0 0 10px var(--success-glow);
     animation: header-pulse 2s ease-in-out infinite;
-  }
-
-  .timer-badge.window-tracking {
-    border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
   }
 
   @keyframes header-pulse {

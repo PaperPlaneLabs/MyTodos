@@ -54,7 +54,7 @@ fn insert_afk_project_no_entries(db: &common::DbConnection, title: &str) {
 }
 
 #[test]
-fn test_window_tracking_setting_blocks_task_timer_start() {
+fn test_window_tracking_setting_allows_task_timer_start() {
     let db = setup_test_db();
     let project_id = create_test_project(&db, "Work");
     let task_id = create_test_task(&db, Some(project_id), None, "Task");
@@ -62,10 +62,6 @@ fn test_window_tracking_setting_blocks_task_timer_start() {
     let settings = window_tracking_service::set_enabled(&db, true).unwrap();
     assert!(settings.enabled);
 
-    let result = timer_service::start_timer(&db, task_id);
-    assert!(result.is_err());
-
-    window_tracking_service::set_enabled(&db, false).unwrap();
     let timer = timer_service::start_timer(&db, task_id).unwrap();
     assert_eq!(timer.task_id, task_id);
 }

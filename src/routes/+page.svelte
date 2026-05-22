@@ -126,22 +126,7 @@
     taskStore.loadByProject(projectStore.selectedId);
   });
 
-  $effect(() => {
-    if (isBreakWindow || isResumeWindow) {
-      return;
-    }
-
-    windowTrackingStore.changeSignal;
-    if (windowTrackingStore.isWorkActive) {
-      timerStore.syncBreakReminderSchedule();
-    }
-  });
-
   async function handleToggleTimer(taskId: number) {
-    if (windowTrackingStore.enabled) {
-      return;
-    }
-
     if (timerStore.active && timerStore.active.task_id === taskId) {
       if (timerStore.isRunning) {
         await timerStore.pause();

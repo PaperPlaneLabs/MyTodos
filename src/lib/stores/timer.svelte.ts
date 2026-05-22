@@ -41,12 +41,8 @@ const timerRuntime = createTimerRuntimeController({
 });
 
 const breakReminderController = createBreakReminderController({
-  getIsRunning: () =>
-    (activeTimer?.is_running ?? false) || windowTrackingStore.isWorkActive,
-  getContinuousElapsedSeconds: () =>
-    activeTimer?.is_running
-      ? timerRuntime.getContinuousElapsedSeconds()
-      : windowTrackingStore.continuousWorkElapsed,
+  getIsRunning: () => activeTimer?.is_running ?? false,
+  getContinuousElapsedSeconds: () => timerRuntime.getContinuousElapsedSeconds(),
 });
 
 export interface TimerStore {
@@ -182,12 +178,6 @@ export const timerStore: TimerStore = {
   },
 
   async start(taskId: number) {
-    if (windowTrackingStore.enabled) {
-      throw new Error(
-        "Window tracking is on, so project/task timers are disabled.",
-      );
-    }
-
     breakReminderController.init();
 
     try {
@@ -324,24 +314,18 @@ registerTimerEventHandlers({
     timerChangeCounter++;
   },
   onTakeBreak: async () => {
-    if (windowTrackingStore.enabled) {
-      await windowTrackingStore.setPaused(true);
-      breakReminderController.deactivate();
-      return;
+    if (activeTimer) {
+      await timerStore.pause();
     }
-
-    await timerStore.pause();
   },
   onDismiss: () => timerStore.dismissBreakReminder(),
   onSnooze: () => timerStore.snoozeBreakReminder(),
   onResume: async () => {
-    if (windowTrackingStore.enabled) {
-      await windowTrackingStore.setPaused(false);
+    if (activeTimer && !activeTimer.is_running) {
+      await timerStore.resume();
+    } else if (activeTimer?.is_running) {
       breakReminderController.scheduleFromCurrentInterval();
-      return;
     }
-
-    await timerStore.resume();
   },
   onAwayTimeLogged: async ({ affectsVisibleTaskTotals }) => {
     if (affectsVisibleTaskTotals) {
