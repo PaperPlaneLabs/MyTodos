@@ -202,6 +202,10 @@
         return new Date(timestamp * 1000).toLocaleString();
     }
 
+    function cloudFolderLabel(folder: string) {
+        return folder.toLowerCase().includes("dropbox") ? "Dropbox" : "OneDrive";
+    }
+
     async function chooseBackupFolder() {
         const selected = await open({
             directory: true,
@@ -870,7 +874,7 @@
                             onclick={() => setBackupFolder(folder)}
                             disabled={backupStore.busy}
                         >
-                            {folder.includes("Dropbox") ? "Dropbox" : "OneDrive"}
+                            {cloudFolderLabel(folder)}
                         </button>
                     {/each}
                 </div>

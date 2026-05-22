@@ -288,10 +288,15 @@ export const db = {
       enabled: boolean;
       folder: string;
       interval_minutes: number;
-    }) => invoke<BackupSettings>("set_backup_settings", args),
+    }) =>
+      invoke<BackupSettings>("set_backup_settings", {
+        enabled: args.enabled,
+        folder: args.folder,
+        intervalMinutes: args.interval_minutes,
+      }),
     backupNow: () => invoke<BackupSettings>("backup_now"),
     restore: (backup_path: string) =>
-      invoke<void>("restore_backup", { backup_path }),
+      invoke<void>("restore_backup", { backupPath: backup_path }),
     checkCloudFolders: () => invoke<string[]>("check_cloud_folders"),
   },
 

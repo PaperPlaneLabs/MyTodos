@@ -16,6 +16,7 @@ const DEFAULT_INTERVAL_MINUTES: i64 = 15;
 const MIN_INTERVAL_MINUTES: i64 = 1;
 const BACKUP_CHECK_SECONDS: u64 = 60;
 const BACKUP_KEEP_COUNT: usize = 5;
+const BACKUP_FOLDER_NAME: &str = "MyTodos Backups";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackupSettings {
@@ -273,7 +274,7 @@ pub fn check_cloud_folders() -> Vec<String> {
     let mut folders: Vec<String> = Vec::new();
     for path in candidates {
         if path.is_dir() {
-            let display = path.to_string_lossy().to_string();
+            let display = path.join(BACKUP_FOLDER_NAME).to_string_lossy().to_string();
             if !folders.iter().any(|folder| folder == &display) {
                 folders.push(display);
             }
