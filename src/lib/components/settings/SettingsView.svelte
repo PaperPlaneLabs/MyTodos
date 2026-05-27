@@ -58,8 +58,6 @@
     let showResetConfirm = $state(false);
     let showRestoreConfirm = $state(false);
     let showWindowTrackConfirm = $state(false);
-    let showBreakIntervalConfirm = $state(false);
-    let pendingBreakInterval = $state<number | null>(null);
     let pendingRestorePath = $state("");
     let breakIntervalSelectValue = $state("30");
     let newAfkCategory = $state("");
@@ -80,6 +78,7 @@
 
     onMount(async () => {
         afkCategoryStore.init();
+        timerStore.initBreakReminders();
         await windowTrackingStore.init();
         await backupStore.init();
         breakIntervalSelectValue = String(
@@ -337,28 +336,7 @@
             return;
         }
 
-        // "Not Tracked" (0) applies immediately — no confirm needed
-        if (nextInterval === 0) {
-            timerStore.setBreakReminderInterval(0);
-            breakIntervalSelectValue = "0";
-            return;
-        }
-
-        pendingBreakInterval = nextInterval;
-        showBreakIntervalConfirm = true;
-    }
-
-    function confirmBreakIntervalChange() {
-        if (pendingBreakInterval === null) return;
-        timerStore.setBreakReminderInterval(pendingBreakInterval);
-        breakIntervalSelectValue = String(pendingBreakInterval);
-        pendingBreakInterval = null;
-        showBreakIntervalConfirm = false;
-    }
-
-    function cancelBreakIntervalChange() {
-        pendingBreakInterval = null;
-        showBreakIntervalConfirm = false;
+        timerStore.setBreakReminderInterval(nextInterval);
         breakIntervalSelectValue = String(
             timerStore.breakReminderIntervalMinutes,
         );
@@ -1045,33 +1023,6 @@
                 >
                     {backupStore.busy ? "Restoring..." : "Restore Backup"}
                 </button>
-            </div>
-        </div>
-    {/snippet}
-</Modal>
-
-<Modal
-    open={showBreakIntervalConfirm}
-    title="Set Break Interval?"
-    onClose={cancelBreakIntervalChange}
->
-    {#snippet children()}
-        <div class="reset-confirm-content">
-            <p
-                style="margin-bottom: 20px; color: var(--text-secondary); line-height: 1.5;"
-            >
-                Set break reminders to every {pendingBreakInterval ??
-                    timerStore.breakReminderIntervalMinutes} minutes?
-            </p>
-            <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                <button
-                    class="btn btn-secondary"
-                    onclick={cancelBreakIntervalChange}>No</button
-                >
-                <button
-                    class="btn btn-primary"
-                    onclick={confirmBreakIntervalChange}>Yes</button
-                >
             </div>
         </div>
     {/snippet}
