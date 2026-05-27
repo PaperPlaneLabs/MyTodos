@@ -411,90 +411,36 @@
     </header>
 
     <div class="settings-content">
-        <!-- GENERAL SECTION -->
+        <!-- TIME & TRACKING SECTION -->
         <section
             class="settings-section"
             transition:fly={{ y: 20, duration: 300, delay: 100 }}
         >
-            <h3><span class="section-icon">⚙️</span> General</h3>
+            <h3><span class="section-icon">⏱️</span> Time & Tracking</h3>
 
             <div class="setting-item">
                 <div class="setting-info">
-                    <span class="setting-label" id="start-at-login-label"
-                        >Start at login</span
+                    <span class="setting-label" id="window-track-label"
+                        >Window Track</span
                     >
-                    <span class="setting-desc"
-                        >Automatically launch MyTodos when you log in</span
-                    >
+                    <span class="setting-desc">
+                        Track active foreground application time. Project/task
+                        timers are disabled while this is on.
+                    </span>
                 </div>
                 <button
                     type="button"
                     class="toggle-switch"
-                    class:active={isAutoStartEnabled}
-                    class:loading={loading || toggling}
+                    class:active={windowTrackingStore.enabled}
+                    class:loading={togglingWindowTracking}
                     role="switch"
-                    aria-checked={isAutoStartEnabled}
-                    aria-labelledby="start-at-login-label"
-                    onclick={toggleAutoStart}
-                    disabled={loading || toggling}
-                    title={isAutoStartEnabled
-                        ? "Disable autostart"
-                        : "Enable autostart"}
-                >
-                    <span class="toggle-knob"></span>
-                </button>
-            </div>
-
-            <div class="setting-item">
-                <div class="setting-info">
-                    <span class="setting-label">Window Docking</span>
-                    <span class="setting-desc">Position and snap window</span>
-                </div>
-                <div class="segmented-control">
-                    <button
-                        type="button"
-                        class:active={uiStore.windowOrientation === "left"}
-                        aria-pressed={uiStore.windowOrientation === "left"}
-                        onclick={() => handleWindowOrientation("left")}
-                        >Left</button
-                    >
-                    <button
-                        type="button"
-                        class:active={uiStore.windowOrientation === "center"}
-                        aria-pressed={uiStore.windowOrientation === "center"}
-                        onclick={() => handleWindowOrientation("center")}
-                        >FreeForm</button
-                    >
-                    <button
-                        type="button"
-                        class:active={uiStore.windowOrientation === "right"}
-                        aria-pressed={uiStore.windowOrientation === "right"}
-                        onclick={() => handleWindowOrientation("right")}
-                        >Right</button
-                    >
-                </div>
-            </div>
-
-            <div class="setting-item">
-                <div class="setting-info">
-                    <span class="setting-label" id="compact-mode-label"
-                        >Compact Mode</span
-                    >
-                    <span class="setting-desc"
-                        >Reduce spacing for a denser layout</span
-                    >
-                </div>
-                <button
-                    type="button"
-                    class="toggle-switch"
-                    class:active={uiStore.compactMode}
-                    role="switch"
-                    aria-checked={uiStore.compactMode}
-                    aria-labelledby="compact-mode-label"
-                    onclick={() => uiStore.setCompactMode(!uiStore.compactMode)}
-                    title={uiStore.compactMode
-                        ? "Disable compact mode"
-                        : "Enable compact mode"}
+                    aria-checked={windowTrackingStore.enabled}
+                    aria-labelledby="window-track-label"
+                    onclick={toggleWindowTracking}
+                    disabled={togglingWindowTracking}
+                    title={windowTrackingStore.enabled
+                        ? "Disable window tracking"
+                        : "Enable window tracking"}
                 >
                     <span class="toggle-knob"></span>
                 </button>
@@ -523,34 +469,6 @@
                     title={timerStore.breakReminderEnabled
                         ? "Disable break reminders"
                         : "Enable break reminders"}
-                >
-                    <span class="toggle-knob"></span>
-                </button>
-            </div>
-
-            <div class="setting-item">
-                <div class="setting-info">
-                    <span class="setting-label" id="window-track-label"
-                        >Window Track</span
-                    >
-                    <span class="setting-desc">
-                        Track active foreground application time. Project/task
-                        timers are disabled while this is on.
-                    </span>
-                </div>
-                <button
-                    type="button"
-                    class="toggle-switch"
-                    class:active={windowTrackingStore.enabled}
-                    class:loading={togglingWindowTracking}
-                    role="switch"
-                    aria-checked={windowTrackingStore.enabled}
-                    aria-labelledby="window-track-label"
-                    onclick={toggleWindowTracking}
-                    disabled={togglingWindowTracking}
-                    title={windowTrackingStore.enabled
-                        ? "Disable window tracking"
-                        : "Enable window tracking"}
                 >
                     <span class="toggle-knob"></span>
                 </button>
@@ -664,71 +582,77 @@
                     {/if}
                 </div>
             </div>
+        </section>
+
+        <!-- APP BEHAVIOR SECTION -->
+        <section
+            class="settings-section"
+            transition:fly={{ y: 20, duration: 300, delay: 150 }}
+        >
+            <h3><span class="section-icon">⚙️</span> App Behavior</h3>
 
             <div class="setting-item">
                 <div class="setting-info">
-                    <span class="setting-label">App Updates</span>
-                    <span
-                        class="setting-desc"
-                        class:update-error={updateStatus === "error"}
-                        class:update-success={updateStatus === "up-to-date"}
-                        role="status"
-                        aria-live="polite"
+                    <span class="setting-label" id="start-at-login-label"
+                        >Start at login</span
                     >
-                        {#if updateStatus === "checking"}
-                            Checking...
-                        {:else if updateStatus === "up-to-date"}
-                            Up to date
-                        {:else if updateStatus === "available"}
-                            Update: v{updateVersion}
-                        {:else if updateStatus === "downloading"}
-                            Downloading... {updateProgress}%
-                        {:else if updateStatus === "error"}
-                            {updateError}
-                        {:else}
-                            v{appVersion}
-                        {/if}
-                    </span>
+                    <span class="setting-desc"
+                        >Automatically launch MyTodos when you log in</span
+                    >
                 </div>
-                {#if updateStatus === "available"}
+                <button
+                    type="button"
+                    class="toggle-switch"
+                    class:active={isAutoStartEnabled}
+                    class:loading={loading || toggling}
+                    role="switch"
+                    aria-checked={isAutoStartEnabled}
+                    aria-labelledby="start-at-login-label"
+                    onclick={toggleAutoStart}
+                    disabled={loading || toggling}
+                    title={isAutoStartEnabled
+                        ? "Disable autostart"
+                        : "Enable autostart"}
+                >
+                    <span class="toggle-knob"></span>
+                </button>
+            </div>
+
+            <div class="setting-item">
+                <div class="setting-info">
+                    <span class="setting-label">Window Docking</span>
+                    <span class="setting-desc">Position and snap window</span>
+                </div>
+                <div class="segmented-control">
                     <button
                         type="button"
-                        class="btn btn-primary btn-sm"
-                        onclick={downloadAndInstallUpdate}>Update</button
+                        class:active={uiStore.windowOrientation === "left"}
+                        aria-pressed={uiStore.windowOrientation === "left"}
+                        onclick={() => handleWindowOrientation("left")}
+                        >Left</button
                     >
-                {:else if updateStatus === "downloading"}
-                    <div class="update-progress-inline">
-                        <div
-                            class="progress-bar-sm"
-                            role="progressbar"
-                            aria-label="Update download progress"
-                            aria-valuemin="0"
-                            aria-valuemax="100"
-                            aria-valuenow={updateProgress}
-                        >
-                            <div
-                                class="progress-fill-sm"
-                                style="width: {updateProgress}%"
-                            ></div>
-                        </div>
-                    </div>
-                {:else}
                     <button
                         type="button"
-                        class="btn btn-secondary btn-sm"
-                        onclick={checkForUpdates}
-                        disabled={updateStatus === "checking"}
+                        class:active={uiStore.windowOrientation === "center"}
+                        aria-pressed={uiStore.windowOrientation === "center"}
+                        onclick={() => handleWindowOrientation("center")}
+                        >FreeForm</button
                     >
-                        Check
-                    </button>
-                {/if}
+                    <button
+                        type="button"
+                        class:active={uiStore.windowOrientation === "right"}
+                        aria-pressed={uiStore.windowOrientation === "right"}
+                        onclick={() => handleWindowOrientation("right")}
+                        >Right</button
+                    >
+                </div>
             </div>
         </section>
 
         <!-- APPEARANCE SECTION -->
         <section
             class="settings-section"
-            transition:fly={{ y: 20, duration: 300, delay: 150 }}
+            transition:fly={{ y: 20, duration: 300, delay: 200 }}
         >
             <h3><span class="section-icon">🎨</span> Appearance</h3>
 
@@ -761,12 +685,37 @@
                     ></div>
                 </div>
             </div>
+
+            <div class="setting-item">
+                <div class="setting-info">
+                    <span class="setting-label" id="compact-mode-label"
+                        >Compact Mode</span
+                    >
+                    <span class="setting-desc"
+                        >Reduce spacing for a denser layout</span
+                    >
+                </div>
+                <button
+                    type="button"
+                    class="toggle-switch"
+                    class:active={uiStore.compactMode}
+                    role="switch"
+                    aria-checked={uiStore.compactMode}
+                    aria-labelledby="compact-mode-label"
+                    onclick={() => uiStore.setCompactMode(!uiStore.compactMode)}
+                    title={uiStore.compactMode
+                        ? "Disable compact mode"
+                        : "Enable compact mode"}
+                >
+                    <span class="toggle-knob"></span>
+                </button>
+            </div>
         </section>
 
         <!-- INTEGRATIONS SECTION -->
         <section
             class="settings-section"
-            transition:fly={{ y: 20, duration: 300, delay: 200 }}
+            transition:fly={{ y: 20, duration: 300, delay: 250 }}
         >
             <h3><span class="section-icon">🔗</span> Integrations</h3>
 
@@ -820,7 +769,7 @@
         <!-- BACKUP SECTION -->
         <section
             class="settings-section"
-            transition:fly={{ y: 20, duration: 300, delay: 225 }}
+            transition:fly={{ y: 20, duration: 300, delay: 300 }}
         >
             <h3><span class="section-icon">☁️</span> Backup</h3>
 
@@ -942,10 +891,77 @@
             {/if}
         </section>
 
+        <!-- APP UPDATES SECTION -->
+        <section
+            class="settings-section"
+            transition:fly={{ y: 20, duration: 300, delay: 325 }}
+        >
+            <h3><span class="section-icon">⬆️</span> App Updates</h3>
+
+            <div class="setting-item">
+                <div class="setting-info">
+                    <span class="setting-label">Update Status</span>
+                    <span
+                        class="setting-desc"
+                        class:update-error={updateStatus === "error"}
+                        class:update-success={updateStatus === "up-to-date"}
+                        role="status"
+                        aria-live="polite"
+                    >
+                        {#if updateStatus === "checking"}
+                            Checking...
+                        {:else if updateStatus === "up-to-date"}
+                            Up to date
+                        {:else if updateStatus === "available"}
+                            Update: v{updateVersion}
+                        {:else if updateStatus === "downloading"}
+                            Downloading... {updateProgress}%
+                        {:else if updateStatus === "error"}
+                            {updateError}
+                        {:else}
+                            v{appVersion}
+                        {/if}
+                    </span>
+                </div>
+                {#if updateStatus === "available"}
+                    <button
+                        type="button"
+                        class="btn btn-primary btn-sm"
+                        onclick={downloadAndInstallUpdate}>Update</button
+                    >
+                {:else if updateStatus === "downloading"}
+                    <div class="update-progress-inline">
+                        <div
+                            class="progress-bar-sm"
+                            role="progressbar"
+                            aria-label="Update download progress"
+                            aria-valuemin="0"
+                            aria-valuemax="100"
+                            aria-valuenow={updateProgress}
+                        >
+                            <div
+                                class="progress-fill-sm"
+                                style="width: {updateProgress}%"
+                            ></div>
+                        </div>
+                    </div>
+                {:else}
+                    <button
+                        type="button"
+                        class="btn btn-secondary btn-sm"
+                        onclick={checkForUpdates}
+                        disabled={updateStatus === "checking"}
+                    >
+                        Check
+                    </button>
+                {/if}
+            </div>
+        </section>
+
         <!-- DATA MANAGEMENT SECTION -->
         <section
             class="settings-section danger-zone"
-            transition:fly={{ y: 20, duration: 300, delay: 250 }}
+            transition:fly={{ y: 20, duration: 300, delay: 350 }}
         >
             <h3><span class="section-icon">⚠️</span> Data Management</h3>
 
@@ -971,7 +987,7 @@
         <!-- ABOUT SECTION -->
         <section
             class="settings-section about"
-            transition:fly={{ y: 20, duration: 300, delay: 300 }}
+            transition:fly={{ y: 20, duration: 300, delay: 375 }}
         >
             <p class="version">MyTodos v{appVersion}</p>
         </section>
