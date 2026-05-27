@@ -56,6 +56,7 @@
             awayTimeSeconds: number;
         }>("resume:update", (event) => {
             if (!sending) {
+                afkCategoryStore.init();
                 taskId = event.payload.taskId;
                 taskTitle = event.payload.taskTitle;
                 awayTimeSeconds = event.payload.awayTimeSeconds;
@@ -479,9 +480,7 @@
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
-        max-height: 110px;
-        overflow-y: auto;
-        padding-right: 4px;
+        align-content: flex-start;
     }
 
     .reason-chip {
