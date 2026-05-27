@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { onMount } from "svelte";
+    import { onDestroy, onMount } from "svelte";
     import { fade, fly } from "svelte/transition";
     import {
         uiStore,
@@ -60,6 +60,8 @@
     let showWindowTrackConfirm = $state(false);
     let pendingRestorePath = $state("");
     let breakIntervalSelectValue = $state("30");
+    let breakIntervalStatus = $state("");
+    let breakIntervalStatusTimeout: number | null = null;
     let newAfkCategory = $state("");
     let afkCategoryError = $state("");
 
@@ -99,6 +101,12 @@
             console.error("Failed to check autostart status:", e);
         } finally {
             loading = false;
+        }
+    });
+
+    onDestroy(() => {
+        if (breakIntervalStatusTimeout !== null) {
+            window.clearTimeout(breakIntervalStatusTimeout);
         }
     });
 
@@ -337,9 +345,23 @@
         }
 
         timerStore.setBreakReminderInterval(nextInterval);
+        const savedInterval = timerStore.breakReminderIntervalMinutes;
         breakIntervalSelectValue = String(
-            timerStore.breakReminderIntervalMinutes,
+            savedInterval,
         );
+        breakIntervalStatus =
+            savedInterval === 0
+                ? "Break reminders changed to Not Tracked."
+                : `Break reminders changed to ${savedInterval} minutes.`;
+
+        if (breakIntervalStatusTimeout !== null) {
+            window.clearTimeout(breakIntervalStatusTimeout);
+        }
+
+        breakIntervalStatusTimeout = window.setTimeout(() => {
+            breakIntervalStatus = "";
+            breakIntervalStatusTimeout = null;
+        }, 4000);
     }
 
     function addAfkCategory() {
@@ -560,6 +582,12 @@
                     {/if}
                 </div>
             </div>
+
+            {#if breakIntervalStatus}
+                <p class="setting-status" role="status" aria-live="polite">
+                    {breakIntervalStatus}
+                </p>
+            {/if}
         </section>
 
         <!-- APP BEHAVIOR SECTION -->
@@ -1193,6 +1221,17 @@
     .setting-desc strong {
         color: var(--text-secondary);
         font-weight: 600;
+    }
+
+    .setting-status {
+        margin-top: var(--spacing-sm);
+        padding: 8px 10px;
+        border-radius: var(--radius-sm);
+        background: color-mix(in srgb, var(--success) 12%, var(--bg-primary));
+        border: 1px solid color-mix(in srgb, var(--success) 28%, var(--border));
+        color: var(--text-secondary);
+        font-size: 12px;
+        line-height: 1.4;
     }
 
     /* Toggle Switch */
