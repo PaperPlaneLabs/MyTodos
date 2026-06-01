@@ -2,6 +2,7 @@ use super::common::{apply_parent_time_delta, get_timestamp};
 use crate::db::{DbConnection, Task};
 use crate::error::{AppError, Result};
 use crate::google::GoogleCalendarState;
+use crate::services::tasks_service;
 use tauri::State;
 
 #[tauri::command]
@@ -109,60 +110,7 @@ pub fn create_task(
     description: Option<String>,
 ) -> Result<Task> {
     let conn = db.lock();
-    let now = get_timestamp();
-
-    let max_position: i32 = if let Some(sid) = section_id {
-        conn.query_row(
-            "SELECT COALESCE(MAX(position), -1) FROM tasks WHERE section_id = ?",
-            [sid],
-            |row| row.get(0)
-        )
-    } else if let Some(pid) = project_id {
-        conn.query_row(
-            "SELECT COALESCE(MAX(position), -1) FROM tasks WHERE project_id = ? AND section_id IS NULL",
-            [pid],
-            |row| row.get(0)
-        )
-    } else {
-        conn.query_row(
-            "SELECT COALESCE(MAX(position), -1) FROM tasks WHERE project_id IS NULL AND section_id IS NULL",
-            [],
-            |row| row.get(0)
-        )
-    }
-    .unwrap_or(0);
-
-    conn.execute(
-        "INSERT INTO tasks (project_id, section_id, title, description, position, deadline, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-        (
-            project_id,
-            section_id,
-            &title,
-            &description,
-            max_position + 1,
-            Option::<String>::None,
-            now,
-            now,
-        ),
-    )?;
-
-    let id = conn.last_insert_rowid();
-
-    Ok(Task {
-        id,
-        project_id,
-        section_id,
-        title,
-        description,
-        completed: false,
-        position: max_position + 1,
-        total_time_seconds: 0,
-        deadline: None,
-        google_event_id: None,
-        created_at: now,
-        updated_at: now,
-    })
+    tasks_service::create_task(&conn, project_id, section_id, title, description, None)
 }
 
 #[tauri::command]

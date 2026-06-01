@@ -4,6 +4,7 @@ use crate::db::{
 };
 use crate::error::Result;
 use crate::google::GoogleCalendarState;
+use crate::services::tasks_service;
 use rusqlite::params;
 use tauri::State;
 
@@ -14,32 +15,7 @@ pub fn get_tasks_by_deadline_range(
     end_date: String,
 ) -> Result<Vec<Task>> {
     let conn = db.lock();
-    let mut stmt = conn.prepare(
-        "SELECT t.* FROM tasks t
-         WHERE t.deadline BETWEEN ?1 AND ?2
-         AND t.deadline IS NOT NULL
-         ORDER BY t.deadline, t.position",
-    )?;
-
-    let tasks = stmt.query_map([start_date, end_date], |row| {
-        Ok(Task {
-            id: row.get("id")?,
-            project_id: row.get("project_id")?,
-            section_id: row.get("section_id")?,
-            title: row.get("title")?,
-            description: row.get("description")?,
-            completed: row.get("completed")?,
-            position: row.get("position")?,
-            total_time_seconds: row.get("total_time_seconds")?,
-            deadline: row.get("deadline")?,
-            google_event_id: row.get("google_event_id")?,
-            created_at: row.get("created_at")?,
-            updated_at: row.get("updated_at")?,
-        })
-    })?;
-
-    let tasks: std::result::Result<Vec<Task>, rusqlite::Error> = tasks.collect();
-    Ok(tasks?)
+    tasks_service::list_due_tasks(&conn, &start_date, &end_date)
 }
 
 #[tauri::command]
@@ -50,11 +26,7 @@ pub fn update_task_deadline(
     deadline: Option<String>,
 ) -> Result<()> {
     let conn = db.lock();
-    let now = chrono::Utc::now().timestamp();
-    conn.execute(
-        "UPDATE tasks SET deadline = ?1, updated_at = ?2 WHERE id = ?3",
-        params![deadline, now, task_id],
-    )?;
+    tasks_service::set_task_deadline(&conn, task_id, deadline)?;
     drop(conn);
 
     // Fire-and-forget: sync to Google Calendar
