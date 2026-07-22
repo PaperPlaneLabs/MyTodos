@@ -534,8 +534,8 @@ pub fn get_stats(db: &DbConnection) -> Result<WindowActivityStats> {
         }
     }
 
-    today_apps.sort_by(|a, b| b.total_seconds.cmp(&a.total_seconds));
-    apps.sort_by(|a, b| b.total_seconds.cmp(&a.total_seconds));
+    today_apps.sort_by_key(|entry| std::cmp::Reverse(entry.total_seconds));
+    apps.sort_by_key(|entry| std::cmp::Reverse(entry.total_seconds));
 
     Ok(WindowActivityStats {
         today_apps,

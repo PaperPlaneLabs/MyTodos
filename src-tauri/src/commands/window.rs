@@ -604,8 +604,97 @@ pub fn close_resume_window(app: AppHandle) -> Result<()> {
 }
 
 #[tauri::command]
+pub async fn open_task_timer_finished_window(
+    app: AppHandle,
+    task_id: i64,
+    task_title: String,
+    duration_seconds: i64,
+    finished_at: i64,
+) -> Result<()> {
+    if let Some(break_window) = app.get_webview_window("break") {
+        let _ = break_window.close();
+    }
+
+    let payload = serde_json::json!({
+        "taskId": task_id,
+        "taskTitle": task_title,
+        "durationSeconds": duration_seconds,
+        "finishedAt": finished_at,
+    });
+
+    if let Some(existing) = app.get_webview_window("task-timer-finished") {
+        let _ = existing.emit("task-timer-finished:update", payload);
+        existing
+            .set_focus()
+            .map_err(|error| AppError::Other(error.to_string()))?;
+        return Ok(());
+    }
+
+    let main_window = app
+        .get_webview_window("main")
+        .ok_or_else(|| AppError::Other("Could not find main window".to_string()))?;
+    let monitor = main_window
+        .current_monitor()
+        .map_err(|error| AppError::Other(error.to_string()))?
+        .ok_or_else(|| AppError::Other("Could not find current monitor".to_string()))?;
+
+    let scale_factor = monitor.scale_factor();
+    let work_area = monitor.work_area();
+    let logical_work_x = (work_area.position.x as f64) / scale_factor;
+    let logical_work_y = (work_area.position.y as f64) / scale_factor;
+    let logical_work_width = (work_area.size.width as f64) / scale_factor;
+    let logical_work_height = (work_area.size.height as f64) / scale_factor;
+    let width: f64 = 420.0;
+    let height: f64 = 360.0;
+    let x = logical_work_x + (logical_work_width - width) / 2.0;
+    let y = logical_work_y + (logical_work_height - height) / 2.0;
+
+    let payload_json = serde_json::to_string(&payload).map_err(|error| {
+        AppError::Other(format!(
+            "Failed to serialize task timer completion: {error}"
+        ))
+    })?;
+    let init_script = format!("window.__TASK_TIMER_FINISHED__ = {payload_json};");
+
+    let finished_window =
+        WebviewWindowBuilder::new(&app, "task-timer-finished", Default::default())
+            .title("Task Timer Finished")
+            .inner_size(width, height)
+            .position(x, y)
+            .resizable(false)
+            .decorations(false)
+            .always_on_top(true)
+            .shadow(true)
+            .visible(true)
+            .focused(true)
+            .initialization_script(&init_script)
+            .build()
+            .map_err(|error| {
+                AppError::Other(format!(
+                    "Failed to build task timer finished window: {error}"
+                ))
+            })?;
+
+    finished_window
+        .set_focus()
+        .map_err(|error| AppError::Other(error.to_string()))?;
+    Ok(())
+}
+
+#[tauri::command]
+pub fn close_task_timer_finished_window(app: AppHandle) -> Result<()> {
+    if let Some(window) = app.get_webview_window("task-timer-finished") {
+        window
+            .close()
+            .map_err(|error| AppError::Other(error.to_string()))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
 pub fn focus_main_window(app: AppHandle) -> Result<()> {
     if let Some(window) = app.get_webview_window("main") {
+        window.show().map_err(|e| AppError::Other(e.to_string()))?;
         window
             .set_focus()
             .map_err(|e| AppError::Other(e.to_string()))?;

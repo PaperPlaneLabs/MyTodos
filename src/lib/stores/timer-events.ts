@@ -1,4 +1,8 @@
-import type { AutoPauseEvent, AutoPauseReason } from "$lib/services/db";
+import type {
+  AutoPauseEvent,
+  AutoPauseReason,
+  TimedTimerCompletion,
+} from "$lib/services/db";
 
 type BreakAction = "take_break" | "dismiss" | "snooze" | "resume";
 type AwayTimeLoggedEvent = {
@@ -12,6 +16,7 @@ interface RegisterTimerEventHandlersOptions {
   onSnooze: () => void;
   onResume: () => Promise<void> | void;
   onAwayTimeLogged: (event: AwayTimeLoggedEvent) => Promise<void> | void;
+  onTimedTimerFinished: (event: TimedTimerCompletion) => Promise<void> | void;
 }
 
 let listenersRegistered = false;
@@ -23,6 +28,7 @@ export function registerTimerEventHandlers({
   onSnooze,
   onResume,
   onAwayTimeLogged,
+  onTimedTimerFinished,
 }: RegisterTimerEventHandlersOptions): void {
   if (typeof window === "undefined" || listenersRegistered) {
     return;
@@ -41,6 +47,12 @@ export function registerTimerEventHandlers({
     await listen<AwayTimeLoggedEvent>("timer:away-time-logged", (event) => {
       Promise.resolve(onAwayTimeLogged(event.payload)).catch((error) =>
         console.error("Failed to sync away-time logging:", error),
+      );
+    });
+
+    await listen<TimedTimerCompletion>("timer:finished", (event) => {
+      Promise.resolve(onTimedTimerFinished(event.payload)).catch((error) =>
+        console.error("Failed to sync completed task timer:", error),
       );
     });
 

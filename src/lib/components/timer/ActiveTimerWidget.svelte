@@ -5,6 +5,20 @@
 
   let { onStop }: { onStop: () => void | Promise<void> } = $props();
 
+  const timedProgress = $derived(
+    timerStore.timerLimit
+      ? Math.min(
+          100,
+          Math.max(
+            0,
+            ((timerStore.timerLimit - timerStore.remaining) /
+              timerStore.timerLimit) *
+              100,
+          ),
+        )
+      : 0,
+  );
+
   function getAutoPauseLabel(): string {
     if (timerStore.autoPausedReason === "SystemSleep") {
       return "system sleep";
@@ -30,8 +44,19 @@
           {timerStore.active.task_title || "Task"}
         </div>
         <div class="timer-elapsed">
-          <TimeDisplay seconds={Math.floor(timerStore.elapsed)} format="hms" />
+          <TimeDisplay
+            seconds={Math.floor(
+              timerStore.isTimed ? timerStore.remaining : timerStore.elapsed,
+            )}
+            format="hms"
+          />
+          {#if timerStore.isTimed}<span>remaining</span>{/if}
         </div>
+        {#if timerStore.isTimed}
+          <div class="timer-progress" aria-label={`${Math.round(timedProgress)}% complete`}>
+            <div class="timer-progress-fill" style:width={`${timedProgress}%`}></div>
+          </div>
+        {/if}
       </div>
       <div class="timer-controls">
         {#if timerStore.isRunning}
@@ -121,6 +146,32 @@
     font-weight: 700;
     color: var(--text-primary);
     letter-spacing: 0.5px;
+  }
+
+  .timer-elapsed span {
+    margin-left: 5px;
+    color: var(--text-tertiary);
+    font-family: var(--font-sans);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .timer-progress {
+    width: 100%;
+    height: 3px;
+    margin-top: 5px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: var(--bg-tertiary);
+  }
+
+  .timer-progress-fill {
+    height: 100%;
+    border-radius: inherit;
+    background: var(--success);
+    transition: width 0.3s linear;
   }
 
   .timer-controls {

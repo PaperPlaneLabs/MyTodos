@@ -2,6 +2,7 @@ import type { ActiveTimer } from "$lib/services/db";
 import {
   calculateContinuousElapsedSeconds,
   calculateDisplayElapsedSeconds,
+  calculateTimerRemainingSeconds,
 } from "./timer-runtime-utils";
 import { projectStore } from "./projects.svelte";
 import { taskStore } from "./tasks.svelte";
@@ -49,10 +50,20 @@ export function createTimerRuntimeController({
       return;
     }
 
-    initialTaskTime = task.total_time_seconds;
+    const activeTimer = getActiveTimer();
+    const recordedTimedSeconds =
+      activeTimer?.timer_limit_seconds !== undefined &&
+      activeTimer.timer_remaining_seconds !== undefined
+        ? activeTimer.timer_limit_seconds - activeTimer.timer_remaining_seconds
+        : 0;
+
+    initialTaskTime = Math.max(0, task.total_time_seconds - recordedTimedSeconds);
     if (projectId) {
       const project = projectStore.projects.find((item) => item.id === projectId);
-      initialProjectTime = project?.total_time_seconds ?? 0;
+      initialProjectTime = Math.max(
+        0,
+        (project?.total_time_seconds ?? 0) - recordedTimedSeconds,
+      );
     }
   }
 
@@ -113,7 +124,9 @@ export function createTimerRuntimeController({
     let runningToday = 0;
 
     if (activeTimer?.is_running) {
-      const now = Date.now() / 1000;
+      const now = activeTimer.timer_expires_at
+        ? Math.min(Date.now() / 1000, activeTimer.timer_expires_at)
+        : Date.now() / 1000;
       const startOfToday = getStartOfToday();
       const effectiveStart = Math.max(activeTimer.started_at, startOfToday);
       runningToday = Math.max(0, now - effectiveStart);
@@ -129,6 +142,10 @@ export function createTimerRuntimeController({
   return {
     get elapsed() {
       return currentElapsed;
+    },
+    get remaining() {
+      const _ = currentElapsed;
+      return calculateTimerRemainingSeconds(getActiveTimer());
     },
     getContinuousElapsedSeconds,
     getDisplayElapsedSeconds,

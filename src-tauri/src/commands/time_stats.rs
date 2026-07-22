@@ -64,7 +64,8 @@ fn get_active_timer_duration(conn: &rusqlite::Connection) -> Result<Option<Activ
             p.color as project_color,
             at.elapsed_seconds,
             at.started_at,
-            at.is_running
+            at.is_running,
+            at.timer_expires_at
         FROM active_timer at
         JOIN tasks t ON t.id = at.task_id
         LEFT JOIN projects p ON p.id = t.project_id
@@ -81,10 +82,14 @@ fn get_active_timer_duration(conn: &rusqlite::Connection) -> Result<Option<Activ
         let elapsed_seconds: i64 = row.get(5)?;
         let started_at: i64 = row.get(6)?;
         let is_running: i64 = row.get(7)?;
+        let timer_expires_at: Option<i64> = row.get(8)?;
 
         let duration = if is_running == 1 {
             let now = chrono::Local::now().timestamp();
-            elapsed_seconds + (now - started_at)
+            let effective_now = timer_expires_at
+                .map(|expires_at| now.min(expires_at))
+                .unwrap_or(now);
+            elapsed_seconds + (effective_now - started_at).max(0)
         } else {
             elapsed_seconds
         };
@@ -253,4 +258,45 @@ pub fn get_time_stats(db: State<DbConnection>, include_active_timer: bool) -> Re
         week_daily,
         projects,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::get_active_timer_duration;
+    use crate::db::initialize_schema;
+    use rusqlite::Connection;
+
+    #[test]
+    fn active_timed_timer_stats_are_capped_at_expiry() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute("PRAGMA foreign_keys = ON", []).unwrap();
+        initialize_schema(&conn).unwrap();
+        let now = chrono::Local::now().timestamp();
+
+        conn.execute(
+            "INSERT INTO projects (id, name, color, position, created_at, updated_at)
+             VALUES (1, 'Focus', '#6366f1', 0, ?, ?)",
+            (now, now),
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO tasks (
+                 id, project_id, title, completed, position, created_at, updated_at
+             ) VALUES (1, 1, 'Deep work', 0, 0, ?, ?)",
+            (now, now),
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO active_timer (
+                 id, task_id, started_at, elapsed_seconds, is_running,
+                 last_heartbeat_at, project_id, timer_limit_seconds,
+                 timer_remaining_seconds, timer_expires_at
+             ) VALUES (1, 1, ?, 0, 1, ?, 1, 60, 60, ?)",
+            (now - 120, now, now - 60),
+        )
+        .unwrap();
+
+        let row = get_active_timer_duration(&conn).unwrap().unwrap();
+        assert_eq!(row.5, 60);
+    }
 }

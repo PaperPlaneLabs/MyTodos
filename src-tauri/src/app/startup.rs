@@ -1,6 +1,6 @@
 use crate::db::{initialize_schema, DbConnection};
 use crate::{events, services};
-use tauri::{App, AppHandle, Manager, Wry};
+use tauri::{App, AppHandle, Emitter, Manager, Wry};
 
 pub fn apply_saved_window_dock_preference(app: &App<Wry>, db: &DbConnection) {
     let Some(window) = app.get_webview_window("main") else {
@@ -39,7 +39,7 @@ pub fn initialize_database_state(db_conn: &DbConnection) -> Result<(), String> {
 }
 
 pub fn initialize_runtime(app_handle: AppHandle, db: DbConnection) {
-    events::initialize_system_listeners(app_handle, db.clone());
+    events::initialize_system_listeners(app_handle.clone(), db.clone());
     services::window_tracking_service::initialize_tracker(db.clone());
     services::backup_service::initialize_backup(db.clone());
 
@@ -49,13 +49,46 @@ pub fn initialize_runtime(app_handle: AppHandle, db: DbConnection) {
         Err(error) => eprintln!("Failed to recover stale active timer: {}", error),
     }
 
+    let heartbeat_db = db.clone();
     std::thread::spawn(move || loop {
         std::thread::sleep(std::time::Duration::from_secs(
             services::timer_service::ACTIVE_TIMER_HEARTBEAT_INTERVAL_SECONDS,
         ));
 
-        if let Err(error) = services::timer_service::heartbeat_active_timer(&db) {
+        if let Err(error) = services::timer_service::heartbeat_active_timer(&heartbeat_db) {
             eprintln!("Failed to update active timer heartbeat: {}", error);
+        }
+    });
+
+    tauri::async_runtime::spawn(async move {
+        let mut interval = tokio::time::interval(std::time::Duration::from_secs(
+            services::timer_service::TIMED_TIMER_CHECK_INTERVAL_SECONDS,
+        ));
+
+        loop {
+            interval.tick().await;
+            let now = chrono::Utc::now().timestamp();
+            match services::timer_service::finish_expired_timed_timer_at(&db, now) {
+                Ok(Some(completion)) => {
+                    if let Err(error) = app_handle.emit("timer:finished", &completion) {
+                        eprintln!("Failed to emit task timer completion: {error}");
+                    }
+
+                    if let Err(error) = crate::commands::window::open_task_timer_finished_window(
+                        app_handle.clone(),
+                        completion.task_id,
+                        completion.task_title,
+                        completion.duration_seconds,
+                        completion.finished_at,
+                    )
+                    .await
+                    {
+                        eprintln!("Failed to open task timer completion window: {error}");
+                    }
+                }
+                Ok(None) => {}
+                Err(error) => eprintln!("Failed to finalize expired task timer: {error}"),
+            }
         }
     });
 }

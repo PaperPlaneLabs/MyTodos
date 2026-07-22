@@ -15,6 +15,15 @@ pub fn start_timer(db: State<DbConnection>, task_id: i64) -> Result<ActiveTimer>
 }
 
 #[tauri::command]
+pub fn start_timed_timer(
+    db: State<DbConnection>,
+    task_id: i64,
+    duration_seconds: i64,
+) -> Result<ActiveTimer> {
+    timer_service::start_timed_timer(db.inner(), task_id, duration_seconds)
+}
+
+#[tauri::command]
 pub fn pause_timer(db: State<DbConnection>) -> Result<()> {
     timer_service::pause_timer(db.inner())
 }

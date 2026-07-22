@@ -1,6 +1,7 @@
 <script lang="ts">
   import DateTimePicker from "$lib/components/common/DateTimePicker.svelte";
   import Modal from "$lib/components/common/Modal.svelte";
+  import TaskTimerSetupModal from "$lib/components/timer/TaskTimerSetupModal.svelte";
   import { projectStore } from "$lib/stores/projects.svelte";
   import { taskStore } from "$lib/stores/tasks.svelte";
   import { timerStore } from "$lib/stores/timer.svelte";
@@ -13,6 +14,7 @@
   let showResetModal = $state(false);
   let taskToReset = $state<number | null>(null);
   let showDeleteModal = $state(false);
+  let taskToTime = $state<number | null>(null);
   let itemToDelete = $state<{ type: "project" | "task"; id: number } | null>(
     null,
   );
@@ -24,10 +26,19 @@
       !uiStore.editingTaskId &&
       !!uiStore.newTaskDeadline,
   );
+  const taskTimerTask = $derived(
+    taskToTime === null
+      ? null
+      : taskStore.tasks.find((task) => task.id === taskToTime) ?? null,
+  );
 
   export function openResetModal(taskId: number) {
     taskToReset = taskId;
     showResetModal = true;
+  }
+
+  export function openTaskTimerModal(taskId: number) {
+    taskToTime = taskId;
   }
 
   export function confirmDelete(type: "project" | "task", id: number) {
@@ -188,7 +199,27 @@
     showDeleteModal = false;
     itemToDelete = null;
   }
+
+  async function handleStartTaskTimer(durationSeconds: number) {
+    if (taskToTime === null) return;
+
+    if (timerStore.active) {
+      await timerStore.stop();
+    }
+    await timerStore.startTimed(taskToTime, durationSeconds);
+    taskToTime = null;
+  }
 </script>
+
+<TaskTimerSetupModal
+  open={taskToTime !== null}
+  taskTitle={taskTimerTask?.title ?? "Task"}
+  activeTaskTitle={timerStore.active
+    ? (timerStore.active.task_title ?? "Current task")
+    : null}
+  onClose={() => (taskToTime = null)}
+  onStart={handleStartTaskTimer}
+/>
 
 <Modal
   open={uiStore.showProjectModal}

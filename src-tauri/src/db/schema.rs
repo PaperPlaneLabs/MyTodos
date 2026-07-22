@@ -63,6 +63,9 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
             is_running BOOLEAN DEFAULT 1,
             last_heartbeat_at INTEGER,
             project_id INTEGER,
+            timer_limit_seconds INTEGER,
+            timer_remaining_seconds INTEGER,
+            timer_expires_at INTEGER,
             FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
             FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
         );
@@ -128,6 +131,21 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
     // Migration: Add last_heartbeat_at to active_timer if it doesn't exist
     let _ = conn.execute(
         "ALTER TABLE active_timer ADD COLUMN last_heartbeat_at INTEGER",
+        [],
+    );
+
+    // Migrations: optional bounded task-timer state. NULL keeps the existing
+    // unrestricted timer behavior.
+    let _ = conn.execute(
+        "ALTER TABLE active_timer ADD COLUMN timer_limit_seconds INTEGER",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE active_timer ADD COLUMN timer_remaining_seconds INTEGER",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE active_timer ADD COLUMN timer_expires_at INTEGER",
         [],
     );
 

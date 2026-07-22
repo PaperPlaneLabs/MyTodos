@@ -41,13 +41,18 @@ const timerRuntime = createTimerRuntimeController({
 });
 
 const breakReminderController = createBreakReminderController({
-  getIsRunning: () => activeTimer?.is_running ?? false,
+  getIsRunning: () =>
+    (activeTimer?.is_running ?? false) &&
+    activeTimer?.timer_limit_seconds === undefined,
   getContinuousElapsedSeconds: () => timerRuntime.getContinuousElapsedSeconds(),
 });
 
 export interface TimerStore {
   readonly active: ActiveTimer | null;
   readonly elapsed: number;
+  readonly remaining: number;
+  readonly isTimed: boolean;
+  readonly timerLimit: number | null;
   readonly dailyTotal: number;
   readonly isRunning: boolean;
   readonly currentProjectId: number | null;
@@ -66,6 +71,7 @@ export interface TimerStore {
   syncBreakReminderSchedule(): void;
   loadActive(): Promise<void>;
   start(taskId: number): Promise<ActiveTimer>;
+  startTimed(taskId: number, durationSeconds: number): Promise<ActiveTimer>;
   pause(): Promise<void>;
   resume(): Promise<void>;
   stop(): Promise<null>;
@@ -79,6 +85,18 @@ export const timerStore: TimerStore = {
 
   get elapsed() {
     return timerRuntime.elapsed;
+  },
+
+  get remaining() {
+    return timerRuntime.remaining;
+  },
+
+  get isTimed() {
+    return activeTimer?.timer_limit_seconds !== undefined;
+  },
+
+  get timerLimit() {
+    return activeTimer?.timer_limit_seconds ?? null;
   },
 
   get dailyTotal() {
@@ -164,12 +182,21 @@ export const timerStore: TimerStore = {
       }
 
       currentProjectId = timer.project_id ?? null;
+      timerRuntime.captureInitialTimes(timer.task_id, currentProjectId);
       if (timer.is_running) {
-        timerRuntime.captureInitialTimes(timer.task_id, currentProjectId);
         timerRuntime.startInterval();
-        breakReminderController.scheduleAligned();
+        if (timer.timer_limit_seconds === undefined) {
+          breakReminderController.scheduleAligned();
+        } else {
+          breakReminderController.deactivate();
+        }
       } else {
-        timerRuntime.setElapsed(timer.elapsed_seconds);
+        timerRuntime.setElapsed(
+          timer.timer_limit_seconds !== undefined &&
+            timer.timer_remaining_seconds !== undefined
+            ? timer.timer_limit_seconds - timer.timer_remaining_seconds
+            : timer.elapsed_seconds,
+        );
         breakReminderController.deactivate();
       }
     } catch (error) {
@@ -202,13 +229,44 @@ export const timerStore: TimerStore = {
     }
   },
 
+  async startTimed(taskId: number, durationSeconds: number) {
+    breakReminderController.init();
+
+    try {
+      const timer = await db.timer.startTimed(taskId, durationSeconds);
+      activeTimer = timer;
+      timerRuntime.resetElapsed();
+      currentProjectId = timer.project_id ?? null;
+      autoPausedReason = null;
+
+      await refreshDailyTotal();
+      timerRuntime.captureInitialTimes(taskId, currentProjectId);
+      timerRuntime.startInterval();
+      breakReminderController.deactivate();
+      await db.window.closeBreak().catch((error) =>
+        console.error("Failed to close break reminder window:", error),
+      );
+      timerChangeCounter++;
+
+      return timer;
+    } catch (error) {
+      console.error("Failed to start task timer:", error);
+      throw error;
+    }
+  },
+
   async pause() {
     try {
-      await db.timer.pause();
       const pausedElapsed = timerRuntime.getDisplayElapsedSeconds();
+      const pausedRemaining = timerRuntime.remaining;
+      await db.timer.pause();
       if (activeTimer) {
         activeTimer.elapsed_seconds = 0;
         activeTimer.is_running = false;
+        if (activeTimer.timer_remaining_seconds !== undefined) {
+          activeTimer.timer_remaining_seconds = Math.ceil(pausedRemaining);
+          activeTimer.timer_expires_at = undefined;
+        }
       }
       timerRuntime.setElapsed(pausedElapsed);
 
@@ -232,6 +290,10 @@ export const timerStore: TimerStore = {
         activeTimer.elapsed_seconds = 0;
         activeTimer.is_running = true;
         activeTimer.started_at = Math.floor(Date.now() / 1000);
+        if (activeTimer.timer_remaining_seconds !== undefined) {
+          activeTimer.timer_expires_at =
+            activeTimer.started_at + activeTimer.timer_remaining_seconds;
+        }
       }
 
       await refreshDailyTotal();
@@ -240,7 +302,11 @@ export const timerStore: TimerStore = {
 
       timerRuntime.startInterval();
       breakReminderController.closeReminder();
-      breakReminderController.scheduleFromCurrentInterval();
+      if (activeTimer?.timer_limit_seconds === undefined) {
+        breakReminderController.scheduleFromCurrentInterval();
+      } else {
+        breakReminderController.deactivate();
+      }
       timerChangeCounter++;
     } catch (error) {
       console.error("Failed to resume timer:", error);
@@ -300,11 +366,16 @@ export const timerStore: TimerStore = {
 registerTimerEventHandlers({
   onAutoPaused: (reason) => {
     const pausedElapsed = timerRuntime.getDisplayElapsedSeconds();
+    const pausedRemaining = timerRuntime.remaining;
     autoPausedReason = reason;
 
     if (activeTimer) {
       activeTimer.elapsed_seconds = 0;
       activeTimer.is_running = false;
+      if (activeTimer.timer_remaining_seconds !== undefined) {
+        activeTimer.timer_remaining_seconds = Math.ceil(pausedRemaining);
+        activeTimer.timer_expires_at = undefined;
+      }
     }
 
     timerRuntime.setElapsed(pausedElapsed);
@@ -333,6 +404,19 @@ registerTimerEventHandlers({
     }
 
     await windowTrackingStore.refresh();
+    timerChangeCounter++;
+  },
+  onTimedTimerFinished: async (event) => {
+    if (activeTimer?.task_id === event.task_id) {
+      activeTimer = null;
+      currentProjectId = null;
+      timerRuntime.resetElapsed();
+      timerRuntime.stopInterval();
+      breakReminderController.deactivate();
+      autoPausedReason = null;
+    }
+
+    await syncVisibleTimeData();
     timerChangeCounter++;
   },
 });

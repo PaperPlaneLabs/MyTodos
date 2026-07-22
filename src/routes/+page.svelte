@@ -14,6 +14,7 @@
   import ResumeView from "$lib/components/resume/ResumeView.svelte";
   import TaskListSection from "$lib/components/tasks/TaskListSection.svelte";
   import ActiveTimerWidget from "$lib/components/timer/ActiveTimerWidget.svelte";
+  import TaskTimerFinishedView from "$lib/components/timer/TaskTimerFinishedView.svelte";
   import { createPageInteractions } from "$lib/controllers/page-interactions.svelte";
   import { db } from "$lib/services/db";
   import { projectStore } from "$lib/stores/projects.svelte";
@@ -28,15 +29,20 @@
     window.__TAURI_INTERNALS__?.metadata?.currentWindow?.label === "break";
   const isResumeWindow = 
     window.__TAURI_INTERNALS__?.metadata?.currentWindow?.label === "resume";
+  const isTaskTimerFinishedWindow =
+    window.__TAURI_INTERNALS__?.metadata?.currentWindow?.label ===
+    "task-timer-finished";
 
   type PageModalHostApi = {
     openResetModal: (taskId: number) => void;
+    openTaskTimerModal: (taskId: number) => void;
     confirmDelete: (type: "project" | "task", id: number) => void;
   };
 
   let modalHost = $state<PageModalHostApi | null>(null);
   const pageInteractions = createPageInteractions({
     onConfirmDelete: (type, id) => modalHost?.confirmDelete(type, id),
+    onSetTaskTimer: (taskId) => modalHost?.openTaskTimerModal(taskId),
   });
 
   function formatDeadline(deadline: string | null | undefined): string {
@@ -92,7 +98,7 @@
   }
 
   onMount(async () => {
-    if (isBreakWindow || isResumeWindow) {
+    if (isBreakWindow || isResumeWindow || isTaskTimerFinishedWindow) {
       uiStore.initTheme();
       return;
     }
@@ -116,10 +122,17 @@
     await projectStore.loadAll();
     await timerStore.loadActive();
     googleCalendarStore.init();
+
+    const { listen } = await import("@tauri-apps/api/event");
+    await listen("task-timer:switch-requested", () => {
+      uiStore.closeStatsView();
+      uiStore.closeSettingsView();
+      uiStore.closeCalendarView();
+    });
   });
 
   $effect(() => {
-    if (isBreakWindow || isResumeWindow) {
+    if (isBreakWindow || isResumeWindow || isTaskTimerFinishedWindow) {
       return;
     }
 
@@ -148,19 +161,21 @@
 </script>
 
 <svelte:window
-  onpointermove={(!isBreakWindow && !isResumeWindow) ? pageInteractions.handlePointerMove : undefined}
-  onpointerup={(!isBreakWindow && !isResumeWindow) ? pageInteractions.handlePointerUp : undefined}
-  onpointercancel={(!isBreakWindow && !isResumeWindow) ? pageInteractions.cancelDrag : undefined}
-  onkeydown={(!isBreakWindow && !isResumeWindow)
+  onpointermove={(!isBreakWindow && !isResumeWindow && !isTaskTimerFinishedWindow) ? pageInteractions.handlePointerMove : undefined}
+  onpointerup={(!isBreakWindow && !isResumeWindow && !isTaskTimerFinishedWindow) ? pageInteractions.handlePointerUp : undefined}
+  onpointercancel={(!isBreakWindow && !isResumeWindow && !isTaskTimerFinishedWindow) ? pageInteractions.cancelDrag : undefined}
+  onkeydown={(!isBreakWindow && !isResumeWindow && !isTaskTimerFinishedWindow)
     ? pageInteractions.handleWindowKeydown
     : undefined}
-  onclick={(!isBreakWindow && !isResumeWindow) ? pageInteractions.handleWindowClick : undefined}
+  onclick={(!isBreakWindow && !isResumeWindow && !isTaskTimerFinishedWindow) ? pageInteractions.handleWindowClick : undefined}
 />
 
 {#if isBreakWindow}
   <BreakView />
 {:else if isResumeWindow}
   <ResumeView />
+{:else if isTaskTimerFinishedWindow}
+  <TaskTimerFinishedView />
 {:else}
   <div class="app-container" class:app-collapsed={uiStore.isCollapsed}>
     <CollapseHandle />

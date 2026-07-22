@@ -71,6 +71,20 @@ pub struct ActiveTimer {
     pub task_title: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub project_id: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timer_limit_seconds: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timer_remaining_seconds: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timer_expires_at: Option<i64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TimedTimerCompletion {
+    pub task_id: i64,
+    pub task_title: String,
+    pub duration_seconds: i64,
+    pub finished_at: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

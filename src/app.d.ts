@@ -10,6 +10,12 @@ interface Window {
         awayTimeSeconds: number;
         theme: string | null;
     };
+    __TASK_TIMER_FINISHED__?: {
+        taskId: number;
+        taskTitle: string;
+        durationSeconds: number;
+        finishedAt: number;
+    };
     __TAURI_INTERNALS__?: {
         metadata?: {
             currentWindow?: { label: string };

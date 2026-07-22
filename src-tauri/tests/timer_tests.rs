@@ -28,6 +28,9 @@ fn get_active_timer_impl(db: &DbConnection) -> Result<Option<ActiveTimer>> {
                 last_heartbeat_at: row.get(4)?,
                 task_title: row.get(5)?,
                 project_id: row.get(6)?,
+                timer_limit_seconds: None,
+                timer_remaining_seconds: None,
+                timer_expires_at: None,
             })
         },
     );
@@ -72,6 +75,9 @@ fn start_timer_impl(db: &DbConnection, task_id: i64) -> Result<ActiveTimer> {
         last_heartbeat_at: Some(now),
         task_title: task_info.0,
         project_id: task_info.1,
+        timer_limit_seconds: None,
+        timer_remaining_seconds: None,
+        timer_expires_at: None,
     })
 }
 

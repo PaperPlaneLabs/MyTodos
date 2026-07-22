@@ -4,6 +4,7 @@ import type { ActiveTimer } from "$lib/services/db";
 import {
   calculateContinuousElapsedSeconds,
   calculateDisplayElapsedSeconds,
+  calculateTimerRemainingSeconds,
 } from "./timer-runtime-utils";
 
 describe("timer-runtime-utils", () => {
@@ -34,5 +35,52 @@ describe("timer-runtime-utils", () => {
 
     expect(Math.floor(calculateDisplayElapsedSeconds(resumedTimer, 125))).toBe(128);
     expect(Math.floor(calculateContinuousElapsedSeconds(resumedTimer))).toBe(3);
+  });
+
+  it("counts down a running bounded task timer from its persisted expiry", () => {
+    const now = Math.floor(Date.now() / 1000);
+    const timer: ActiveTimer = {
+      task_id: 2,
+      started_at: now - 300,
+      elapsed_seconds: 0,
+      is_running: true,
+      timer_limit_seconds: 1500,
+      timer_remaining_seconds: 1500,
+      timer_expires_at: now + 1200,
+    };
+
+    expect(calculateTimerRemainingSeconds(timer)).toBe(1200);
+    expect(calculateDisplayElapsedSeconds(timer, 0)).toBe(300);
+  });
+
+  it("freezes the remaining duration while a bounded timer is paused", () => {
+    const timer: ActiveTimer = {
+      task_id: 2,
+      started_at: Math.floor(Date.now() / 1000),
+      elapsed_seconds: 0,
+      is_running: false,
+      timer_limit_seconds: 1500,
+      timer_remaining_seconds: 840,
+    };
+
+    vi.advanceTimersByTime(60_000);
+
+    expect(calculateTimerRemainingSeconds(timer)).toBe(840);
+    expect(calculateDisplayElapsedSeconds(timer, 0)).toBe(660);
+  });
+
+  it("never reports negative remaining time after expiry", () => {
+    const timer: ActiveTimer = {
+      task_id: 2,
+      started_at: Math.floor(Date.now() / 1000) - 60,
+      elapsed_seconds: 0,
+      is_running: true,
+      timer_limit_seconds: 60,
+      timer_remaining_seconds: 60,
+      timer_expires_at: Math.floor(Date.now() / 1000) - 1,
+    };
+
+    expect(calculateTimerRemainingSeconds(timer)).toBe(0);
+    expect(calculateDisplayElapsedSeconds(timer, 0)).toBe(60);
   });
 });

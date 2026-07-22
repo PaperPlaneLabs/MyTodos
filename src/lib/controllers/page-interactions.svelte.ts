@@ -23,10 +23,12 @@ type ContextMenuItem = ActionMenuItem | ColorPickerItem;
 
 interface CreatePageInteractionsOptions {
   onConfirmDelete: (type: ItemType, id: number) => void;
+  onSetTaskTimer: (taskId: number) => void;
 }
 
 export function createPageInteractions({
   onConfirmDelete,
+  onSetTaskTimer,
 }: CreatePageInteractionsOptions) {
   let isDragging = $state(false);
   let dragType = $state<ItemType | null>(null);
@@ -68,7 +70,18 @@ export function createPageInteractions({
       ];
     }
 
-    return [
+    const task = taskStore.tasks.find((item) => item.id === id);
+    const taskItems: ContextMenuItem[] = [];
+
+    if (!task?.completed) {
+      taskItems.push({
+        label: "Set Task Timer…",
+        icon: "⏱️",
+        onClick: () => onSetTaskTimer(id),
+      });
+    }
+
+    taskItems.push(
       {
         label: "Edit Task",
         icon: "✏️",
@@ -80,7 +93,9 @@ export function createPageInteractions({
         danger: true,
         onClick: () => onConfirmDelete("task", id),
       },
-    ];
+    );
+
+    return taskItems;
   });
 
   function handleContextMenu(

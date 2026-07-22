@@ -1,10 +1,12 @@
 use crate::commands::common::{apply_task_and_parent_time_delta, get_timestamp};
-use crate::db::{ActiveTimer, DbConnection, TimeEntry};
+use crate::db::{ActiveTimer, DbConnection, TimeEntry, TimedTimerCompletion};
 use crate::error::{AppError, Result};
 use rusqlite::Connection;
 
 pub const ACTIVE_TIMER_HEARTBEAT_INTERVAL_SECONDS: u64 = 30;
+pub const TIMED_TIMER_CHECK_INTERVAL_SECONDS: u64 = 1;
 const ACTIVE_TIMER_STALE_AFTER_SECONDS: i64 = 120;
+const MAX_TIMED_TIMER_SECONDS: i64 = 24 * 60 * 60;
 use super::{AFK_PROJECT_COLOR, AFK_PROJECT_NAME, BREAK_PROJECT_NAME, BREAK_TASK_TITLE};
 
 const BREAK_PROJECT_DESCRIPTION: &str = "Automatically tracked break time";
@@ -14,7 +16,9 @@ const AFK_PROJECT_DESCRIPTION: &str = "Automatically tracked away-from-keyboard 
 
 fn get_active_timer_from_conn(conn: &Connection) -> Result<Option<ActiveTimer>> {
     let result = conn.query_row(
-        "SELECT t.task_id, t.started_at, t.elapsed_seconds, t.is_running, t.last_heartbeat_at, tasks.title, t.project_id
+        "SELECT t.task_id, t.started_at, t.elapsed_seconds, t.is_running,
+                t.last_heartbeat_at, tasks.title, t.project_id,
+                t.timer_limit_seconds, t.timer_remaining_seconds, t.timer_expires_at
          FROM active_timer t
          LEFT JOIN tasks ON t.task_id = tasks.id
          WHERE t.id = 1",
@@ -28,6 +32,9 @@ fn get_active_timer_from_conn(conn: &Connection) -> Result<Option<ActiveTimer>> 
                 last_heartbeat_at: row.get(4)?,
                 task_title: row.get(5)?,
                 project_id: row.get(6)?,
+                timer_limit_seconds: row.get(7)?,
+                timer_remaining_seconds: row.get(8)?,
+                timer_expires_at: row.get(9)?,
             })
         },
     );
@@ -48,22 +55,37 @@ fn calculate_running_duration(timer: &ActiveTimer, ended_at: i64) -> i64 {
 }
 
 pub fn pause_running_timer_at(conn: &Connection, timer: &ActiveTimer, ended_at: i64) -> Result<()> {
-    let safe_end = ended_at.max(timer.started_at);
-    let duration = calculate_running_duration(timer, safe_end);
+    let bounded_end = timer
+        .timer_expires_at
+        .map(|expires_at| ended_at.min(expires_at))
+        .unwrap_or(ended_at);
+    let safe_end = bounded_end.max(timer.started_at);
+    let duration = if let Some(remaining_seconds) = timer.timer_remaining_seconds {
+        (safe_end - timer.started_at).max(0).min(remaining_seconds)
+    } else {
+        calculate_running_duration(timer, safe_end)
+    };
 
-    conn.execute(
-        "INSERT INTO time_entries (task_id, entry_type, duration_seconds, started_at, ended_at, created_at)
-         VALUES (?, 'timer', ?, ?, ?, ?)",
-        (timer.task_id, duration, timer.started_at, safe_end, safe_end),
-    )?;
+    if duration > 0 || timer.timer_remaining_seconds.is_none() {
+        conn.execute(
+            "INSERT INTO time_entries (task_id, entry_type, duration_seconds, started_at, ended_at, created_at)
+             VALUES (?, 'timer', ?, ?, ?, ?)",
+            (timer.task_id, duration, timer.started_at, safe_end, safe_end),
+        )?;
 
-    apply_task_and_parent_time_delta(conn, timer.task_id, duration)?;
+        apply_task_and_parent_time_delta(conn, timer.task_id, duration)?;
+    }
+
+    let remaining_seconds = timer
+        .timer_remaining_seconds
+        .map(|remaining| (remaining - duration).max(0));
 
     conn.execute(
         "UPDATE active_timer
-         SET is_running = 0, elapsed_seconds = 0, started_at = ?, last_heartbeat_at = ?
+         SET is_running = 0, elapsed_seconds = 0, started_at = ?, last_heartbeat_at = ?,
+             timer_remaining_seconds = ?, timer_expires_at = NULL
          WHERE id = 1",
-        [safe_end, safe_end],
+        (safe_end, safe_end, remaining_seconds),
     )?;
 
     Ok(())
@@ -107,7 +129,11 @@ pub fn heartbeat_active_timer(db: &DbConnection) -> Result<bool> {
     Ok(updated > 0)
 }
 
-pub fn start_timer(db: &DbConnection, task_id: i64) -> Result<ActiveTimer> {
+fn start_timer_with_limit(
+    db: &DbConnection,
+    task_id: i64,
+    timer_limit_seconds: Option<i64>,
+) -> Result<ActiveTimer> {
     if let Some(existing) = get_active_timer(db)? {
         return Err(AppError::TimerActive(format!(
             "Timer already running for task {}",
@@ -116,20 +142,38 @@ pub fn start_timer(db: &DbConnection, task_id: i64) -> Result<ActiveTimer> {
     }
 
     let conn = db.lock();
-    let task_info: (Option<String>, Option<i64>) = conn
+    let task_info: (Option<String>, Option<i64>, bool) = conn
         .query_row(
-            "SELECT title, project_id FROM tasks WHERE id = ?",
+            "SELECT title, project_id, completed FROM tasks WHERE id = ?",
             [task_id],
-            |row| Ok((row.get(0)?, row.get(1)?)),
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
         )
         .map_err(|_| AppError::NotFound(format!("Task with id {} not found", task_id)))?;
 
+    if timer_limit_seconds.is_some() && task_info.2 {
+        return Err(AppError::InvalidInput(
+            "Cannot start a task timer for a completed task".to_string(),
+        ));
+    }
+
     let now = get_timestamp();
+    let timer_expires_at = timer_limit_seconds.map(|seconds| now + seconds);
 
     conn.execute(
-        "INSERT INTO active_timer (id, task_id, started_at, elapsed_seconds, is_running, last_heartbeat_at, project_id)
-         VALUES (1, ?, ?, 0, 1, ?, ?)",
-        (task_id, now, now, task_info.1),
+        "INSERT INTO active_timer (
+             id, task_id, started_at, elapsed_seconds, is_running,
+             last_heartbeat_at, project_id, timer_limit_seconds,
+             timer_remaining_seconds, timer_expires_at
+         ) VALUES (1, ?, ?, 0, 1, ?, ?, ?, ?, ?)",
+        (
+            task_id,
+            now,
+            now,
+            task_info.1,
+            timer_limit_seconds,
+            timer_limit_seconds,
+            timer_expires_at,
+        ),
     )?;
 
     Ok(ActiveTimer {
@@ -140,7 +184,28 @@ pub fn start_timer(db: &DbConnection, task_id: i64) -> Result<ActiveTimer> {
         last_heartbeat_at: Some(now),
         task_title: task_info.0,
         project_id: task_info.1,
+        timer_limit_seconds,
+        timer_remaining_seconds: timer_limit_seconds,
+        timer_expires_at,
     })
+}
+
+pub fn start_timer(db: &DbConnection, task_id: i64) -> Result<ActiveTimer> {
+    start_timer_with_limit(db, task_id, None)
+}
+
+pub fn start_timed_timer(
+    db: &DbConnection,
+    task_id: i64,
+    duration_seconds: i64,
+) -> Result<ActiveTimer> {
+    if !(1..=MAX_TIMED_TIMER_SECONDS).contains(&duration_seconds) {
+        return Err(AppError::InvalidInput(
+            "Task timer duration must be between 1 second and 24 hours".to_string(),
+        ));
+    }
+
+    start_timer_with_limit(db, task_id, Some(duration_seconds))
 }
 
 pub fn pause_timer(db: &DbConnection) -> Result<()> {
@@ -163,12 +228,15 @@ pub fn resume_timer(db: &DbConnection) -> Result<()> {
 
     let conn = db.lock();
     let now = get_timestamp();
+    let timer_expires_at = timer
+        .timer_remaining_seconds
+        .map(|remaining_seconds| now + remaining_seconds);
 
     conn.execute(
         "UPDATE active_timer
-         SET is_running = 1, started_at = ?, last_heartbeat_at = ?
+         SET is_running = 1, started_at = ?, last_heartbeat_at = ?, timer_expires_at = ?
          WHERE id = 1",
-        [now, now],
+        (now, now, timer_expires_at),
     )?;
 
     Ok(())
@@ -178,8 +246,16 @@ pub fn stop_timer(db: &DbConnection) -> Result<TimeEntry> {
     let timer = get_active_timer(db)?.ok_or(AppError::NoActiveTimer)?;
     let conn = db.lock();
     let now = get_timestamp();
+    let safe_end = timer
+        .timer_expires_at
+        .map(|expires_at| now.min(expires_at))
+        .unwrap_or(now);
     let total_duration = if timer.is_running {
-        calculate_running_duration(&timer, now)
+        if let Some(remaining_seconds) = timer.timer_remaining_seconds {
+            (safe_end - timer.started_at).max(0).min(remaining_seconds)
+        } else {
+            calculate_running_duration(&timer, safe_end)
+        }
     } else {
         timer.elapsed_seconds
     };
@@ -187,7 +263,13 @@ pub fn stop_timer(db: &DbConnection) -> Result<TimeEntry> {
     conn.execute(
         "INSERT INTO time_entries (task_id, entry_type, duration_seconds, started_at, ended_at, created_at)
          VALUES (?, 'timer', ?, ?, ?, ?)",
-        (timer.task_id, total_duration, timer.started_at, now, now),
+        (
+            timer.task_id,
+            total_duration,
+            timer.started_at,
+            safe_end,
+            now,
+        ),
     )?;
 
     let entry_id = conn.last_insert_rowid();
@@ -201,10 +283,65 @@ pub fn stop_timer(db: &DbConnection) -> Result<TimeEntry> {
         entry_type: "timer".to_string(),
         duration_seconds: total_duration,
         started_at: Some(timer.started_at),
-        ended_at: Some(now),
+        ended_at: Some(safe_end),
         note: None,
         created_at: now,
     })
+}
+
+pub fn finish_expired_timed_timer_at(
+    db: &DbConnection,
+    now: i64,
+) -> Result<Option<TimedTimerCompletion>> {
+    let mut conn = db.lock();
+    let transaction = conn.transaction()?;
+    let Some(timer) = get_active_timer_from_conn(&transaction)? else {
+        return Ok(None);
+    };
+    let Some(limit_seconds) = timer.timer_limit_seconds else {
+        return Ok(None);
+    };
+    let remaining_seconds = timer.timer_remaining_seconds.unwrap_or(limit_seconds);
+    let is_due = remaining_seconds <= 0
+        || (timer.is_running
+            && timer
+                .timer_expires_at
+                .is_some_and(|expires_at| now >= expires_at));
+    if !is_due {
+        return Ok(None);
+    }
+
+    let finished_at = timer.timer_expires_at.unwrap_or(now).min(now);
+    if timer.is_running && remaining_seconds > 0 {
+        let duration = (finished_at - timer.started_at)
+            .max(0)
+            .min(remaining_seconds);
+        if duration > 0 {
+            transaction.execute(
+                "INSERT INTO time_entries (
+                     task_id, entry_type, duration_seconds, started_at, ended_at, created_at
+                 ) VALUES (?, 'timer', ?, ?, ?, ?)",
+                (
+                    timer.task_id,
+                    duration,
+                    timer.started_at,
+                    finished_at,
+                    finished_at,
+                ),
+            )?;
+            apply_task_and_parent_time_delta(&transaction, timer.task_id, duration)?;
+        }
+    }
+
+    transaction.execute("DELETE FROM active_timer WHERE id = 1", [])?;
+    transaction.commit()?;
+
+    Ok(Some(TimedTimerCompletion {
+        task_id: timer.task_id,
+        task_title: timer.task_title.unwrap_or_else(|| "Task".to_string()),
+        duration_seconds: limit_seconds,
+        finished_at,
+    }))
 }
 
 pub fn reset_timer(db: &DbConnection) -> Result<()> {

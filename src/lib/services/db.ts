@@ -54,6 +54,16 @@ export interface ActiveTimer {
   last_heartbeat_at?: number;
   task_title?: string;
   project_id?: number;
+  timer_limit_seconds?: number;
+  timer_remaining_seconds?: number;
+  timer_expires_at?: number;
+}
+
+export interface TimedTimerCompletion {
+  task_id: number;
+  task_title: string;
+  duration_seconds: number;
+  finished_at: number;
 }
 
 export enum AutoPauseReason {
@@ -216,6 +226,8 @@ export const db = {
   timer: {
     getActive: () => invoke<ActiveTimer | null>("get_active_timer"),
     start: (taskId: number) => invoke<ActiveTimer>("start_timer", { taskId }),
+    startTimed: (taskId: number, durationSeconds: number) =>
+      invoke<ActiveTimer>("start_timed_timer", { taskId, durationSeconds }),
     pause: () => invoke<void>("pause_timer"),
     resume: () => invoke<void>("resume_timer"),
     stop: () => invoke<TimeEntry>("stop_timer"),
@@ -256,6 +268,7 @@ export const db = {
     minimize: () => invoke<void>("minimize_window"),
     toggleMaximize: () => invoke<void>("toggle_maximize"),
     close: () => invoke<void>("close_window"),
+    closeBreak: () => invoke<void>("close_break_window"),
     closeResume: () => invoke<void>("close_resume_window"),
     dock: (side: "left" | "right") => invoke<void>("dock_window", { side }),
     center: () => invoke<void>("center_window"),

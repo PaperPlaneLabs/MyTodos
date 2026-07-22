@@ -1,5 +1,6 @@
 [package]
 name = "my-todos"
+default-run = "my-todos"
 version = "0.1.64"
 description = "A Tauri App"
 authors = ["you"]
