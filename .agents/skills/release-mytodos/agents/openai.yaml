@@ -1,0 +1,4 @@
+interface:
+  display_name: "Release MyTodos"
+  short_description: "Prepare, publish, recover, and verify releases"
+  default_prompt: "Use $release-mytodos to prepare and publish the next MyTodos release safely."

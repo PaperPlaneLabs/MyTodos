@@ -138,3 +138,30 @@
 - `graphify update .`: rebuilt the code graph with 1400 nodes and 2999 edges.
   Graphify warned that six settings/configuration sources produced no AST nodes;
   the release paths modified here are present in the refreshed graph.
+
+---
+
+## Project Release Skill
+
+- Added the project-local `release-mytodos` skill for preparing, publishing,
+  monitoring, recovering, and verifying MyTodos releases.
+- Encoded the canonical `PaperPlaneLabs/MyTodos` repository, the required
+  What's New catalog gate, all synchronized version files, and the CI-backed
+  `create-release.ps1 -Online` flow.
+- Added explicit recovery rules for local-only tags, existing remote tags,
+  failed workflows, incomplete updater publication, and obsolete repository
+  URLs.
+- Added a read-only verifier that checks the tag-triggered Actions run, final
+  GitHub release state, four platform-specific updater manifests, their schema,
+  versions, signatures, and referenced artifacts.
+
+### Release Skill Verification
+
+- PowerShell syntax parsing passed for `verify-release.ps1`.
+- Live verification passed against `v0.1.65` for Windows, Linux, Apple Silicon
+  macOS, and Intel macOS.
+- A negative verification against unpublished `v9.9.9` exited with failure and
+  identified the missing workflow/release plus manifest version mismatches.
+- Skill Creator `quick_validate.py` passed in an ephemeral PyYAML environment.
+- `git diff --check` passed and no generated TODO placeholders remain.
+- `graphify update .`: rebuilt the code graph with 1416 nodes and 3013 edges.
