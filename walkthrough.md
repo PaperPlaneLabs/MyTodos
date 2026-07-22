@@ -20,7 +20,7 @@
 ## Verification
 
 - `npm run check`: 0 errors and 0 warnings.
-- `npm run test -- --run`: 51 tests passed.
+- `npm run test -- --run`: 53 tests passed, including custom one-minute input.
 - `npm run build`: production frontend build passed.
 - `cargo fmt -- --check`: passed.
 - `cargo check`: passed.
@@ -31,6 +31,8 @@
 
 ## Notes
 
+- Fixed numeric custom-duration input handling: Svelte number inputs produce
+  numbers, so the setup modal no longer calls string methods on the bound value.
 - The full Clippy gate exposed two pre-existing `unnecessary_sort_by` warnings
   in window tracking. They were mechanically changed to equivalent
   `sort_by_key(Reverse(...))` calls so the required lint gate could pass.

@@ -1,5 +1,6 @@
 <script lang="ts">
   import Modal from "$lib/components/common/Modal.svelte";
+  import { resolveTaskTimerMinutes } from "$lib/components/timer/task-timer-utils";
 
   let {
     open,
@@ -17,13 +18,13 @@
 
   const presets = [15, 25, 30, 45, 60];
   let selectedMinutes = $state(25);
-  let customMinutes = $state("");
+  let customMinutes = $state<number | undefined>(undefined);
   let submitting = $state(false);
   let error = $state<string | null>(null);
   let wasOpen = false;
 
   const durationMinutes = $derived(
-    customMinutes.trim() ? Number(customMinutes) : selectedMinutes,
+    resolveTaskTimerMinutes(customMinutes, selectedMinutes),
   );
   const isValid = $derived(
     Number.isFinite(durationMinutes) &&
@@ -34,7 +35,7 @@
   $effect(() => {
     if (open && !wasOpen) {
       selectedMinutes = 25;
-      customMinutes = "";
+      customMinutes = undefined;
       error = null;
     }
     wasOpen = open;
@@ -42,7 +43,7 @@
 
   function selectPreset(minutes: number) {
     selectedMinutes = minutes;
-    customMinutes = "";
+    customMinutes = undefined;
     error = null;
   }
 
@@ -77,7 +78,7 @@
         {#each presets as minutes}
           <button
             type="button"
-            class:active={!customMinutes && selectedMinutes === minutes}
+            class:active={customMinutes === undefined && selectedMinutes === minutes}
             onclick={() => selectPreset(minutes)}
           >
             {minutes} min
