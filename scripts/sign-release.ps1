@@ -14,6 +14,8 @@ function Write-Success($msg) { Write-Host "   [OK] $msg" -ForegroundColor Green 
 function Write-Fail($msg) { Write-Host "   [ER] $msg" -ForegroundColor Red }
 function Write-Warn($msg) { Write-Host "   [!!] $msg" -ForegroundColor Yellow }
 
+. "$PSScriptRoot\release-notes.ps1"
+
 function Load-EnvFile {
     if (-not (Test-Path ".env")) {
         Write-Warn ".env file not found. Ensure TAURI_SIGNING_PRIVATE_KEY is set."
@@ -129,6 +131,19 @@ function Write-PlatformManifest([string]$outputDir, [string]$platform, [hashtabl
     return $manifestPath
 }
 
+if ($v -notmatch '^\d+\.\d+\.\d+$') {
+    Write-Fail "Invalid version format. Expected X.Y.Z."
+    exit 1
+}
+
+try {
+    $releaseEntry = Get-MyTodosReleaseEntry -Version $v
+    $notes = Format-MyTodosReleaseNotes -Entry $releaseEntry
+} catch {
+    Write-Fail $_.Exception.Message
+    exit 1
+}
+
 Load-EnvFile
 
 if (-not [Environment]::GetEnvironmentVariable("TAURI_SIGNING_PRIVATE_KEY", "Process")) {
@@ -200,7 +215,6 @@ $platformStates = @{}
 Import-PerPlatformManifests -dir "dist" -states $platformStates
 Import-LegacyLatestJson -path "dist/latest.json" -states $platformStates
 
-$notes = "MyTodos $tag"
 $pubDate = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 
 $nsisExeSig = Get-ChildItem -Path "dist" -Filter "*-setup.exe.sig" -ErrorAction SilentlyContinue | Select-Object -First 1

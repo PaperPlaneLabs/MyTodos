@@ -2,6 +2,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$v,
     [switch]$Online = $false,
+    [switch]$ValidateOnly = $false,
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$RemainingArgs
 )
@@ -13,7 +14,7 @@ if ($RemainingArgs -and ($RemainingArgs -contains "--online")) {
 }
 
 $ReleasesRepo = "SujithChristopher/MyTodos"
-$ReleaseBody = "See the assets to download this version and install."
+$ReleaseNotesPath = "src\lib\data\releases.json"
 $SupportedPlatforms = @(
     "windows-x86_64",
     "linux-x86_64",
@@ -25,6 +26,8 @@ function Write-Step($msg) { Write-Host "`n>> $msg" -ForegroundColor Cyan }
 function Write-Success($msg) { Write-Host "   [OK] $msg" -ForegroundColor Green }
 function Write-Fail($msg) { Write-Host "   [ER] $msg" -ForegroundColor Red }
 function Write-Warn($msg) { Write-Host "   [!!] $msg" -ForegroundColor Yellow }
+
+. "$PSScriptRoot\scripts\release-notes.ps1"
 
 function Load-EnvFile {
     if (-not (Test-Path ".env")) {
@@ -165,14 +168,19 @@ function Write-PlatformManifest([string]$outputDir, [string]$platform, [hashtabl
     return $manifestPath
 }
 
-function Ensure-ReleaseExists([string]$tag) {
+function Ensure-ReleaseExists([string]$tag, [string]$notes) {
     gh release view $tag --repo $ReleasesRepo *> $null
     if ($LASTEXITCODE -eq 0) {
+        gh release edit $tag --repo $ReleasesRepo --notes $notes
+        if ($LASTEXITCODE -ne 0) {
+            Write-Fail "Failed to update release notes for $tag"
+            exit 1
+        }
         Write-Success "GitHub release $tag already exists"
         return
     }
 
-    gh release create $tag --repo $ReleasesRepo --title "MyTodos $tag" --notes $ReleaseBody
+    gh release create $tag --repo $ReleasesRepo --title "MyTodos $tag" --notes $notes
     if ($LASTEXITCODE -ne 0) {
         Write-Fail "Failed to create release $tag"
         exit 1
@@ -181,12 +189,27 @@ function Ensure-ReleaseExists([string]$tag) {
     Write-Success "Created GitHub release $tag"
 }
 
-Load-EnvFile
-
 if ($v -notmatch '^\d+\.\d+\.\d+$') {
     Write-Fail "Invalid version format. Expected: X.Y.Z (e.g., 0.1.24)"
     exit 1
 }
+
+try {
+    $releaseEntry = Get-MyTodosReleaseEntry -Version $v -Path $ReleaseNotesPath
+    $ReleaseNotes = Format-MyTodosReleaseNotes -Entry $releaseEntry
+} catch {
+    Write-Fail $_.Exception.Message
+    exit 1
+}
+Write-Success "Validated release notes for v$v"
+
+if ($ValidateOnly) {
+    Write-Host "`n$ReleaseNotes" -ForegroundColor Gray
+    Write-Success "Validation completed without changing files or contacting GitHub."
+    exit 0
+}
+
+Load-EnvFile
 
 $tag = "v$v"
 $releaseUrl = "https://github.com/SujithChristopher/MyTodos/releases/download/$tag"
@@ -210,9 +233,10 @@ Write-Step "Updating version in config files..."
 
 $tauriConfigPath = "src-tauri\tauri.conf.json"
 $packageJsonPath = "package.json"
+$packageLockPath = "package-lock.json"
 $cargoTomlPath = "src-tauri\Cargo.toml"
 
-foreach ($file in @($tauriConfigPath, $packageJsonPath, $cargoTomlPath)) {
+foreach ($file in @($tauriConfigPath, $packageJsonPath, $packageLockPath, $cargoTomlPath)) {
     if (-not (Test-Path $file)) {
         Write-Fail "File not found: $file"
         exit 1
@@ -228,6 +252,12 @@ $packageJson = Get-Content $packageJsonPath -Raw
 $packageJson = $packageJson -replace '"version"\s*:\s*"[^"]*"', "`"version`": `"$v`""
 Set-Content -Path $packageJsonPath -Value $packageJson -NoNewline
 Write-Success "Updated $packageJsonPath"
+
+$packageLock = Get-Content $packageLockPath -Raw
+$versionPattern = [regex]::new('"version"\s*:\s*"[^"]*"')
+$packageLock = $versionPattern.Replace($packageLock, "`"version`": `"$v`"", 2)
+Set-Content -Path $packageLockPath -Value $packageLock -NoNewline
+Write-Success "Updated $packageLockPath"
 
 $cargoToml = Get-Content $cargoTomlPath -Raw
 $cargoToml = $cargoToml -replace '(\[package\][^\[]*?version\s*=\s*")[^"]*"', "`${1}$v`""
@@ -322,7 +352,7 @@ Copy-Item -Path $winArtifacts.FullName -Destination "dist/" -Force
 Write-Success "Windows artifacts: $($winArtifacts.Name -join ', ')"
 
 Write-Step "Creating or reusing GitHub release..."
-Ensure-ReleaseExists -tag $tag
+Ensure-ReleaseExists -tag $tag -notes $ReleaseNotes
 
 $uploadFiles = Get-ChildItem -Path "dist" -Include *.msi, *.msi.sig, *-setup.exe, *-setup.exe.sig -Recurse | ForEach-Object { $_.FullName }
 Write-Step "Uploading Windows artifacts to $tag..."
@@ -349,7 +379,7 @@ Set-PlatformState `
     -version $v `
     -url "$releaseUrl/$($nsisExe.Name)" `
     -signature (Get-Content $nsisExeSig.FullName -Raw).Trim() `
-    -notes "MyTodos $tag" `
+    -notes $ReleaseNotes `
     -pubDate (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 
 $manifestFiles = @()
@@ -365,7 +395,7 @@ foreach ($platform in $SupportedPlatforms) {
 
 $legacyLatest = @{
     version = $v
-    notes = "MyTodos $tag"
+    notes = $ReleaseNotes
     pub_date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
     platforms = @{
         "windows-x86_64" = @{

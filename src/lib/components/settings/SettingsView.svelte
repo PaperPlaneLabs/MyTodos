@@ -10,6 +10,7 @@
     import { projectStore } from "$lib/stores/projects.svelte";
     import { timerStore } from "$lib/stores/timer.svelte";
     import { windowTrackingStore } from "$lib/stores/window-tracking.svelte";
+    import { whatsNewStore } from "$lib/stores/whats-new.svelte";
     import { afkCategoryStore } from "$lib/stores/afk-categories.svelte";
     import { backupStore } from "$lib/stores/backup.svelte";
     import { db } from "$lib/services/db";
@@ -75,6 +76,7 @@
         | "error"
     >("idle");
     let updateVersion = $state("");
+    let updateNotes = $state("");
     let updateError = $state("");
     let updateProgress = $state(0);
 
@@ -118,6 +120,7 @@
             const update = await check();
             if (update) {
                 updateVersion = update.version;
+                updateNotes = update.body ?? "";
                 updateStatus = "available";
             } else {
                 updateStatus = "up-to-date";
@@ -969,6 +972,25 @@
                     </button>
                 {/if}
             </div>
+            {#if updateStatus === "available" && updateNotes}
+                <div class="update-notes-preview">{updateNotes}</div>
+            {/if}
+
+            <div class="setting-item">
+                <div class="setting-info">
+                    <span class="setting-label">Release Notes</span>
+                    <span class="setting-desc"
+                        >Review highlights and fixes from recent versions.</span
+                    >
+                </div>
+                <button
+                    type="button"
+                    class="btn btn-secondary btn-sm"
+                    onclick={() => whatsNewStore.openHistory()}
+                >
+                    What's New
+                </button>
+            </div>
         </section>
 
         <!-- DATA MANAGEMENT SECTION -->
@@ -1476,6 +1498,20 @@
         height: 100%;
         background: var(--accent);
         transition: width 0.2s ease-out;
+    }
+
+    .update-notes-preview {
+        max-height: 140px;
+        margin-top: var(--spacing-sm);
+        padding: var(--spacing-sm);
+        overflow-y: auto;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        background: var(--bg-primary);
+        color: var(--text-secondary);
+        font-size: 11px;
+        line-height: 1.5;
+        white-space: pre-wrap;
     }
 
     /* About Section */

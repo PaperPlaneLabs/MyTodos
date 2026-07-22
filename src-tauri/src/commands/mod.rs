@@ -9,6 +9,7 @@ pub mod tasks;
 pub mod time_entries;
 pub mod time_stats;
 pub mod timer;
+pub mod whats_new;
 pub mod window;
 pub mod window_tracking;
 
@@ -22,5 +23,6 @@ pub use tasks::*;
 pub use time_entries::*;
 pub use time_stats::*;
 pub use timer::*;
+pub use whats_new::*;
 pub use window::*;
 pub use window_tracking::*;

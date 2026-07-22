@@ -14,6 +14,7 @@
     let downloadProgress = $state(0);
     let error = $state<string | null>(null);
     let dismissed = $state(false);
+    let showDetails = $state(false);
 
     onMount(async () => {
         try {
@@ -129,6 +130,16 @@
                     onclick={downloadAndInstall}
                     >Update</button
                 >
+                {#if updateAvailable.body}
+                    <button
+                        type="button"
+                        class="update-btn details"
+                        aria-expanded={showDetails}
+                        onclick={() => (showDetails = !showDetails)}
+                    >
+                        What's new
+                    </button>
+                {/if}
                 <button
                     type="button"
                     class="update-btn dismiss"
@@ -138,6 +149,9 @@
                     ×
                 </button>
             </div>
+            {#if showDetails && updateAvailable.body}
+                <div class="update-details">{updateAvailable.body}</div>
+            {/if}
         {/if}
     </div>
 {/if}
@@ -212,6 +226,26 @@
         background: var(--bg-tertiary);
         color: var(--text-primary);
         border: 1px solid var(--border);
+    }
+
+    .update-btn.details {
+        background: transparent;
+        color: var(--accent);
+        border: 1px solid var(--border);
+    }
+
+    .update-details {
+        max-height: 150px;
+        margin-top: 8px;
+        padding: 8px;
+        overflow-y: auto;
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        background: var(--bg-primary);
+        color: var(--text-secondary);
+        font-size: 11px;
+        line-height: 1.5;
+        white-space: pre-wrap;
     }
 
     .update-btn.dismiss {

@@ -8,6 +8,7 @@
   import CalendarTabView from "$lib/components/calendar/CalendarTabView.svelte";
   import ContextMenu from "$lib/components/common/ContextMenu.svelte";
   import UpdateNotification from "$lib/components/common/UpdateNotification.svelte";
+  import WhatsNewModal from "$lib/components/common/WhatsNewModal.svelte";
   import BreakView from "$lib/components/common/BreakView.svelte";
   import PageModalHost from "$lib/components/modals/PageModalHost.svelte";
   import ProjectListSection from "$lib/components/projects/ProjectListSection.svelte";
@@ -23,6 +24,7 @@
   import { uiStore } from "$lib/stores/ui.svelte";
   import { googleCalendarStore } from "$lib/stores/google-calendar.svelte";
   import { windowTrackingStore } from "$lib/stores/window-tracking.svelte";
+  import { whatsNewStore } from "$lib/stores/whats-new.svelte";
 
   // ── Multi-window: check if this is the break reminder window ──────────
   const isBreakWindow =
@@ -122,6 +124,7 @@
     await projectStore.loadAll();
     await timerStore.loadActive();
     googleCalendarStore.init();
+    void whatsNewStore.init();
 
     const { listen } = await import("@tauri-apps/api/event");
     await listen("task-timer:switch-requested", () => {
@@ -227,6 +230,7 @@
   <PageModalHost bind:this={modalHost} />
 
   <UpdateNotification />
+  <WhatsNewModal />
 {/if}
 
 <style>

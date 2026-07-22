@@ -1,0 +1,19 @@
+[
+  {
+    "version": "0.1.65",
+    "date": "2026-07-22",
+    "title": "Focused task sessions and durable activity tracking",
+    "summary": "This update adds self-managed task sessions, reliable AFK categories, and a What's New experience for future releases.",
+    "highlights": [
+      "Set a bounded focus timer from any task's context menu.",
+      "Choose another task or continue with regular untimed tracking when a focus session ends.",
+      "Keep AFK categories synchronized through SQLite across development and installed builds.",
+      "See release highlights before updating and after the updated app relaunches."
+    ],
+    "fixes": [
+      "Fixed one-minute custom task timers failing to start.",
+      "Fixed the task-timer completion window actions appearing unresponsive.",
+      "Preserved historical AFK entries when categories are removed from the picker."
+    ]
+  }
+]

@@ -2,6 +2,7 @@ pub mod afk_categories_service;
 pub mod backup_service;
 pub mod tasks_service;
 pub mod timer_service;
+pub mod whats_new_service;
 pub mod window_tracking_service;
 
 pub(super) const AFK_PROJECT_NAME: &str = "Away";

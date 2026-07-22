@@ -57,6 +57,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             initialize_database,
+            commands::get_whats_new_last_seen_version,
+            commands::set_whats_new_last_seen_version,
             commands::get_afk_categories,
             commands::add_afk_category,
             commands::merge_afk_categories,

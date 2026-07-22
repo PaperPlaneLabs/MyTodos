@@ -73,3 +73,40 @@
 - `cargo test`: 120 Rust tests passed, including 5 new AFK persistence tests and
   an older-backup migration regression.
 - `graphify update .`: rebuilt the project graph with 1350 nodes and 2934 edges.
+
+---
+
+## What's New for Every Update
+
+- Added `src/lib/data/releases.json` as the required release-note catalog,
+  starting with version 0.1.65.
+- Added numeric version comparison so users who skip versions see every unseen
+  release in chronological order.
+- Added a main-window What's New modal after update relaunch and a permanent
+  Settings entry for reopening release history.
+- Stored `whats_new_last_seen_version` in SQLite `app_settings` so dismissal is
+  shared across WebView origins.
+- Displayed Tauri updater notes before download in both the bottom update banner
+  and Settings.
+- Updated `create-release.ps1` with catalog validation, Markdown generation,
+  package-lock version synchronization, GitHub/updater note publishing, and a
+  non-mutating `-ValidateOnly` mode.
+- Updated the secondary signing script and GitHub Actions workflow to require
+  the same catalog entry and publish the same notes.
+- Aligned the updater endpoint with the canonical Git remote,
+  `SujithChristopher/MyTodos`.
+- Added `docs/releasing.md` with the new release procedure.
+
+### What's New Verification
+
+- `npm run check`: 0 errors and 0 warnings.
+- `npm run test -- --run`: 62 frontend tests passed.
+- `npm run build`: production frontend build passed.
+- `cargo clippy --all-targets -- -D warnings`: passed.
+- `cargo test`: 123 Rust tests passed, including 3 What's New persistence tests.
+- `create-release.ps1 -v 0.1.65 -ValidateOnly`: rendered complete release notes
+  without file or network mutation.
+- PowerShell syntax validation passed for all three release scripts.
+- GitHub Actions workflow YAML parsed successfully with the repository's Node
+  YAML dependency.
+- `graphify update .`: rebuilt the project graph with 1398 nodes and 2997 edges.

@@ -191,6 +191,13 @@ export interface WindowOrientation {
 }
 
 export const db = {
+  whatsNew: {
+    getLastSeenVersion: () =>
+      invoke<string | null>("get_whats_new_last_seen_version"),
+    setLastSeenVersion: (version: string) =>
+      invoke<void>("set_whats_new_last_seen_version", { version }),
+  },
+
   afkCategories: {
     getAll: () => invoke<string[]>("get_afk_categories"),
     add: (name: string) => invoke<string>("add_afk_category", { name }),
