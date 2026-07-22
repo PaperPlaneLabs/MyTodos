@@ -29,7 +29,8 @@ shown after relaunch, and published as the GitHub release body.
 
 The release script refuses to continue if the entry is missing or incomplete.
 It updates `package.json`, both package-lock version fields,
-`src-tauri/tauri.conf.json`, and `src-tauri/Cargo.toml` before committing and
+`src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml`, and the root `my-todos`
+package entry in `src-tauri/Cargo.lock` before committing and
 tagging.
 
 ## Other release paths
@@ -38,5 +39,5 @@ tagging.
 an unnoted version. GitHub Actions also validates the tag against all version
 files before starting platform builds.
 
-The canonical release repository is `SujithChristopher/MyTodos`; the desktop
+The canonical release repository is `PaperPlaneLabs/MyTodos`; the desktop
 updater downloads platform manifests from that repository.

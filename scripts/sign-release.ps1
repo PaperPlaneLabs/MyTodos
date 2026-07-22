@@ -7,7 +7,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$ReleasesRepo = "SujithChristopher/MyTodos"
+$ReleasesRepo = "PaperPlaneLabs/MyTodos"
 
 function Write-Step($msg) { Write-Host "`n>> $msg" -ForegroundColor Cyan }
 function Write-Success($msg) { Write-Host "   [OK] $msg" -ForegroundColor Green }
@@ -209,7 +209,7 @@ foreach ($file in $artifacts) {
 Write-Step "Generating updater manifests..."
 
 $tag = "v$v"
-$releaseUrl = "https://github.com/SujithChristopher/MyTodos/releases/download/$tag"
+$releaseUrl = "https://github.com/$ReleasesRepo/releases/download/$tag"
 $platformStates = @{}
 
 Import-PerPlatformManifests -dir "dist" -states $platformStates

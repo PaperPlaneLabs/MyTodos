@@ -13,7 +13,7 @@ if ($RemainingArgs -and ($RemainingArgs -contains "--online")) {
     $Online = $true
 }
 
-$ReleasesRepo = "SujithChristopher/MyTodos"
+$ReleasesRepo = "PaperPlaneLabs/MyTodos"
 $ReleaseNotesPath = "src\lib\data\releases.json"
 $SupportedPlatforms = @(
     "windows-x86_64",
@@ -212,7 +212,7 @@ if ($ValidateOnly) {
 Load-EnvFile
 
 $tag = "v$v"
-$releaseUrl = "https://github.com/SujithChristopher/MyTodos/releases/download/$tag"
+$releaseUrl = "https://github.com/$ReleasesRepo/releases/download/$tag"
 $preserveDir = Join-Path ([System.IO.Path]::GetTempPath()) "mytodos-release-preserve-$v"
 
 Write-Host "`n=== MyTodos Windows Release Automation ===" -ForegroundColor Magenta
@@ -235,8 +235,9 @@ $tauriConfigPath = "src-tauri\tauri.conf.json"
 $packageJsonPath = "package.json"
 $packageLockPath = "package-lock.json"
 $cargoTomlPath = "src-tauri\Cargo.toml"
+$cargoLockPath = "src-tauri\Cargo.lock"
 
-foreach ($file in @($tauriConfigPath, $packageJsonPath, $packageLockPath, $cargoTomlPath)) {
+foreach ($file in @($tauriConfigPath, $packageJsonPath, $packageLockPath, $cargoTomlPath, $cargoLockPath)) {
     if (-not (Test-Path $file)) {
         Write-Fail "File not found: $file"
         exit 1
@@ -263,6 +264,16 @@ $cargoToml = Get-Content $cargoTomlPath -Raw
 $cargoToml = $cargoToml -replace '(\[package\][^\[]*?version\s*=\s*")[^"]*"', "`${1}$v`""
 Set-Content -Path $cargoTomlPath -Value $cargoToml -NoNewline
 Write-Success "Updated $cargoTomlPath"
+
+$cargoLock = Get-Content $cargoLockPath -Raw
+$cargoLockPattern = [regex]::new('(\[\[package\]\]\s+name\s*=\s*"my-todos"\s+version\s*=\s*")[^"]*(")')
+$updatedCargoLock = $cargoLockPattern.Replace($cargoLock, "`${1}$v`${2}", 1)
+if ($updatedCargoLock -eq $cargoLock -and $cargoLock -notmatch "(?s)\[\[package\]\]\s+name\s*=\s*`"my-todos`"\s+version\s*=\s*`"$([regex]::Escape($v))`"") {
+    Write-Fail "Could not update the my-todos package version in $cargoLockPath"
+    exit 1
+}
+Set-Content -Path $cargoLockPath -Value $updatedCargoLock -NoNewline
+Write-Success "Updated $cargoLockPath"
 
 Write-Step "Performing git operations..."
 
@@ -304,9 +315,9 @@ Write-Success "Pushed tags to origin"
 if ($Online) {
     Write-Step "Online mode enabled; skipping local build/sign/upload steps."
     Write-Host "Use these commands to monitor and verify the release:" -ForegroundColor Yellow
-    Write-Host "  gh run list --workflow release.yml --repo SujithChristopher/MyTodos --limit 5"
-    Write-Host "  gh run watch <run-id> --repo SujithChristopher/MyTodos"
-    Write-Host "  gh release view $tag --repo SujithChristopher/MyTodos"
+    Write-Host "  gh run list --workflow release.yml --repo $ReleasesRepo --limit 5"
+    Write-Host "  gh run watch <run-id> --repo $ReleasesRepo"
+    Write-Host "  gh release view $tag --repo $ReleasesRepo"
     exit 0
 }
 
@@ -423,5 +434,5 @@ if ($LASTEXITCODE -ne 0) {
 Write-Success "Uploaded $($manifestUploadFiles.Count) updater manifest file(s)"
 
 Write-Host "`n=== Release $tag Complete! ===" -ForegroundColor Green
-Write-Host "View at: https://github.com/SujithChristopher/MyTodos/releases/tag/$tag" -ForegroundColor Yellow
+Write-Host "View at: https://github.com/$ReleasesRepo/releases/tag/$tag" -ForegroundColor Yellow
 Write-Host "macOS builds are now manual via GitHub Actions workflow dispatch when you want to publish them." -ForegroundColor Yellow

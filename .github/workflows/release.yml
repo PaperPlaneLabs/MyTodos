@@ -61,9 +61,16 @@ jobs:
               gsub(/^[^"]*"/, ""); gsub(/".*$/, ""); print; exit
             }
           ' src-tauri/Cargo.toml)
+          CARGO_LOCK_VERSION=$(awk '
+            /^\[\[package\]\]$/ { in_package=0 }
+            /^name = "my-todos"$/ { in_package=1; next }
+            in_package && /^version[[:space:]]*=/ {
+              gsub(/^[^"]*"/, ""); gsub(/".*$/, ""); print; exit
+            }
+          ' src-tauri/Cargo.lock)
 
-          if [[ "$PACKAGE_VERSION" != "$VERSION" || "$PACKAGE_LOCK_VERSION" != "$VERSION" || "$PACKAGE_LOCK_ROOT_VERSION" != "$VERSION" || "$TAURI_VERSION" != "$VERSION" || "$CARGO_VERSION" != "$VERSION" ]]; then
-            echo "Version mismatch: tag=$VERSION package=$PACKAGE_VERSION lock=$PACKAGE_LOCK_VERSION lock-root=$PACKAGE_LOCK_ROOT_VERSION tauri=$TAURI_VERSION cargo=$CARGO_VERSION"
+          if [[ "$PACKAGE_VERSION" != "$VERSION" || "$PACKAGE_LOCK_VERSION" != "$VERSION" || "$PACKAGE_LOCK_ROOT_VERSION" != "$VERSION" || "$TAURI_VERSION" != "$VERSION" || "$CARGO_VERSION" != "$VERSION" || "$CARGO_LOCK_VERSION" != "$VERSION" ]]; then
+            echo "Version mismatch: tag=$VERSION package=$PACKAGE_VERSION lock=$PACKAGE_LOCK_VERSION lock-root=$PACKAGE_LOCK_ROOT_VERSION tauri=$TAURI_VERSION cargo=$CARGO_VERSION cargo-lock=$CARGO_LOCK_VERSION"
             exit 1
           fi
 

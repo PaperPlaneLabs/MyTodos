@@ -93,8 +93,8 @@
   non-mutating `-ValidateOnly` mode.
 - Updated the secondary signing script and GitHub Actions workflow to require
   the same catalog entry and publish the same notes.
-- Aligned the updater endpoint with the canonical Git remote,
-  `SujithChristopher/MyTodos`.
+- Aligned the updater endpoint with the canonical GitHub repository,
+  `PaperPlaneLabs/MyTodos`.
 - Added `docs/releasing.md` with the new release procedure.
 
 ### What's New Verification
@@ -110,3 +110,31 @@
 - GitHub Actions workflow YAML parsed successfully with the repository's Node
   YAML dependency.
 - `graphify update .`: rebuilt the project graph with 1398 nodes and 2997 edges.
+
+---
+
+## Release v0.1.65 Recovery
+
+- Corrected the Git remote and every release/updater URL to the canonical
+  `PaperPlaneLabs/MyTodos` repository after GitHub's old smart-HTTP redirect
+  endpoint rejected the push.
+- Added `src-tauri/Cargo.lock` to the version files updated by
+  `create-release.ps1`.
+- Added a GitHub Actions validation gate for the root `my-todos` package version
+  in `Cargo.lock`.
+- Preserved the existing release notes and recovered the already-created local
+  release instead of rerunning the mutation/build flow.
+
+### Recovery Verification
+
+- Confirmed the canonical remote repository with GitHub CLI.
+- Confirmed `refs/tags/v0.1.65` did not exist remotely before retagging.
+- PowerShell syntax parsing passed for all release scripts.
+- `create-release.ps1 -v 0.1.65 -ValidateOnly` passed.
+- GitHub Actions workflow YAML parsing passed.
+- All six version locations, including the root Cargo lock package, resolve to
+  `0.1.65`.
+- `git diff --check` passed.
+- `graphify update .`: rebuilt the code graph with 1400 nodes and 2999 edges.
+  Graphify warned that six settings/configuration sources produced no AST nodes;
+  the release paths modified here are present in the refreshed graph.
