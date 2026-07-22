@@ -270,6 +270,8 @@ export const db = {
     close: () => invoke<void>("close_window"),
     closeBreak: () => invoke<void>("close_break_window"),
     closeResume: () => invoke<void>("close_resume_window"),
+    closeTaskTimerFinished: () =>
+      invoke<void>("close_task_timer_finished_window"),
     dock: (side: "left" | "right") => invoke<void>("dock_window", { side }),
     center: () => invoke<void>("center_window"),
     setDockPreference: (dockPreference: "left" | "right" | "center") =>
@@ -278,7 +280,6 @@ export const db = {
     move: (x: number, y: number) => invoke<void>("move_window", { x, y }),
     startDragging: () => invoke<void>("start_window_drag"),
     focusMain: () => invoke<void>("focus_main_window"),
-
   },
 
   windowTracking: {

@@ -5,7 +5,8 @@
   "windows": [
     "main",
     "break",
-    "resume"
+    "resume",
+    "task-timer-finished"
   ],
   "permissions": [
     "core:default",

@@ -2,6 +2,12 @@
   import { onMount } from "svelte";
   import { fade, scale } from "svelte/transition";
 
+  import {
+    continueWithoutTimer as runContinueWithoutTimer,
+    switchTask as runSwitchTask,
+  } from "$lib/components/timer/task-timer-finished-actions";
+  import { db } from "$lib/services/db";
+
   interface CompletionData {
     taskId: number;
     taskTitle: string;
@@ -49,12 +55,29 @@
       : `${hours}h ${remainder}m`;
   }
 
+  async function continueWithoutTimer() {
+    if (sending) return;
+    sending = true;
+    try {
+      const { emit } = await import("@tauri-apps/api/event");
+      await runContinueWithoutTimer(completion.taskId, {
+        startTimer: async (taskId) => {
+          await db.timer.start(taskId);
+        },
+        notifyTimerContinued: () => emit("timer:continued"),
+        closeWindow: db.window.closeTaskTimerFinished,
+      });
+    } catch (error) {
+      console.error("Failed to continue task without a timer:", error);
+      sending = false;
+    }
+  }
+
   async function closeWindow() {
     if (sending) return;
     sending = true;
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      await invoke("close_task_timer_finished_window");
+      await db.window.closeTaskTimerFinished();
     } catch (error) {
       console.error("Failed to close task timer window:", error);
       sending = false;
@@ -65,11 +88,12 @@
     if (sending) return;
     sending = true;
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
       const { emit } = await import("@tauri-apps/api/event");
-      await emit("task-timer:switch-requested");
-      await invoke("focus_main_window");
-      await invoke("close_task_timer_finished_window");
+      await runSwitchTask({
+        notifySwitchRequested: () => emit("task-timer:switch-requested"),
+        focusMainWindow: db.window.focusMain,
+        closeWindow: db.window.closeTaskTimerFinished,
+      });
     } catch (error) {
       console.error("Failed to switch task:", error);
       sending = false;
@@ -90,7 +114,7 @@
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="drag-bar" onmousedown={dragWindow} role="presentation">
     <span>Task timer</span>
-    <button class="close" aria-label="Continue without timer" onclick={closeWindow}>×</button>
+    <button class="close" aria-label="Close" onclick={closeWindow}>×</button>
   </div>
 
   <main class="content">
@@ -107,7 +131,11 @@
       <button class="btn btn-primary" disabled={sending} onclick={switchTask}>
         Switch task
       </button>
-      <button class="btn btn-secondary" disabled={sending} onclick={closeWindow}>
+      <button
+        class="btn btn-secondary"
+        disabled={sending}
+        onclick={continueWithoutTimer}
+      >
         Continue without timer
       </button>
     </div>

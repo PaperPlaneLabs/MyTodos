@@ -17,6 +17,7 @@ interface RegisterTimerEventHandlersOptions {
   onResume: () => Promise<void> | void;
   onAwayTimeLogged: (event: AwayTimeLoggedEvent) => Promise<void> | void;
   onTimedTimerFinished: (event: TimedTimerCompletion) => Promise<void> | void;
+  onTimedTimerContinued: () => Promise<void> | void;
 }
 
 let listenersRegistered = false;
@@ -29,6 +30,7 @@ export function registerTimerEventHandlers({
   onResume,
   onAwayTimeLogged,
   onTimedTimerFinished,
+  onTimedTimerContinued,
 }: RegisterTimerEventHandlersOptions): void {
   if (typeof window === "undefined" || listenersRegistered) {
     return;
@@ -53,6 +55,12 @@ export function registerTimerEventHandlers({
     await listen<TimedTimerCompletion>("timer:finished", (event) => {
       Promise.resolve(onTimedTimerFinished(event.payload)).catch((error) =>
         console.error("Failed to sync completed task timer:", error),
+      );
+    });
+
+    await listen("timer:continued", () => {
+      Promise.resolve(onTimedTimerContinued()).catch((error) =>
+        console.error("Failed to sync continued task timer:", error),
       );
     });
 

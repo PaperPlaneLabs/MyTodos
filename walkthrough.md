@@ -20,17 +20,23 @@
 ## Verification
 
 - `npm run check`: 0 errors and 0 warnings.
-- `npm run test -- --run`: 53 tests passed, including custom one-minute input.
+- `npm run test -- --run`: 55 tests passed, including custom one-minute input
+  and completion-window action ordering.
 - `npm run build`: production frontend build passed.
 - `cargo fmt -- --check`: passed.
 - `cargo check`: passed.
 - `cargo clippy --all-targets -- -D warnings`: passed.
 - `cargo test`: full Rust suite passed, including 7 bounded-timer integration
   tests and the active-statistics expiry-cap unit test.
-- `graphify update .`: rebuilt the project graph with 1290 nodes and 2820 edges.
+- `graphify update .`: rebuilt the project graph with 1309 nodes and 2844 edges.
 
 ## Notes
 
+- Fixed inert completion-window actions by granting the
+  `task-timer-finished` window the same core desktop capabilities as the other
+  SPA windows. `Switch task` now restores the main window before focusing it,
+  while `Continue without timer` starts the task through the ordinary timer
+  command and emits a refresh event to the main UI.
 - Fixed numeric custom-duration input handling: Svelte number inputs produce
   numbers, so the setup modal no longer calls string methods on the bound value.
 - The full Clippy gate exposed two pre-existing `unnecessary_sort_by` warnings

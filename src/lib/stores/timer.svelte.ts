@@ -419,4 +419,8 @@ registerTimerEventHandlers({
     await syncVisibleTimeData();
     timerChangeCounter++;
   },
+  onTimedTimerContinued: async () => {
+    await timerStore.loadActive();
+    timerChangeCounter++;
+  },
 });
