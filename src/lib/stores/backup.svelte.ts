@@ -1,4 +1,5 @@
 import { db, type BackupSettings } from "$lib/services/db";
+import { afkCategoryStore } from "./afk-categories.svelte";
 import { calendarStore } from "./calendar.svelte";
 import { projectStore } from "./projects.svelte";
 import { taskStore } from "./tasks.svelte";
@@ -25,6 +26,7 @@ async function refreshVisibleData(): Promise<void> {
     timerStore.loadActive(),
     windowTrackingStore.refresh(),
     calendarStore.refreshCurrentRange(),
+    afkCategoryStore.init(true),
   ]);
 }
 

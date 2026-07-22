@@ -42,7 +42,7 @@
             "light";
         document.documentElement.setAttribute("data-theme", theme);
 
-        afkCategoryStore.init();
+        void afkCategoryStore.init();
 
         if (window.__RESUME_DATA__) {
             taskId = window.__RESUME_DATA__.taskId;
@@ -56,7 +56,7 @@
             awayTimeSeconds: number;
         }>("resume:update", (event) => {
             if (!sending) {
-                afkCategoryStore.init();
+                void afkCategoryStore.init(true);
                 taskId = event.payload.taskId;
                 taskTitle = event.payload.taskTitle;
                 awayTimeSeconds = event.payload.awayTimeSeconds;

@@ -1,3 +1,4 @@
+pub mod afk_categories_service;
 pub mod backup_service;
 pub mod tasks_service;
 pub mod timer_service;

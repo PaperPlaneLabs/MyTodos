@@ -191,6 +191,14 @@ export interface WindowOrientation {
 }
 
 export const db = {
+  afkCategories: {
+    getAll: () => invoke<string[]>("get_afk_categories"),
+    add: (name: string) => invoke<string>("add_afk_category", { name }),
+    merge: (names: string[]) =>
+      invoke<string[]>("merge_afk_categories", { names }),
+    remove: (name: string) => invoke<void>("remove_afk_category", { name }),
+  },
+
   projects: {
     getAll: () => invoke<Project[]>("get_all_projects"),
     create: (name: string, description?: string, color?: string) =>

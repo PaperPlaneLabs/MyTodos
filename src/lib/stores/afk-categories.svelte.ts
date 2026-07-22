@@ -1,8 +1,15 @@
+import { db } from "$lib/services/db";
+import {
+  loadDurableAfkCategories,
+  normalizeAfkCategoryLabel,
+  parseLegacyAfkCategories,
+  type LegacyAfkCategories,
+} from "$lib/stores/afk-categories-persistence";
+
 export const CURRENT_TASK_RELATED_CATEGORY_ID = "__current_task_related__";
 export const CURRENT_TASK_RELATED_CATEGORY_LABEL = "Current task related";
 
 const AFK_CATEGORIES_STORAGE_KEY = "afkCategories";
-const DEFAULT_AFK_CATEGORIES = ["Meeting", "Lunch", "Snack"];
 
 export interface AfkCategoryOption {
   id: string;
@@ -14,71 +21,23 @@ type AddCategoryResult =
   | { added: true; value: string }
   | { added: false; error: string };
 
-function normalizeLabel(value: string): string {
-  return value.trim().replace(/\s+/g, " ");
-}
-
-function normalizeCategories(values: string[]): string[] {
-  const uniqueCategories: string[] = [];
-  const seen = new Set<string>();
-  const reservedKey = CURRENT_TASK_RELATED_CATEGORY_LABEL.toLocaleLowerCase();
-
-  for (const value of values) {
-    const normalizedValue = normalizeLabel(value);
-    const normalizedKey = normalizedValue.toLocaleLowerCase();
-
-    if (
-      !normalizedValue ||
-      normalizedKey === reservedKey ||
-      seen.has(normalizedKey)
-    ) {
-      continue;
-    }
-
-    seen.add(normalizedKey);
-    uniqueCategories.push(normalizedValue);
-  }
-
-  return uniqueCategories;
-}
-
-function loadStoredCategories(): string[] {
+function loadStoredCategories(): LegacyAfkCategories {
   if (typeof window === "undefined") {
-    return [...DEFAULT_AFK_CATEGORIES];
+    return parseLegacyAfkCategories(null, CURRENT_TASK_RELATED_CATEGORY_LABEL);
   }
 
   const storedValue = localStorage.getItem(AFK_CATEGORIES_STORAGE_KEY);
-  if (storedValue === null) {
-    return [...DEFAULT_AFK_CATEGORIES];
-  }
-
-  try {
-    const parsedValue = JSON.parse(storedValue);
-    if (!Array.isArray(parsedValue)) {
-      return [...DEFAULT_AFK_CATEGORIES];
-    }
-
-    return normalizeCategories(
-      parsedValue.filter((value): value is string => typeof value === "string"),
-    );
-  } catch (error) {
-    console.error("Failed to parse AFK categories:", error);
-    return [...DEFAULT_AFK_CATEGORIES];
-  }
-}
-
-let customCategories = $state<string[]>(loadStoredCategories());
-
-function persistCategories(): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  localStorage.setItem(
-    AFK_CATEGORIES_STORAGE_KEY,
-    JSON.stringify(customCategories),
+  return parseLegacyAfkCategories(
+    storedValue,
+    CURRENT_TASK_RELATED_CATEGORY_LABEL,
   );
 }
+
+const initialCategories = loadStoredCategories();
+let customCategories = $state<string[]>(initialCategories.categories);
+let initialized = false;
+let initPromise: Promise<void> | null = null;
+let error = $state<string | null>(null);
 
 function buildOptions(includeCurrentTask: boolean): AfkCategoryOption[] {
   const options: AfkCategoryOption[] = customCategories.map((label) => ({
@@ -103,8 +62,37 @@ export const afkCategoryStore = {
     return customCategories;
   },
 
-  init() {
-    customCategories = loadStoredCategories();
+  get error() {
+    return error;
+  },
+
+  async init(force = false): Promise<void> {
+    if (!force && initialized) return;
+    if (initPromise) return initPromise;
+
+    initPromise = (async () => {
+      const legacy = loadStoredCategories();
+      try {
+        error = null;
+        customCategories = await loadDurableAfkCategories(
+          db.afkCategories,
+          legacy,
+          () => localStorage.removeItem(AFK_CATEGORIES_STORAGE_KEY),
+        );
+        initialized = true;
+      } catch (loadError) {
+        error =
+          loadError instanceof Error
+            ? loadError.message
+            : "Failed to load AFK categories";
+        customCategories = legacy.categories;
+        console.error("Failed to load AFK categories:", loadError);
+      } finally {
+        initPromise = null;
+      }
+    })();
+
+    return initPromise;
   },
 
   buildOptions(includeCurrentTask: boolean): AfkCategoryOption[] {
@@ -120,8 +108,8 @@ export const afkCategoryStore = {
     return options[0]?.id ?? "";
   },
 
-  addCategory(value: string): AddCategoryResult {
-    const normalizedValue = normalizeLabel(value);
+  async addCategory(value: string): Promise<AddCategoryResult> {
+    const normalizedValue = normalizeAfkCategoryLabel(value);
     if (!normalizedValue) {
       return {
         added: false,
@@ -151,18 +139,26 @@ export const afkCategoryStore = {
       };
     }
 
-    customCategories = [...customCategories, normalizedValue];
-    persistCategories();
-
-    return { added: true, value: normalizedValue };
+    try {
+      const savedValue = await db.afkCategories.add(normalizedValue);
+      customCategories = [...customCategories, savedValue];
+      error = null;
+      return { added: true, value: savedValue };
+    } catch (saveError) {
+      error =
+        saveError instanceof Error
+          ? saveError.message
+          : "Failed to save AFK category";
+      return { added: false, error };
+    }
   },
 
-  removeCategory(value: string): void {
-    const normalizedValue = normalizeLabel(value).toLocaleLowerCase();
+  async removeCategory(value: string): Promise<void> {
+    const normalizedValue = normalizeAfkCategoryLabel(value).toLocaleLowerCase();
+    await db.afkCategories.remove(value);
     customCategories = customCategories.filter(
       (category) => category.toLocaleLowerCase() !== normalizedValue,
     );
-
-    persistCategories();
+    error = null;
   },
 };

@@ -57,6 +57,10 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             initialize_database,
+            commands::get_afk_categories,
+            commands::add_afk_category,
+            commands::merge_afk_categories,
+            commands::remove_afk_category,
             commands::get_all_projects,
             commands::get_project,
             commands::create_project,

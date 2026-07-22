@@ -7,7 +7,10 @@ pub const ACTIVE_TIMER_HEARTBEAT_INTERVAL_SECONDS: u64 = 30;
 pub const TIMED_TIMER_CHECK_INTERVAL_SECONDS: u64 = 1;
 const ACTIVE_TIMER_STALE_AFTER_SECONDS: i64 = 120;
 const MAX_TIMED_TIMER_SECONDS: i64 = 24 * 60 * 60;
-use super::{AFK_PROJECT_COLOR, AFK_PROJECT_NAME, BREAK_PROJECT_NAME, BREAK_TASK_TITLE};
+use super::{
+    afk_categories_service, AFK_PROJECT_COLOR, AFK_PROJECT_NAME, BREAK_PROJECT_NAME,
+    BREAK_TASK_TITLE,
+};
 
 const BREAK_PROJECT_DESCRIPTION: &str = "Automatically tracked break time";
 const BREAK_PROJECT_COLOR: &str = "#10b981";
@@ -481,14 +484,8 @@ pub fn log_afk_time(db: &DbConnection, category_name: &str, duration_seconds: i6
         return Ok(());
     }
 
-    let trimmed_name = category_name.trim();
-    if trimmed_name.is_empty() {
-        return Err(AppError::InvalidInput(
-            "AFK category name cannot be empty".to_string(),
-        ));
-    }
-
     let conn = db.lock();
+    let saved_name = afk_categories_service::ensure_category_in_conn(&conn, category_name)?;
     let now = get_timestamp();
     let project_id = get_or_create_system_project(
         &conn,
@@ -497,9 +494,9 @@ pub fn log_afk_time(db: &DbConnection, category_name: &str, duration_seconds: i6
         AFK_PROJECT_COLOR,
         now,
     )?;
-    let task_description = format!("Auto-generated task for {} away time", trimmed_name);
+    let task_description = format!("Auto-generated task for {} away time", saved_name);
     let task_id =
-        get_or_create_system_task(&conn, project_id, trimmed_name, &task_description, now)?;
+        get_or_create_system_task(&conn, project_id, &saved_name, &task_description, now)?;
 
     insert_manual_time_entry(&conn, task_id, duration_seconds, now)?;
     Ok(())

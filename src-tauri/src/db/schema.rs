@@ -1,7 +1,56 @@
 use crate::error::Result;
-use rusqlite::Connection;
+use rusqlite::{params, Connection};
+
+fn seed_afk_categories(conn: &Connection) -> Result<()> {
+    let now: i64 = conn.query_row("SELECT unixepoch()", [], |row| row.get(0))?;
+
+    for (position, name) in ["Meeting", "Lunch", "Snack"].iter().enumerate() {
+        conn.execute(
+            "INSERT OR IGNORE INTO afk_categories (name, position, created_at)
+             VALUES (?, ?, ?)",
+            params![name, position as i64, now],
+        )?;
+    }
+
+    let existing_names = {
+        let mut statement = conn.prepare(
+            "SELECT DISTINCT t.title
+             FROM tasks t
+             JOIN projects p ON p.id = t.project_id
+             WHERE p.name = 'Away'
+               AND TRIM(t.title) <> ''
+             ORDER BY t.position, t.id",
+        )?;
+        let rows = statement.query_map([], |row| row.get::<_, String>(0))?;
+        rows.collect::<std::result::Result<Vec<_>, _>>()?
+    };
+
+    for name in existing_names {
+        let next_position: i64 = conn.query_row(
+            "SELECT COALESCE(MAX(position), -1) + 1 FROM afk_categories",
+            [],
+            |row| row.get(0),
+        )?;
+        conn.execute(
+            "INSERT OR IGNORE INTO afk_categories (name, position, created_at)
+             VALUES (?, ?, ?)",
+            params![name.trim(), next_position, now],
+        )?;
+    }
+
+    Ok(())
+}
 
 pub fn initialize_schema(conn: &Connection) -> Result<()> {
+    let had_afk_categories_table: bool = conn.query_row(
+        "SELECT EXISTS(
+            SELECT 1 FROM sqlite_master
+            WHERE type = 'table' AND name = 'afk_categories'
+         )",
+        [],
+        |row| row.get(0),
+    )?;
+
     conn.execute_batch(
         r#"
         CREATE TABLE IF NOT EXISTS projects (
@@ -84,6 +133,13 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL,
             updated_at INTEGER NOT NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS afk_categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+            position INTEGER NOT NULL DEFAULT 0,
+            created_at INTEGER NOT NULL
         );
 
         CREATE TABLE IF NOT EXISTS window_activity_entries (
@@ -230,6 +286,10 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
         "CREATE INDEX IF NOT EXISTS idx_window_activity_app ON window_activity_entries(app_identifier)",
         [],
     );
+
+    if !had_afk_categories_table {
+        seed_afk_categories(conn)?;
+    }
 
     Ok(())
 }

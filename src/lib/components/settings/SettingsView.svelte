@@ -79,7 +79,7 @@
     let updateProgress = $state(0);
 
     onMount(async () => {
-        afkCategoryStore.init();
+        await afkCategoryStore.init();
         timerStore.initBreakReminders();
         await windowTrackingStore.init();
         await backupStore.init();
@@ -364,8 +364,8 @@
         }, 4000);
     }
 
-    function addAfkCategory() {
-        const result = afkCategoryStore.addCategory(newAfkCategory);
+    async function addAfkCategory() {
+        const result = await afkCategoryStore.addCategory(newAfkCategory);
         if (!result.added) {
             afkCategoryError = result.error;
             return;
@@ -375,15 +375,22 @@
         newAfkCategory = "";
     }
 
-    function removeAfkCategory(category: string) {
-        afkCategoryStore.removeCategory(category);
-        afkCategoryError = "";
+    async function removeAfkCategory(category: string) {
+        try {
+            await afkCategoryStore.removeCategory(category);
+            afkCategoryError = "";
+        } catch (error) {
+            afkCategoryError =
+                error instanceof Error
+                    ? error.message
+                    : "Failed to remove AFK category.";
+        }
     }
 
     function handleAfkCategoryKeydown(event: KeyboardEvent) {
         if (event.key !== "Enter") return;
         event.preventDefault();
-        addAfkCategory();
+        void addAfkCategory();
     }
 </script>
 

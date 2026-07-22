@@ -204,6 +204,7 @@ pub fn restore_backup(db: &DbConnection, backup_path: &Path) -> Result<()> {
         backup.run_to_completion(100, Duration::from_millis(5), None)?;
     }
     dst.execute("PRAGMA foreign_keys = ON", [])?;
+    crate::db::schema::initialize_schema(&dst)?;
     Ok(())
 }
 
@@ -312,6 +313,10 @@ mod tests {
 
         create_test_db(&source_path, "Backed Up Project");
         create_test_db(&live_path, "Live Project");
+        Connection::open(&source_path)
+            .expect("open legacy source database")
+            .execute("DROP TABLE afk_categories", [])
+            .expect("simulate backup from before AFK category persistence");
 
         let backup_path = run_backup(&source_path, &backup_folder).expect("run backup");
         let live_conn = Connection::open(&live_path).expect("open live database");
@@ -324,6 +329,10 @@ mod tests {
             .query_row("SELECT name FROM projects LIMIT 1", [], |row| row.get(0))
             .expect("read restored project");
         assert_eq!(project_name, "Backed Up Project");
+        let category_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM afk_categories", [], |row| row.get(0))
+            .expect("AFK category migration should run after restore");
+        assert_eq!(category_count, 3);
     }
 
     #[test]

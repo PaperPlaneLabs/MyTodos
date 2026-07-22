@@ -45,3 +45,31 @@
 - No live GUI smoke test was run because the desktop app uses the user's real
   application database path. Backend lifecycle behavior, frontend wiring, SPA
   compilation, and production bundling are covered by the checks above.
+
+---
+
+## Durable AFK Categories
+
+- Added an `afk_categories` SQLite table as the shared source of truth for
+  development and installed desktop builds.
+- On upgrade, seeded the table from Meeting/Lunch/Snack plus every existing task
+  under the Away project, preserving categories such as Others and miss.
+- Migrated each WebView origin's legacy `afkCategories` localStorage value into
+  SQLite, then removed the legacy key only after a successful merge.
+- Added list, merge, add, and remove Tauri commands through the standard `db.ts`
+  bridge and converted Settings/Resume category loading to asynchronous SQLite
+  reads.
+- Kept removal non-destructive: it hides the picker option without deleting its
+  Away task or historical time entries.
+- AFK logging now registers unknown category names automatically, and restoring
+  an older backup reruns schema migrations before refreshing the category store.
+
+### AFK Verification
+
+- `npm run check`: 0 errors and 0 warnings.
+- `npm run test -- --run`: 57 frontend tests passed.
+- `npm run build`: production frontend build passed.
+- `cargo clippy --all-targets -- -D warnings`: passed.
+- `cargo test`: 120 Rust tests passed, including 5 new AFK persistence tests and
+  an older-backup migration regression.
+- `graphify update .`: rebuilt the project graph with 1350 nodes and 2934 edges.

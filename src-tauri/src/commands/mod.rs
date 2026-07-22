@@ -1,3 +1,4 @@
+pub mod afk_categories;
 pub mod backup;
 pub mod calendar;
 pub mod common;
@@ -11,6 +12,7 @@ pub mod timer;
 pub mod window;
 pub mod window_tracking;
 
+pub use afk_categories::*;
 pub use backup::*;
 pub use calendar::*;
 pub use google_calendar::*;
