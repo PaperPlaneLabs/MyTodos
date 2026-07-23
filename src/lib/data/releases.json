@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.1.66",
+    "date": "2026-07-23",
+    "title": "Introducing Todoz",
+    "summary": "MyTodos is now Todoz, with refreshed branding throughout the desktop experience while preserving your existing data, settings, and update path.",
+    "highlights": [
+      "See the Todoz name across the app window, header, Settings, tray menu, backup experience, and Google sign-in flow.",
+      "Install and update with newly branded Todoz desktop packages.",
+      "Keep all existing projects, tasks, time entries, settings, and integrations unchanged after updating."
+    ],
+    "fixes": [
+      "Improved release publishing so updater manifests reliably follow the renamed installer assets on every supported desktop platform."
+    ]
+  },
+  {
     "version": "0.1.65",
     "date": "2026-07-22",
     "title": "Focused task sessions and durable activity tracking",
