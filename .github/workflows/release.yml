@@ -1,4 +1,4 @@
-name: Release
+name: Release Todoz
 
 on:
   push:
@@ -150,7 +150,7 @@ jobs:
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
         with:
           tagName: ${{ env.RELEASE_TAG }}
-          releaseName: MyTodos ${{ env.RELEASE_TAG }}
+          releaseName: Todoz ${{ env.RELEASE_TAG }}
           releaseBody: ${{ needs.validate-release.outputs.notes }}
           releaseDraft: false
           prerelease: false
@@ -205,7 +205,7 @@ jobs:
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
         with:
           tagName: ${{ env.RELEASE_TAG }}
-          releaseName: MyTodos ${{ env.RELEASE_TAG }}
+          releaseName: Todoz ${{ env.RELEASE_TAG }}
           releaseBody: ${{ needs.validate-release.outputs.notes }}
           releaseDraft: false
           prerelease: false
@@ -257,7 +257,7 @@ jobs:
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
         with:
           tagName: ${{ env.RELEASE_TAG }}
-          releaseName: MyTodos ${{ env.RELEASE_TAG }}
+          releaseName: Todoz ${{ env.RELEASE_TAG }}
           releaseBody: ${{ needs.validate-release.outputs.notes }}
           releaseDraft: false
           prerelease: false
@@ -310,7 +310,7 @@ jobs:
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
         with:
           tagName: ${{ env.RELEASE_TAG }}
-          releaseName: MyTodos ${{ env.RELEASE_TAG }}
+          releaseName: Todoz ${{ env.RELEASE_TAG }}
           releaseBody: ${{ needs.validate-release.outputs.notes }}
           releaseDraft: false
           prerelease: false
@@ -350,22 +350,50 @@ jobs:
           }
 
           BASE="https://github.com/$REPO/releases/download/$RELEASE_TAG"
+          ASSET_NAMES=$(gh release view "$RELEASE_TAG" --repo "$REPO" --json assets --jq '.assets[].name')
 
-          if sig=$(gh release download "$RELEASE_TAG" --repo "$REPO" --pattern "my-todos_${VERSION}_x64-setup.exe.sig" --output - 2>/dev/null); then
-            make_json latest-windows-x86_64.json "$BASE/my-todos_${VERSION}_x64-setup.exe" "$sig"
-          fi
+          find_asset_by_suffix() {
+            local suffix="$1"
+            local match=""
+            local asset
 
-          if sig=$(gh release download "$RELEASE_TAG" --repo "$REPO" --pattern "my-todos_aarch64.app.tar.gz.sig" --output - 2>/dev/null); then
-            make_json latest-darwin-aarch64.json "$BASE/my-todos_aarch64.app.tar.gz" "$sig"
-          fi
+            while IFS= read -r asset; do
+              [[ "$asset" == *"$suffix" ]] || continue
+              if [[ -n "$match" ]]; then
+                echo "Multiple release assets match suffix $suffix: $match, $asset" >&2
+                return 2
+              fi
+              match="$asset"
+            done <<< "$ASSET_NAMES"
 
-          if sig=$(gh release download "$RELEASE_TAG" --repo "$REPO" --pattern "my-todos_x64.app.tar.gz.sig" --output - 2>/dev/null); then
-            make_json latest-darwin-x86_64.json "$BASE/my-todos_x64.app.tar.gz" "$sig"
-          fi
+            [[ -n "$match" ]] || return 1
+            printf '%s' "$match"
+          }
 
-          if sig=$(gh release download "$RELEASE_TAG" --repo "$REPO" --pattern "my-todos_${VERSION}_amd64.AppImage.tar.gz.sig" --output - 2>/dev/null); then
-            make_json latest-linux-x86_64.json "$BASE/my-todos_${VERSION}_amd64.AppImage.tar.gz" "$sig"
-          fi
+          make_platform_json() {
+            local filename="$1"
+            local signature_suffix="$2"
+            local signature_name
+            local artifact_name
+            local sig
+
+            if signature_name=$(find_asset_by_suffix "$signature_suffix"); then
+              artifact_name="${signature_name%.sig}"
+              sig=$(gh release download "$RELEASE_TAG" --repo "$REPO" --pattern "$signature_name" --output -)
+              make_json "$filename" "$BASE/$artifact_name" "$sig"
+            else
+              local status=$?
+              if [[ $status -eq 2 ]]; then
+                exit 1
+              fi
+              echo "No release asset matches suffix $signature_suffix; skipping $filename"
+            fi
+          }
+
+          make_platform_json latest-windows-x86_64.json "_x64-setup.exe.sig"
+          make_platform_json latest-darwin-aarch64.json "_aarch64.app.tar.gz.sig"
+          make_platform_json latest-darwin-x86_64.json "_x64.app.tar.gz.sig"
+          make_platform_json latest-linux-x86_64.json "_amd64.AppImage.tar.gz.sig"
 
           files=(latest-windows-x86_64.json latest-darwin-aarch64.json latest-darwin-x86_64.json latest-linux-x86_64.json)
           existing=()

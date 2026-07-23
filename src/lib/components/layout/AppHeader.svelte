@@ -183,7 +183,7 @@
   data-tauri-drag-region
 >
   <div class="header-left">
-    <h1>MyTodos</h1>
+    <h1>Todoz</h1>
   </div>
 
   <div class="header-right">

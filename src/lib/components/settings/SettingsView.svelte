@@ -613,7 +613,7 @@
                         >Start at login</span
                     >
                     <span class="setting-desc"
-                        >Automatically launch MyTodos when you log in</span
+                        >Automatically launch Todoz when you log in</span
                     >
                 </div>
                 <button
@@ -1024,7 +1024,7 @@
             class="settings-section about"
             transition:fly={{ y: 20, duration: 300, delay: 375 }}
         >
-            <p class="version">MyTodos v{appVersion}</p>
+            <p class="version">Todoz v{appVersion}</p>
         </section>
     </div>
 </div>
@@ -1063,7 +1063,7 @@
     {#snippet children()}
         <div class="reset-confirm-content">
             <p class="restore-confirm-text">
-                This will replace all current MyTodos data with the selected
+                This will replace all current Todoz data with the selected
                 backup file. This action cannot be undone.
             </p>
             <p class="restore-path">{pendingRestorePath}</p>

@@ -1,4 +1,4 @@
-# MyTodos - Portrait Todo App with Time Tracking
+# Todoz - Portrait Todo App with Time Tracking
 
 A desktop todo application built with Tauri 2, SvelteKit, and SQLite. Features a portrait-style window optimized for side-of-screen placement with integrated time tracking, window activity monitoring, and Google Calendar integration.
 

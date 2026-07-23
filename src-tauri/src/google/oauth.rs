@@ -156,7 +156,7 @@ fn handle_callback(
         exchange_code_blocking(code, code_verifier, redirect_uri, client_id, client_secret)?;
 
     // Send success response
-    let response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<html><body style=\"font-family: system-ui; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f5f5f5;\"><div style=\"text-align: center; padding: 2rem; background: white; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);\"><h1 style=\"color: #22c55e;\">Authentication successful!</h1><p>You can close this window and return to MyTodos.</p></div></body></html>";
+    let response = "HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n<html><body style=\"font-family: system-ui; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f5f5f5;\"><div style=\"text-align: center; padding: 2rem; background: white; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.1);\"><h1 style=\"color: #22c55e;\">Authentication successful!</h1><p>You can close this window and return to Todoz.</p></div></body></html>";
     let _ = stream.write_all(response.as_bytes());
 
     Ok(tokens)

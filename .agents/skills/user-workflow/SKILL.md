@@ -1,11 +1,11 @@
 ---
 name: user-workflow
-description: Artifact-driven implementation workflow for MyTodos
+description: Artifact-driven implementation workflow for Todoz
 ---
 
 # Artifact-Driven Implementation Workflow
 
-This skill documents the preferred development methodology for working on the MyTodos codebase, emphasizing clarity, traceability, and verified progress.
+This skill documents the preferred development methodology for working on the Todoz codebase, emphasizing clarity, traceability, and verified progress.
 
 ## 1. Context First
 Before proposing changes, always read:

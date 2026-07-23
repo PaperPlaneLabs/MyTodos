@@ -715,7 +715,7 @@ fn prettify_app_name(value: &str) -> String {
         "powerpnt" => "PowerPoint".to_string(),
         "explorer" => "File Explorer".to_string(),
         "windowsterminal" => "Windows Terminal".to_string(),
-        "my-todos" => "MyTodos".to_string(),
+        "my-todos" => "Todoz".to_string(),
         other => other
             .split(['-', '_'])
             .filter(|part| !part.is_empty())

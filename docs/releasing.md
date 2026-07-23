@@ -1,6 +1,6 @@
-# Releasing MyTodos
+# Releasing Todoz
 
-MyTodos uses `src/lib/data/releases.json` as the single source of truth for
+Todoz uses `src/lib/data/releases.json` as the single source of truth for
 release notes. The same entry is bundled into the app, displayed by the updater,
 shown after relaunch, and published as the GitHub release body.
 
@@ -39,5 +39,8 @@ tagging.
 an unnoted version. GitHub Actions also validates the tag against all version
 files before starting platform builds.
 
-The canonical release repository is `PaperPlaneLabs/MyTodos`; the desktop
-updater downloads platform manifests from that repository.
+The canonical release repository remains `PaperPlaneLabs/MyTodos`; the desktop
+updater downloads platform manifests from that repository. The Stage 1 product
+rename also preserves the internal `my-todos` package name, bundle identifier,
+data directory, keyring service, and updater signing key so existing installs
+remain on the same update and data path.

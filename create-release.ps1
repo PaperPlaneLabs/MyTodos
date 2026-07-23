@@ -180,7 +180,7 @@ function Ensure-ReleaseExists([string]$tag, [string]$notes) {
         return
     }
 
-    gh release create $tag --repo $ReleasesRepo --title "MyTodos $tag" --notes $notes
+    gh release create $tag --repo $ReleasesRepo --title "Todoz $tag" --notes $notes
     if ($LASTEXITCODE -ne 0) {
         Write-Fail "Failed to create release $tag"
         exit 1
@@ -215,7 +215,7 @@ $tag = "v$v"
 $releaseUrl = "https://github.com/$ReleasesRepo/releases/download/$tag"
 $preserveDir = Join-Path ([System.IO.Path]::GetTempPath()) "mytodos-release-preserve-$v"
 
-Write-Host "`n=== MyTodos Windows Release Automation ===" -ForegroundColor Magenta
+Write-Host "`n=== Todoz Windows Release Automation ===" -ForegroundColor Magenta
 Write-Host "Version: $tag" -ForegroundColor Magenta
 
 $platformStates = @{}

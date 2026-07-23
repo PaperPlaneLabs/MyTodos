@@ -127,7 +127,7 @@ fn tool_definitions() -> Value {
     json!([
         {
             "name": "create_task",
-            "description": "Create a MyTodos task. Deadlines must be normalized as YYYY-MM-DD or YYYY-MM-DDTHH:mm.",
+            "description": "Create a Todoz task. Deadlines must be normalized as YYYY-MM-DD or YYYY-MM-DDTHH:mm.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -142,7 +142,7 @@ fn tool_definitions() -> Value {
         },
         {
             "name": "set_task_deadline",
-            "description": "Set or clear the deadline for an existing MyTodos task by exact task id.",
+            "description": "Set or clear the deadline for an existing Todoz task by exact task id.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -154,7 +154,7 @@ fn tool_definitions() -> Value {
         },
         {
             "name": "find_tasks",
-            "description": "Find MyTodos tasks by title or description text before making a change.",
+            "description": "Find Todoz tasks by title or description text before making a change.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -167,7 +167,7 @@ fn tool_definitions() -> Value {
         },
         {
             "name": "list_due_tasks",
-            "description": "List MyTodos tasks whose deadlines fall within the given inclusive lexical date range.",
+            "description": "List Todoz tasks whose deadlines fall within the given inclusive lexical date range.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -179,7 +179,7 @@ fn tool_definitions() -> Value {
         },
         {
             "name": "get_task",
-            "description": "Get one MyTodos task by exact task id.",
+            "description": "Get one Todoz task by exact task id.",
             "inputSchema": {
                 "type": "object",
                 "properties": {
@@ -190,7 +190,7 @@ fn tool_definitions() -> Value {
         },
         {
             "name": "set_task_completed",
-            "description": "Mark a MyTodos task complete or incomplete by exact task id.",
+            "description": "Mark a Todoz task complete or incomplete by exact task id.",
             "inputSchema": {
                 "type": "object",
                 "properties": {

@@ -1,6 +1,6 @@
 # GitHub Workflow Optimization Ideas
 
-This document contains optimization strategies to speed up the GitHub Actions release workflow for MyTodos.
+This document contains optimization strategies to speed up the GitHub Actions release workflow for Todoz.
 
 ## Current Workflow Analysis
 

@@ -1,4 +1,4 @@
-# PowerShell script for building MyTodos locally
+# PowerShell script for building Todoz locally
 # Builds for: Windows (native), Linux (Podman)
 
 param(
@@ -129,7 +129,7 @@ function Publish-Release {
 }
 
 # Execution
-Write-Host "`n=== MyTodos Local Build System ===" -ForegroundColor Cyan
+Write-Host "`n=== Todoz Local Build System ===" -ForegroundColor Cyan
 
 if ($Clean) {
     Write-Step "Cleaning build artifacts..."

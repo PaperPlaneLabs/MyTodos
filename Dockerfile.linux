@@ -1,4 +1,4 @@
-# Dockerfile for building MyTodos for Linux (Tauri 2)
+# Dockerfile for building Todoz for Linux (Tauri 2)
 FROM docker.io/rust:1.92-bookworm AS base
 
 # Install system dependencies for Tauri 2

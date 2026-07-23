@@ -165,3 +165,49 @@
 - Skill Creator `quick_validate.py` passed in an ephemeral PyYAML environment.
 - `git diff --check` passed and no generated TODO placeholders remain.
 - `graphify update .`: rebuilt the code graph with 1416 nodes and 3013 edges.
+
+---
+
+## Todoz Stage 1 Rename
+
+- Renamed the user-facing desktop product, main window, header, Settings labels,
+  tray action, OAuth completion page, backup folder label, Android display name,
+  MCP tool descriptions, and active project documentation to Todoz.
+- Preserved `com.pintu.my-todos`, the `my-todos` database directory, Google
+  keyring service, Rust/npm package and main binary, `mytodos-mcp` executable and
+  client key, updater signing key, release tags, and `PaperPlaneLabs/MyTodos`.
+- Changed release titles and local release tooling output to Todoz.
+- Reworked platform updater-manifest generation to discover exactly one signed
+  asset per platform suffix, allowing Todoz artifact prefixes while rejecting
+  ambiguous release assets.
+- Kept historical walkthrough entries and legacy path examples unchanged where
+  they document real compatibility identities or previous releases.
+
+### Todoz Rename Verification
+
+- Stage 1 compatibility assertions passed for the bundle identifier, database
+  directory, keyring service, updater/release repository, npm/Rust package,
+  default binary, and MCP server name.
+- GitHub Actions YAML parsed with the repository's installed `yaml` package, and
+  the embedded updater Bash passed `bash -n`.
+- An isolated execution of the exact updater workflow generated all four Todoz
+  platform manifests with the correct version, artifact URL, and signature. The
+  first run exposed a missing `VERSION` assignment during cleanup; it was
+  restored and the simulation then passed.
+- PowerShell syntax passed for every modified script.
+- `create-release.ps1 -v 0.1.65 -ValidateOnly` passed without mutation or
+  network access.
+- `npm run check`: 0 errors and 0 warnings.
+- `npm run test -- --run`: 62 frontend tests passed.
+- `npm run build`: production frontend build passed.
+- `cargo fmt -- --check`, `cargo check`, and
+  `cargo clippy --all-targets -- -D warnings`: passed.
+- `cargo test`: 123 Rust tests passed.
+- A real signed NSIS build passed and produced
+  `Todoz_0.1.65_x64-setup.exe`, its updater zip, and both signatures while the
+  compiled application binary remained `my-todos.exe` as required by Stage 1.
+- `git diff --check`: passed.
+- `graphify update .`: rebuilt the code graph with 1418 nodes and 3015 edges.
+  Graphify reported the same six settings/configuration sources that produce no
+  AST nodes; the renamed code and release workflow are present in the refreshed
+  graph.

@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "my-todos",
+  "productName": "Todoz",
   "version": "0.1.65",
   "identifier": "com.pintu.my-todos",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "MyTodos",
+        "title": "Todoz",
         "width": 380,
         "height": 800,
         "minWidth": 44,

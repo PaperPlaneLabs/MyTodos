@@ -16,7 +16,7 @@ const DEFAULT_INTERVAL_MINUTES: i64 = 15;
 const MIN_INTERVAL_MINUTES: i64 = 1;
 const BACKUP_CHECK_SECONDS: u64 = 60;
 const BACKUP_KEEP_COUNT: usize = 5;
-const BACKUP_FOLDER_NAME: &str = "MyTodos Backups";
+const BACKUP_FOLDER_NAME: &str = "Todoz Backups";
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackupSettings {

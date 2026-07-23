@@ -1,9 +1,9 @@
 ---
 name: release-mytodos
-description: Prepare, publish, monitor, recover, and verify MyTodos desktop releases. Use for version bumps, releases.json What's New entries, create-release.ps1, Git tags, the PaperPlaneLabs/MyTodos GitHub Actions release workflow, updater manifests, release assets, failed pushes, partial releases, or desktop updater JSON errors in this repository.
+description: Prepare, publish, monitor, recover, and verify Todoz desktop releases. Use for version bumps, releases.json What's New entries, create-release.ps1, Git tags, the PaperPlaneLabs/MyTodos GitHub Actions release workflow, updater manifests, release assets, failed pushes, partial releases, or desktop updater JSON errors in this repository.
 ---
 
-# Release MyTodos
+# Release Todoz
 
 Manage releases from the repository root. Treat publishing and tag changes as
 external, potentially destructive actions; inspect state before mutating it.

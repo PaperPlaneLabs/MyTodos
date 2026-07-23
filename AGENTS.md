@@ -1,6 +1,6 @@
-# Agent Development Guidelines - MyTodos
+# Agent Development Guidelines - Todoz
 
-This document provides essential information for AI agents working on the MyTodos codebase.
+This document provides essential information for AI agents working on the Todoz codebase.
 
 ## Build, Lint, and Test Commands
 

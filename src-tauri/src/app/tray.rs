@@ -11,7 +11,7 @@ pub fn setup_system_tray(
     app_handle: AppHandle,
     db: DbConnection,
 ) -> Result<(), String> {
-    let show_item = MenuItem::with_id(app, "show", "Show MyTodos", true, None::<&str>)
+    let show_item = MenuItem::with_id(app, "show", "Show Todoz", true, None::<&str>)
         .map_err(|error| error.to_string())?;
     let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)
         .map_err(|error| error.to_string())?;

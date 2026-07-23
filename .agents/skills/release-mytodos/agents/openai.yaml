@@ -1,4 +1,4 @@
 interface:
-  display_name: "Release MyTodos"
+  display_name: "Release Todoz"
   short_description: "Prepare, publish, recover, and verify releases"
-  default_prompt: "Use $release-mytodos to prepare and publish the next MyTodos release safely."
+  default_prompt: "Use $release-mytodos to prepare and publish the next Todoz release safely."

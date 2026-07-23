@@ -1,7 +1,7 @@
 {
   "name": "my-todos",
   "version": "0.1.65",
-  "description": "",
+  "description": "Todoz desktop task and time tracker",
   "type": "module",
   "scripts": {
     "dev": "vite dev",

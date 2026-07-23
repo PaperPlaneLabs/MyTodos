@@ -1,10 +1,10 @@
-# MyTodos - Project Context & Instructions
+# Todoz - Project Context & Instructions
 
-This file provides a comprehensive overview of the **MyTodos** project to guide Gemini in future interactions.
+This file provides a comprehensive overview of the **Todoz** project to guide Gemini in future interactions.
 
 ## Project Overview
 
-**MyTodos** is a portrait-style desktop todo application with integrated time tracking. It is designed to be placed on the side of the screen.
+**Todoz** is a portrait-style desktop todo application with integrated time tracking. It is designed to be placed on the side of the screen.
 
 - **Frontend:** Svelte 5 (Runes-based) + SvelteKit + Vite
 - **Backend:** Rust + Tauri 2

@@ -38,7 +38,7 @@ $handler = [System.Net.Http.HttpClientHandler]::new()
 $handler.AllowAutoRedirect = $true
 $client = [System.Net.Http.HttpClient]::new($handler)
 $client.Timeout = [TimeSpan]::FromSeconds(20)
-$client.DefaultRequestHeaders.UserAgent.ParseAdd("MyTodos-release-verifier/1.0")
+$client.DefaultRequestHeaders.UserAgent.ParseAdd("Todoz-release-verifier/1.0")
 
 try {
     $runs = @(Invoke-GhJson @(

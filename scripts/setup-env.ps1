@@ -1,4 +1,4 @@
-# PowerShell script to setup local build environment for MyTodos
+# PowerShell script to setup the local build environment for Todoz
 # Checks for: Node.js, Rust, Podman, GitHub CLI
 
 $ErrorActionPreference = "Continue"

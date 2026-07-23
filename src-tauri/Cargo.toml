@@ -2,7 +2,7 @@
 name = "my-todos"
 default-run = "my-todos"
 version = "0.1.65"
-description = "A Tauri App"
+description = "Todoz desktop task and time tracker"
 authors = ["you"]
 edition = "2021"
 

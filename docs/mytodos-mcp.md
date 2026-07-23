@@ -1,6 +1,10 @@
-# MyTodos MCP Server
+# Todoz MCP Server
 
-MyTodos includes a local stdio MCP server for trusted AI clients that need to read or update tasks.
+Todoz includes a local stdio MCP server for trusted AI clients that need to read or update tasks.
+
+The Stage 1 product rename intentionally keeps the `mytodos-mcp` executable,
+the `mytodos` client key, and existing repository paths unchanged so current
+Gemini and Claude configurations continue to work.
 
 ## Binary
 
@@ -152,13 +156,13 @@ Restart Claude Desktop after editing the file. If the server does not appear, co
 Use prompts that encourage lookup before mutation:
 
 ```text
-Use MyTodos to find tasks matching "electricity bill". If there is one clear match, set its deadline to 2026-06-03T18:00.
+Use Todoz to find tasks matching "electricity bill". If there is one clear match, set its deadline to 2026-06-03T18:00.
 ```
 
 ```text
-Create a MyTodos task titled "Submit invoice" with deadline 2026-06-05.
+Create a Todoz task titled "Submit invoice" with deadline 2026-06-05.
 ```
 
 ```text
-List MyTodos tasks due between 2026-06-01 and 2026-06-07.
+List Todoz tasks due between 2026-06-01 and 2026-06-07.
 ```
