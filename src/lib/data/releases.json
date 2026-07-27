@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.1.67",
+    "date": "2026-07-27",
+    "title": "Seamless Todoz migration on Windows",
+    "summary": "This update consolidates renamed Windows installations so existing MyTodos users continue in Todoz without repeated update prompts.",
+    "highlights": [
+      "Continue automatically from legacy MyTodos shortcuts and start-at-login entries into the current Todoz installation."
+    ],
+    "fixes": [
+      "Fixed the Todoz rename creating a side-by-side Windows installation and repeatedly offering the same update.",
+      "Preserved the existing Todoz database and settings while migrating installer registrations."
+    ]
+  },
+  {
     "version": "0.1.66",
     "date": "2026-07-23",
     "title": "Introducing Todoz",

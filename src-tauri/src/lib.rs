@@ -19,6 +19,10 @@ fn initialize_database(db: tauri::State<DbConnection>) -> Result<(), String> {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    if app::install_migration::redirect_legacy_install() {
+        return;
+    }
+
     let db_conn = initialize_connection().expect("Failed to initialize database connection");
     app::startup::initialize_database_state(&db_conn)
         .expect("Failed to initialize database schema");

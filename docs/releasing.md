@@ -44,3 +44,16 @@ updater downloads platform manifests from that repository. The Stage 1 product
 rename also preserves the internal `my-todos` package name, bundle identifier,
 data directory, keyring service, and updater signing key so existing installs
 remain on the same update and data path.
+
+### Windows product-name migration
+
+Changing Tauri's `productName` changes the default NSIS installation directory
+and uninstall registry key. The `my-todos` to `Todoz` rename therefore requires
+`src-tauri/windows/installer-hooks.nsh`; do not remove it while legacy Windows
+installations remain in use.
+
+The migration hook installs Todoz in the canonical `%LOCALAPPDATA%\Todoz`
+directory, replaces the legacy executable with a compatibility launcher,
+repoints legacy shortcuts and start-at-login registration, and removes only the
+obsolete installer registry entries. Application data remains in
+`%APPDATA%\my-todos` and is never deleted by the migration.
