@@ -17,6 +17,17 @@
 - Full Apple Silicon Tauri bundle: passed in 6m20s.
 - `graphify update .`: rebuilt the graph with 1421 nodes and 3102 edges.
 
+### Release verification
+
+- Release commit/tag: `2ef9381` / `v0.1.69`.
+- Release workflow `31475400546`: all platform jobs and updater JSON upload passed.
+- GitHub release is published as a final release.
+- Windows, Linux, Apple Silicon, and Intel macOS manifests all report `0.1.69`
+  with notes, publication date, signature, and a matching uploaded artifact.
+- The bundled verifier's 20-second CDN checks timed out for two large artifacts;
+  direct GitHub release downloads and asset metadata confirmed both are uploaded
+  and reachable.
+
 ---
 
 ## Implemented
