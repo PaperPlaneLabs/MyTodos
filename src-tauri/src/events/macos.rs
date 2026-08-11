@@ -1,4 +1,6 @@
-use super::{handle_away_ended, handle_away_started, handle_away_started_with_reason};
+use super::system_events::{
+    handle_away_ended, handle_away_started, handle_away_started_with_reason,
+};
 use crate::db::DbConnection;
 use core_foundation::base::TCFType;
 use core_foundation::runloop::{kCFRunLoopCommonModes, CFRunLoop};
