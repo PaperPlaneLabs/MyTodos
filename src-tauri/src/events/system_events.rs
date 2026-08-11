@@ -81,6 +81,15 @@ pub static IS_LOCKED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicB
 
 /// Handle system away started event (screen lock or display off)
 pub fn handle_away_started(app_handle: &AppHandle, db: &DbConnection) {
+    handle_away_started_with_reason(app_handle, db, AutoPauseReason::ScreenLock);
+}
+
+/// Handle the start of away time while preserving the originating system event.
+pub fn handle_away_started_with_reason(
+    app_handle: &AppHandle,
+    db: &DbConnection,
+    reason: AutoPauseReason,
+) {
     let now = get_timestamp();
     // Only store if not already tracking away time
     if SCREEN_LOCK_TIME
@@ -90,7 +99,7 @@ pub fn handle_away_started(app_handle: &AppHandle, db: &DbConnection) {
         println!("[System Events] User away started at {}", now);
 
         // Auto-pause if running
-        auto_pause_if_running(app_handle, db, AutoPauseReason::ScreenLock);
+        auto_pause_if_running(app_handle, db, reason);
         if let Err(error) = crate::services::window_tracking_service::set_paused(db, true) {
             eprintln!("Failed to pause window tracking for away time: {}", error);
         }
@@ -120,6 +129,7 @@ pub fn handle_away_ended(app_handle: &AppHandle, db: &DbConnection) {
             };
 
             let app_handle_clone = app_handle.clone();
+            let db_clone = db.clone();
             tauri::async_runtime::spawn(async move {
                 if let Err(e) = crate::commands::window::open_resume_window(
                     app_handle_clone,
@@ -131,8 +141,21 @@ pub fn handle_away_ended(app_handle: &AppHandle, db: &DbConnection) {
                 .await
                 {
                     eprintln!("Failed to open resume window: {}", e);
+                    if let Err(error) =
+                        crate::services::window_tracking_service::set_paused(&db_clone, false)
+                    {
+                        eprintln!(
+                            "Failed to resume window tracking after resume-window error: {}",
+                            error
+                        );
+                    }
                 }
             });
+        } else if let Err(error) = crate::services::window_tracking_service::set_paused(db, false) {
+            eprintln!(
+                "Failed to resume window tracking after short away period: {}",
+                error
+            );
         }
     }
 }
