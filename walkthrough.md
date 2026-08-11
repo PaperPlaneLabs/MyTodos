@@ -1,5 +1,24 @@
 # Task Timer Walkthrough
 
+## Release v0.1.69 macOS Build Recovery
+
+- Corrected the macOS listener imports to resolve away handlers through the
+  sibling `system_events` module.
+- Preserved the published v0.1.68 tag and partial Windows/Linux assets.
+- Added a v0.1.69 release-note entry describing restored Mac availability.
+
+### Pre-release verification
+
+- `cargo fmt -- --check`: passed.
+- Host `cargo check`: passed.
+- `create-release.ps1 -v 0.1.69 -ValidateOnly`: passed.
+- Temporary macOS validation run `31474832657`: passed.
+- Full Intel macOS Tauri bundle: passed in 6m04s.
+- Full Apple Silicon Tauri bundle: passed in 6m20s.
+- `graphify update .`: rebuilt the graph with 1421 nodes and 3102 edges.
+
+---
+
 ## Implemented
 
 - Added `Set Task Timer...` to active task context menus.
