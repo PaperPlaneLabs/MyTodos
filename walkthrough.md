@@ -1,5 +1,20 @@
 # Task Timer Walkthrough
 
+## Updater Restart Capability
+
+- Added `process:allow-restart` to the desktop capability so the updater's existing `relaunch()` calls can restart the installed application.
+- Kept the capability narrowly scoped: neither `process:default` nor `process:allow-exit` is granted.
+
+### Verification
+
+- Capability JSON parsing and exact process-permission assertion: passed.
+- `npm run check`: passed with 0 errors and 0 warnings.
+- `cargo check`: passed.
+- `git diff --check`: passed.
+- `graphify update .`: rebuilt the graph with 1424 nodes and 3105 edges; its expected JSON AST warning included `desktop.json` because capability JSON does not produce code nodes.
+
+---
+
 ## Release v0.1.69 macOS Build Recovery
 
 - Corrected the macOS listener imports to resolve away handlers through the

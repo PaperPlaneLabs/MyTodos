@@ -13,6 +13,7 @@
   ],
   "permissions": [
     "updater:default",
+    "process:allow-restart",
     "core:webview:allow-create-webview-window",
     "core:webview:default",
     "core:window:default"
