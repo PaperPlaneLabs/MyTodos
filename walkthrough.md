@@ -1,5 +1,40 @@
 # Task Timer Walkthrough
 
+## Today Workspace
+
+- Added Today as the default top-level workspace while keeping Projects,
+  Calendar, Statistics, and Settings mutually exclusive through one typed view
+  state. Returning to Projects preserves the selected project.
+- Added a parameterized Today summary query that uses explicit local-date
+  boundaries, separates incomplete overdue and current-day work, excludes system
+  tasks, includes project display metadata, and reports daily completion counts.
+- Added a Svelte 5 Today store that concurrently loads tasks, calendar events,
+  and time statistics while rejecting stale successes and failures.
+- Added responsive Today presentation for the active timer, overdue work, today's
+  queue, all-day/timed schedule, task completion progress, and live focused time.
+- Added single-column docked/portrait and two-column centered layouts, compact
+  mode, reduced-motion behavior, keyboard focus states, loading skeletons,
+  retained-snapshot errors, and disconnected-calendar guidance.
+- Reused existing task editing, completion, context menu, and timer behavior.
+  Shared task mutations, Google Calendar sync, timer changes, task-modal edits,
+  window focus, manual refresh, and local midnight now refresh Today.
+
+### Today Verification
+
+- `npm run check`: passed with 0 errors and 0 warnings.
+- `npm run test -- --run`: 76 frontend tests passed, including 14 Today store,
+  scheduling, formatting, responsive-state, active-timer, and action tests.
+- `npm run build`: production SvelteKit build passed; existing dynamic-import
+  chunk warnings remain informational.
+- `cargo fmt --check` and `cargo check`: passed.
+- `cargo test`: 129 Rust tests passed, including 4 Today query tests.
+- `git diff --check`: passed.
+- `graphify update .`: rebuilt the project graph with 1497 nodes and 3255
+  edges; the six reported settings/configuration files are the existing
+  non-code sources that produce no AST nodes.
+
+---
+
 ## Updater Restart Capability
 
 - Added `process:allow-restart` to the desktop capability so the updater's existing `relaunch()` calls can restart the installed application.

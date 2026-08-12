@@ -4,9 +4,8 @@ import type { TimeEntryWithTask } from "$lib/types/calendar";
 let showProjectModal = $state(false);
 let showTaskModal = $state(false);
 let showQuickAdd = $state(false);
-let showStatsView = $state(false);
-let showSettingsView = $state(false);
-let showCalendarView = $state(false);
+export type PrimaryView = "today" | "projects" | "calendar" | "stats" | "settings";
+let primaryView = $state<PrimaryView>("today");
 let isCollapsed = $state(false);
 let completedTasksCollapsed = $state(true);
 let handleTop = $state(120);
@@ -53,15 +52,19 @@ export const uiStore = {
   },
 
   get showStatsView() {
-    return showStatsView;
+    return primaryView === "stats";
   },
 
   get showSettingsView() {
-    return showSettingsView;
+    return primaryView === "settings";
   },
 
   get showCalendarView() {
-    return showCalendarView;
+    return primaryView === "calendar";
+  },
+
+  get primaryView() {
+    return primaryView;
   },
 
   get windowOrientation() {
@@ -119,34 +122,45 @@ export const uiStore = {
   },
 
   openStatsView() {
-    showCalendarView = false;
-    showSettingsView = false;
-    showStatsView = true;
+    primaryView = "stats";
   },
 
   closeStatsView() {
-    showStatsView = false;
+    primaryView = "projects";
   },
 
   openSettingsView() {
-    showCalendarView = false;
-    showStatsView = false;
-    showSettingsView = true;
+    primaryView = "settings";
   },
 
   closeSettingsView() {
-    showSettingsView = false;
+    primaryView = "projects";
   },
 
   openCalendarView() {
-    showStatsView = false;
-    showSettingsView = false;
-    showCalendarView = true;
+    primaryView = "calendar";
   },
 
   closeCalendarView() {
-    showCalendarView = false;
+    primaryView = "projects";
     calendarSelectedEntry = null;
+  },
+
+  openTodayView() {
+    primaryView = "today";
+    calendarSelectedEntry = null;
+  },
+
+  openProjectsView() {
+    primaryView = "projects";
+    calendarSelectedEntry = null;
+  },
+
+  setPrimaryView(view: PrimaryView) {
+    primaryView = view;
+    if (view !== "calendar") {
+      calendarSelectedEntry = null;
+    }
   },
 
   setWindowOrientation(orientation: WindowOrientation) {

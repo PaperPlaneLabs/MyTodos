@@ -80,6 +80,31 @@ pub struct ActiveTimer {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TodayTask {
+    pub id: i64,
+    pub project_id: Option<i64>,
+    pub section_id: Option<i64>,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub position: i32,
+    pub total_time_seconds: i64,
+    pub deadline: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub project_color: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct TodayTaskSummary {
+    pub overdue: Vec<TodayTask>,
+    pub today: Vec<TodayTask>,
+    pub completed_today: i64,
+    pub total_today: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct TimedTimerCompletion {
     pub task_id: i64,
     pub task_title: String,

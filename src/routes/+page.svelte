@@ -14,13 +14,16 @@
   import ProjectListSection from "$lib/components/projects/ProjectListSection.svelte";
   import ResumeView from "$lib/components/resume/ResumeView.svelte";
   import TaskListSection from "$lib/components/tasks/TaskListSection.svelte";
+  import TodayWorkspace from "$lib/components/today/TodayWorkspace.svelte";
   import ActiveTimerWidget from "$lib/components/timer/ActiveTimerWidget.svelte";
   import TaskTimerFinishedView from "$lib/components/timer/TaskTimerFinishedView.svelte";
   import { createPageInteractions } from "$lib/controllers/page-interactions.svelte";
   import { db } from "$lib/services/db";
   import { projectStore } from "$lib/stores/projects.svelte";
+  import { calendarStore } from "$lib/stores/calendar.svelte";
   import { taskStore } from "$lib/stores/tasks.svelte";
   import { timerStore } from "$lib/stores/timer.svelte";
+  import { todayStore } from "$lib/stores/today.svelte";
   import { uiStore } from "$lib/stores/ui.svelte";
   import { googleCalendarStore } from "$lib/stores/google-calendar.svelte";
   import { windowTrackingStore } from "$lib/stores/window-tracking.svelte";
@@ -128,9 +131,7 @@
 
     const { listen } = await import("@tauri-apps/api/event");
     await listen("task-timer:switch-requested", () => {
-      uiStore.closeStatsView();
-      uiStore.closeSettingsView();
-      uiStore.closeCalendarView();
+      uiStore.openProjectsView();
     });
   });
 
@@ -161,6 +162,15 @@
     await timerStore.stop();
   }
 
+  async function handleTodayTaskCompletion(taskId: number) {
+    await db.tasks.toggleCompletion(taskId);
+    await Promise.all([
+      taskStore.loadByProject(projectStore.selectedId),
+      calendarStore.refreshCurrentRange(),
+      todayStore.refresh(),
+    ]);
+  }
+
 </script>
 
 <svelte:window
@@ -186,11 +196,18 @@
     {#if !uiStore.isCollapsed}
       <AppHeader />
 
-      {#if uiStore.showCalendarView}
+      {#if uiStore.primaryView === "today"}
+        <TodayWorkspace
+          onCompleteTask={handleTodayTaskCompletion}
+          onToggleTimer={handleToggleTimer}
+          onTaskContextMenu={(event, taskId) =>
+            pageInteractions.handleContextMenu(event, "task", taskId)}
+        />
+      {:else if uiStore.primaryView === "calendar"}
         <CalendarTabView />
-      {:else if uiStore.showStatsView}
+      {:else if uiStore.primaryView === "stats"}
         <StatsView />
-      {:else if uiStore.showSettingsView}
+      {:else if uiStore.primaryView === "settings"}
         <SettingsView />
       {:else}
         <div class="main-content">
@@ -222,7 +239,9 @@
         </div>
       {/if}
 
-      <ActiveTimerWidget onStop={handleStopTimer} />
+      {#if uiStore.primaryView !== "today"}
+        <ActiveTimerWidget onStop={handleStopTimer} />
+      {/if}
     {/if}
   </div>
 
