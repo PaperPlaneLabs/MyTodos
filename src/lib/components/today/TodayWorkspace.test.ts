@@ -23,6 +23,7 @@ const states = vi.hoisted(() => ({
     showTaskModal: false,
     openTaskModal: vi.fn(),
     openProjectsView: vi.fn(),
+    openCalendarView: vi.fn(),
   },
   timerState: {
     active: null as Record<string, unknown> | null,
@@ -38,12 +39,14 @@ const states = vi.hoisted(() => ({
     stop: vi.fn(),
   },
   googleState: { connected: false },
+  calendarState: { setSelectedDate: vi.fn() },
 }));
 
 vi.mock("$lib/stores/today.svelte", () => ({ todayStore: states.todayState }));
 vi.mock("$lib/stores/ui.svelte", () => ({ uiStore: states.uiState }));
 vi.mock("$lib/stores/timer.svelte", () => ({ timerStore: states.timerState }));
 vi.mock("$lib/stores/google-calendar.svelte", () => ({ googleCalendarStore: states.googleState }));
+vi.mock("$lib/stores/calendar.svelte", () => ({ calendarStore: states.calendarState }));
 
 const props = {
   onCompleteTask: vi.fn(),
@@ -70,6 +73,8 @@ beforeEach(() => {
   states.todayState.refresh.mockClear();
   states.uiState.windowOrientation = "center";
   states.uiState.openProjectsView.mockClear();
+  states.uiState.openCalendarView.mockClear();
+  states.calendarState.setSelectedDate.mockClear();
   states.timerState.active = null;
   states.timerState.isRunning = false;
   states.timerState.dailyTotal = 0;
@@ -86,8 +91,8 @@ describe("TodayWorkspace", () => {
     const { container } = render(TodayWorkspace, { props });
 
     expect(container.querySelector("main")?.classList.contains("portrait")).toBe(true);
-    expect(screen.getByText("Nothing due today")).toBeTruthy();
-    expect(screen.getByText("Calendar not connected")).toBeTruthy();
+    expect(screen.getByText("Your agenda is clear")).toBeTruthy();
+    expect(screen.getByText(/Calendar not connected/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Add task" })).toBeTruthy();
   });
 
@@ -126,6 +131,12 @@ describe("TodayWorkspace", () => {
     expect(screen.getByText("50%")).toBeTruthy();
     expect(screen.getAllByText("All day").length).toBeGreaterThan(0);
     expect(screen.getByText("Timeline")).toBeTruthy();
+    expect(screen.getByText("0 tasks · 2 events")).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Open Planning in Calendar" }));
+    expect(states.calendarState.setSelectedDate).toHaveBeenCalledOnce();
+    expect(states.uiState.openCalendarView).toHaveBeenCalledOnce();
+    expect(states.timerState.stop).not.toHaveBeenCalled();
 
     await fireEvent.click(screen.getByRole("button", { name: "Switch task" }));
     expect(states.uiState.openProjectsView).toHaveBeenCalledOnce();

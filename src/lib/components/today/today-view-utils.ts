@@ -1,4 +1,14 @@
-import type { CalendarEvent } from "$lib/services/db";
+import type { CalendarEvent, TodayTask } from "$lib/services/db";
+
+export type TodayAgendaItem =
+  | { kind: "task"; id: number; title: string; time: string | null; isAllDay: false; color: string | null; task: TodayTask }
+  | { kind: "event"; id: number; title: string; time: string | null; isAllDay: boolean; color: string; event: CalendarEvent };
+
+export interface TodayAgenda {
+  allDay: Extract<TodayAgendaItem, { kind: "event" }>[];
+  anytime: Extract<TodayAgendaItem, { kind: "task" }>[];
+  timeline: TodayAgendaItem[];
+}
 
 export function getTodayProgress(completed: number, total: number): number {
   if (total <= 0) return 0;
@@ -11,11 +21,28 @@ export function formatTodayDeadline(deadline: string): string | null {
   return /^\d{2}:\d{2}$/.test(time) ? time : null;
 }
 
-export function sortTodayEvents(events: CalendarEvent[]): CalendarEvent[] {
-  return [...events].sort((left, right) => {
-    if (left.is_all_day !== right.is_all_day) return left.is_all_day ? -1 : 1;
-    return left.date.localeCompare(right.date) || left.title.localeCompare(right.title);
-  });
+function compareAgendaItems(left: TodayAgendaItem, right: TodayAgendaItem): number {
+  const byTime = (left.time ?? "").localeCompare(right.time ?? "");
+  if (byTime !== 0) return byTime;
+  if (left.kind !== right.kind) return left.kind === "event" ? -1 : 1;
+  return left.title.localeCompare(right.title) || left.id - right.id;
+}
+
+export function buildTodayAgenda(tasks: TodayTask[], events: CalendarEvent[]): TodayAgenda {
+  const taskItems: Extract<TodayAgendaItem, { kind: "task" }>[] = tasks.map((task) => ({
+    kind: "task", id: task.id, title: task.title, time: formatTodayDeadline(task.deadline),
+    isAllDay: false, color: task.project_color ?? null, task,
+  }));
+  const eventItems: Extract<TodayAgendaItem, { kind: "event" }>[] = events.map((event) => ({
+    kind: "event", id: event.id, title: event.title,
+    time: event.is_all_day ? null : formatEventTime(event), isAllDay: event.is_all_day,
+    color: event.color, event,
+  }));
+  return {
+    allDay: eventItems.filter((item) => item.isAllDay).sort(compareAgendaItems),
+    anytime: taskItems.filter((item) => item.time === null).sort(compareAgendaItems),
+    timeline: [...taskItems.filter((item) => item.time !== null), ...eventItems.filter((item) => !item.isAllDay)].sort(compareAgendaItems),
+  };
 }
 
 export function formatEventTime(event: CalendarEvent): string {

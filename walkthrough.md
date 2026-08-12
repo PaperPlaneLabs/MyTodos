@@ -1,5 +1,20 @@
 # Task Timer Walkthrough
 
+## Unified Today Agenda
+
+- Replaced the separate Work Queue and Schedule cards with one Agenda card ordered as All day, Anytime, and Timeline.
+- Added a discriminated agenda item model and pure deterministic sorting that places events before tasks at equal times.
+- Reused Today task rows unchanged and added keyboard-accessible event buttons that select today and open Calendar without mutating the timer or event.
+- Kept overdue work separate, progress task-only, the active timer above loading content, and the existing page-level scrolling behavior.
+
+### Verification
+
+- Focused Today Vitest run: 2 files and 9 tests passed.
+- `npm run check`: 0 errors and 0 warnings.
+- `npm run build`: passed with the existing mixed-import chunk warnings only.
+- `git diff --check`: passed with line-ending normalization notices only.
+- `graphify update .`: rebuilt the code graph with 1505 nodes and 3271 edges.
+
 ## Today Workspace
 
 - Added Today as the default top-level workspace while keeping Projects,
