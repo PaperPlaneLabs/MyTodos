@@ -106,6 +106,8 @@
     </button>
   </header>
 
+  <TodayActiveTimerCard />
+
   {#if todayStore.loading && !todayStore.date}
     <div class="workspace-grid" aria-live="polite" aria-busy="true">
       <div class="skeleton skeleton-wide"></div>
@@ -119,8 +121,6 @@
         <button type="button" onclick={() => todayStore.refresh()}>Try again</button>
       </div>
     {/if}
-
-    <TodayActiveTimerCard />
 
     <div class="workspace-grid">
       <div class="work-column">
@@ -237,34 +237,37 @@
 </main>
 
 <style>
-  .today-workspace { flex: 1; min-height: 0; overflow-y: auto; padding: var(--spacing-lg); display: flex; flex-direction: column; gap: var(--spacing-lg); }
+  .today-workspace { flex: none; min-height: max-content; overflow: visible; padding: clamp(var(--spacing-md), 2.5vw, 28px); display: flex; flex-direction: column; gap: var(--spacing-lg); }
   .today-header, .section-heading, .state-card { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-md); }
   .eyebrow, .section-kicker, h2, h3, .day-summary { margin: 0; }
   .eyebrow, .section-kicker { color: var(--text-tertiary); font-size: var(--text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
   .section-kicker.danger { color: var(--danger); }
-  h2 { margin-top: 2px; font-size: 26px; line-height: 1.1; }
+  h2 { margin-top: 3px; font-size: 28px; line-height: 1.08; letter-spacing: -.025em; }
   h3 { margin-top: 2px; font-size: var(--text-base); }
   .day-summary { margin-top: var(--spacing-xs); color: var(--text-secondary); font-size: var(--text-sm); }
-  .refresh-btn, .state-card button, .empty-state button { display: inline-flex; align-items: center; gap: var(--spacing-xs); border: 1px solid var(--border); background: var(--bg-secondary); color: var(--text-secondary); border-radius: var(--radius-md); padding: var(--spacing-xs) var(--spacing-sm); cursor: pointer; }
+  .refresh-btn, .state-card button, .empty-state button { display: inline-flex; align-items: center; gap: var(--spacing-xs); border: 1px solid transparent; background: transparent; color: var(--text-secondary); border-radius: var(--radius-md); padding: var(--spacing-xs) var(--spacing-sm); cursor: pointer; }
+  .refresh-btn:hover, .state-card button:hover, .empty-state button:hover { color: var(--text-primary); background: var(--bg-hover); }
   .refresh-btn:disabled { opacity: .6; cursor: wait; }
-  .workspace-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr); gap: var(--spacing-lg); align-items: start; }
+  .workspace-grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(260px, .9fr); gap: var(--spacing-lg); align-items: start; }
   .work-column, .context-column { display: flex; min-width: 0; flex-direction: column; gap: var(--spacing-lg); }
-  .today-section, .state-card { padding: var(--spacing-md); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-secondary); }
-  .today-section { display: flex; flex-direction: column; gap: var(--spacing-md); }
-  .overdue-section { border-color: color-mix(in srgb, var(--danger) 55%, var(--border)); }
+  .today-section, .state-card { padding: var(--spacing-md); border: 1px solid var(--border-light); border-radius: var(--radius-lg); background: var(--bg-secondary); }
+  .today-section { display: flex; flex-direction: column; gap: var(--spacing-md); box-shadow: 0 1px 2px color-mix(in srgb, var(--text-primary) 4%, transparent); }
+  .overdue-section { position: relative; border-color: var(--border-light); }
+  .overdue-section::before { content: ""; position: absolute; inset: var(--spacing-md) auto var(--spacing-md) 0; width: 2px; border-radius: 2px; background: color-mix(in srgb, var(--danger) 65%, transparent); }
   .state-card.error { color: var(--danger); background: var(--danger-light); }
-  .count { min-width: 26px; padding: 3px 7px; border: 1px solid var(--border); border-radius: 999px; color: var(--text-secondary); background: var(--bg-primary); font-size: var(--text-xs); font-weight: 700; text-align: center; }
-  .danger-count { color: var(--danger); border-color: var(--danger); background: var(--danger-light); }
-  .item-list { display: flex; flex-direction: column; gap: var(--spacing-xs); }
-  .event-row { width: 100%; display: flex; align-items: flex-start; gap: var(--spacing-sm); padding: var(--spacing-sm); border: 1px solid transparent; border-left: 3px solid var(--accent); border-radius: var(--radius-md); background: var(--bg-primary); color: var(--text-primary); text-align: left; }
+  .count { min-width: 20px; color: var(--text-tertiary); font-size: var(--text-xs); font-weight: 700; text-align: right; }
+  .danger-count { color: var(--danger); }
+  .item-list { display: flex; flex-direction: column; gap: 2px; }
+  .event-row { width: 100%; display: flex; align-items: flex-start; gap: var(--spacing-sm); padding: var(--spacing-sm) var(--spacing-xs); border-left: 2px solid var(--accent); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; background: transparent; color: var(--text-primary); text-align: left; }
+  .event-row:hover { background: var(--bg-hover); }
   small { color: var(--text-tertiary); font-size: var(--text-xs); }
   .event-row > time { width: 54px; flex: none; color: var(--text-secondary); font-size: var(--text-xs); font-weight: 700; }
   .event-row > div { min-width: 0; display: flex; flex-direction: column; }
   .event-row strong, .event-row small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .schedule-groups, .schedule-group { display: flex; flex-direction: column; gap: var(--spacing-sm); }
   .schedule-label { margin: 0; color: var(--text-tertiary); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
-  .empty-state { min-height: 90px; display: flex; align-items: center; gap: var(--spacing-md); padding: var(--spacing-md); border: 1px dashed var(--border); border-radius: var(--radius-md); color: var(--text-secondary); background: var(--bg-primary); }
-  .empty-state > span { display: grid; width: 32px; height: 32px; place-items: center; border-radius: 50%; color: var(--success); background: var(--success-light); font-weight: 800; }
+  .empty-state { min-height: 90px; display: flex; align-items: center; gap: var(--spacing-md); padding: var(--spacing-md); border-radius: var(--radius-md); color: var(--text-secondary); background: color-mix(in srgb, var(--bg-primary) 55%, transparent); }
+  .empty-state > span { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; color: var(--success); background: var(--success-light); font-weight: 800; }
   .empty-state > div { flex: 1; display: flex; flex-direction: column; }
   .compact-empty { min-height: 70px; }
   .skeleton { min-height: 180px; border-radius: var(--radius-lg); background: linear-gradient(90deg, var(--bg-secondary), var(--bg-hover), var(--bg-secondary)); background-size: 200% 100%; animation: shimmer 1.4s infinite; }

@@ -190,7 +190,11 @@
 {:else if isTaskTimerFinishedWindow}
   <TaskTimerFinishedView />
 {:else}
-  <div class="app-container" class:app-collapsed={uiStore.isCollapsed}>
+  <div
+    class="app-container"
+    class:app-collapsed={uiStore.isCollapsed}
+    class:today-view={uiStore.primaryView === "today"}
+  >
     <CollapseHandle />
 
     {#if !uiStore.isCollapsed}
@@ -263,6 +267,11 @@
 
   .app-container.app-collapsed {
     background-color: transparent;
+  }
+
+  .app-container.today-view {
+    overflow-y: auto;
+    scrollbar-gutter: stable;
   }
 
   .main-content {

@@ -291,3 +291,68 @@
   Graphify reported the same six settings/configuration sources that produce no
   AST nodes; the renamed code and release workflow are present in the refreshed
   graph.
+
+---
+
+## Today Workspace Visual Polish
+
+- Refined the landing-page hierarchy by replacing strong nested borders and
+  badges with low-contrast surfaces, plain metadata, and subtle elevation.
+- Reduced overdue and active-timer emphasis to narrow status accents while
+  retaining clear semantic color and timer state visibility.
+- Simplified task rows, deadline labels, schedule events, empty states, and
+  progress bars; hover and keyboard focus continue to reveal interaction.
+- Preserved the existing responsive grid, docked layout, compact mode, theme
+  variables, actions, and accessible labels.
+
+### Verification
+
+- `npm run check`: 0 errors and 0 warnings.
+- Focused Today Vitest run: 3 files and 9 tests passed.
+- `npm run build`: production frontend build passed; only the existing mixed
+  dynamic/static import warnings were emitted.
+- `git diff --check`: passed (Git reported line-ending normalization notices).
+- `graphify update .`: rebuilt the graph with 1497 nodes and 3255 edges.
+
+### Current Timer Task Switching
+
+- The active timer remains visible on Today with its current task, elapsed or
+  remaining time, and Pause/Resume and Stop controls.
+- Added a Switch task action that opens the standard Projects view through
+  `uiStore.openProjectsView()` without pausing or stopping the current timer.
+- Added an interaction assertion that Projects navigation occurs and the timer
+  stop action is not called.
+- `npm run check`: 0 errors and 0 warnings.
+- Focused Today workspace tests: 4 tests passed.
+- `npm run build`: passed with only the existing mixed-import warnings.
+- `git diff --check`: passed with line-ending normalization notices only.
+- `graphify update .`: rebuilt the graph with 1499 nodes and 3258 edges.
+
+### Today Timer Visibility Regression
+
+- Compared the current landing-page path with commit `0040a7a`; the active
+  timer card was gated behind completion of the independent Today data load.
+- Moved the timer card above that loading branch so an active timer remains
+  visible even while Today tasks and calendar data show skeletons or fail.
+- Added regression coverage for an active timer during initial Today loading,
+  including Switch task, Pause, and Stop controls.
+- `npm run check`: 0 errors and 0 warnings.
+- Focused Today workspace tests: 5 tests passed.
+- `npm run build`: passed with only the existing mixed-import warnings.
+- `git diff --check`: passed with line-ending normalization notices only.
+- `graphify update .`: rebuilt the graph with 1500 nodes and 3259 edges.
+
+### Today Workspace Scrolling
+
+- Replaced the nested Today scroller with a single scroll owner on the
+  `100vh` app shell whenever Today is active.
+- The Today workspace now grows in normal flow, preventing timer, task,
+  schedule, and progress cards from being clipped by the shell's previous
+  `overflow: hidden` boundary.
+- Added a stable scrollbar gutter to avoid width shifts as the landing page
+  grows beyond the window height.
+- `npm run check`: 0 errors and 0 warnings.
+- Focused Today suite: 3 files and 10 tests passed.
+- `npm run build`: passed with only the existing mixed-import warnings.
+- `git diff --check`: passed with line-ending normalization notices only.
+- `graphify update .`: rebuilt the graph with 1501 nodes and 3260 edges.

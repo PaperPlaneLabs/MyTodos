@@ -65,13 +65,14 @@
 </div>
 
 <style>
-  .task-row { width: 100%; display: flex; align-items: center; gap: var(--spacing-xs); padding: var(--spacing-xs); border: 1px solid transparent; border-radius: var(--radius-md); background: var(--bg-primary); color: var(--text-primary); }
-  .task-row:hover { border-color: var(--border); background: var(--bg-hover); transform: translateY(-1px); }
-  .task-row.active-timer { border-color: var(--success); background: var(--success-light); }
-  .task-row.overdue.active-timer { border-color: var(--danger); }
+  .task-row { width: 100%; display: flex; align-items: center; gap: var(--spacing-xs); padding: var(--spacing-xs); border-radius: var(--radius-md); background: transparent; color: var(--text-primary); transition: background var(--transition-fast); }
+  .task-row:hover, .task-row:focus-within { background: var(--bg-hover); }
+  .task-row.active-timer { background: color-mix(in srgb, var(--success-light) 68%, transparent); }
   button { border: 0; cursor: pointer; }
   .task-main { min-width: 0; flex: 1; display: flex; align-items: center; gap: var(--spacing-sm); padding: var(--spacing-xs); background: transparent; color: inherit; text-align: left; }
   .complete-btn, .timer-btn { display: grid; width: 28px; height: 28px; flex: none; place-items: center; border-radius: var(--radius-sm); color: var(--text-tertiary); background: transparent; }
+  .timer-btn { opacity: .62; transition: opacity var(--transition-fast), color var(--transition-fast), background var(--transition-fast); }
+  .task-row:hover .timer-btn, .task-row:focus-within .timer-btn, .timer-btn.active { opacity: 1; }
   .complete-btn { border: 1px solid var(--border); border-radius: 50%; }
   .complete-btn span { opacity: 0; }
   .complete-btn:hover { color: var(--success); border-color: var(--success); background: var(--success-light); }
@@ -81,7 +82,7 @@
   .task-copy { min-width: 0; flex: 1; display: flex; flex-direction: column; }
   .task-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   small, .tracked-time, time { color: var(--text-tertiary); font-size: var(--text-xs); }
-  time { padding: 2px 6px; border-radius: var(--radius-sm); color: var(--accent); background: var(--accent-light); font-weight: 700; }
+  time { color: var(--accent); font-weight: 700; }
   button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   :global(body.compact-mode) .task-row { padding: 2px; }
 </style>

@@ -1,6 +1,7 @@
 <script lang="ts">
   import TimeDisplay from "$lib/components/common/TimeDisplay.svelte";
   import { timerStore } from "$lib/stores/timer.svelte";
+  import { uiStore } from "$lib/stores/ui.svelte";
 
   const progress = $derived(
     timerStore.timerLimit
@@ -39,6 +40,9 @@
       {/if}
     </div>
     <div class="focus-actions">
+      <button type="button" class="btn btn-sm btn-secondary" onclick={() => uiStore.openProjectsView()}>
+        Switch task
+      </button>
       <button type="button" class="btn btn-sm btn-secondary" onclick={toggleTimer}>
         {timerStore.isRunning ? "Pause" : "Resume"}
       </button>
@@ -51,25 +55,28 @@
 
 <style>
   .focus-card {
+    position: relative;
+    overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--spacing-lg);
     padding: var(--spacing-lg);
-    border: 1px solid var(--success);
+    border: 1px solid var(--border-light);
     border-radius: var(--radius-lg);
-    background: linear-gradient(135deg, var(--success-light), var(--bg-secondary));
-    box-shadow: 0 8px 24px var(--success-glow);
+    background: var(--bg-secondary);
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--text-primary) 4%, transparent);
   }
+  .focus-card::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--success); opacity: .75; }
   .focus-copy { min-width: 0; flex: 1; }
   .focus-label { display: flex; align-items: center; gap: var(--spacing-xs); color: var(--text-secondary); font-size: var(--text-xs); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
   .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warning); }
   .status-dot.running { background: var(--success); box-shadow: 0 0 0 4px var(--success-glow); }
-  h3 { margin: var(--spacing-xs) 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 18px; }
-  .focus-clock { display: flex; align-items: baseline; gap: var(--spacing-xs); font-family: var(--font-mono); font-size: 26px; font-weight: 700; }
+  h3 { margin: var(--spacing-xs) 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 17px; letter-spacing: -.01em; }
+  .focus-clock { display: flex; align-items: baseline; gap: var(--spacing-xs); font-family: var(--font-mono); font-size: 24px; font-weight: 650; }
   .focus-clock small { color: var(--text-tertiary); font-family: var(--font-sans); font-size: 10px; text-transform: uppercase; }
-  .focus-progress { max-width: 320px; height: 5px; margin-top: var(--spacing-sm); overflow: hidden; border-radius: 999px; background: var(--bg-tertiary); }
+  .focus-progress { max-width: 320px; height: 3px; margin-top: var(--spacing-sm); overflow: hidden; border-radius: 999px; background: var(--bg-tertiary); }
   .focus-progress span { display: block; height: 100%; border-radius: inherit; background: var(--success); transition: width .3s linear; }
-  .focus-actions { display: flex; gap: var(--spacing-sm); flex: none; }
+  .focus-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--spacing-sm); flex: none; }
   @media (max-width: 520px) { .focus-card { align-items: stretch; flex-direction: column; } .focus-actions button { flex: 1; } }
 </style>

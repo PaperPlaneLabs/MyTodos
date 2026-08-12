@@ -22,6 +22,7 @@ const states = vi.hoisted(() => ({
     windowOrientation: "center",
     showTaskModal: false,
     openTaskModal: vi.fn(),
+    openProjectsView: vi.fn(),
   },
   timerState: {
     active: null as Record<string, unknown> | null,
@@ -68,6 +69,7 @@ beforeEach(() => {
   states.todayState.error = null;
   states.todayState.refresh.mockClear();
   states.uiState.windowOrientation = "center";
+  states.uiState.openProjectsView.mockClear();
   states.timerState.active = null;
   states.timerState.isRunning = false;
   states.timerState.dailyTotal = 0;
@@ -89,7 +91,7 @@ describe("TodayWorkspace", () => {
     expect(screen.getByRole("button", { name: "Add task" })).toBeTruthy();
   });
 
-  it("renders overdue work, an active session, and progress", () => {
+  it("renders overdue work, an active session, and progress", async () => {
     states.todayState.taskSummary = {
       overdue: [{
         id: 7,
@@ -124,6 +126,10 @@ describe("TodayWorkspace", () => {
     expect(screen.getByText("50%")).toBeTruthy();
     expect(screen.getAllByText("All day").length).toBeGreaterThan(0);
     expect(screen.getByText("Timeline")).toBeTruthy();
+
+    await fireEvent.click(screen.getByRole("button", { name: "Switch task" }));
+    expect(states.uiState.openProjectsView).toHaveBeenCalledOnce();
+    expect(states.timerState.stop).not.toHaveBeenCalled();
   });
 
   it("renders loading and retained-snapshot error states with retry", async () => {
@@ -140,6 +146,22 @@ describe("TodayWorkspace", () => {
     expect(screen.getByRole("alert").textContent).toContain("Showing the last available snapshot");
     await fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(states.todayState.refresh).toHaveBeenCalled();
+  });
+
+  it("keeps the active timer visible while Today data is loading", () => {
+    states.todayState.loading = true;
+    states.todayState.date = "";
+    states.timerState.active = { task_id: 12, task_title: "Write release notes" };
+    states.timerState.isRunning = true;
+    states.timerState.elapsed = 90;
+
+    const { container } = render(TodayWorkspace, { props });
+
+    expect(container.querySelector('[aria-busy="true"]')).toBeTruthy();
+    expect(screen.getByText("Write release notes")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Switch task" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Pause" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Stop" })).toBeTruthy();
   });
 
   it("keeps task actions keyboard-addressable in compact mode", async () => {

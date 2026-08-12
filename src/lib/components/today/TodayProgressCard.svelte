@@ -26,13 +26,13 @@
 </section>
 
 <style>
-  .progress-card { padding: var(--spacing-md); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--bg-secondary); }
+  .progress-card { padding: var(--spacing-md); border: 1px solid var(--border-light); border-radius: var(--radius-lg); background: var(--bg-secondary); box-shadow: 0 1px 2px color-mix(in srgb, var(--text-primary) 4%, transparent); }
   .section-heading, .focus-total { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-md); }
   p, h3 { margin: 0; }
   p { color: var(--text-tertiary); font-size: var(--text-xs); text-transform: uppercase; letter-spacing: .06em; }
   h3 { margin-top: 2px; font-size: var(--text-base); }
-  .section-heading > strong { color: var(--accent); font-size: 22px; }
-  .progress-track { height: 7px; margin: var(--spacing-md) 0; overflow: hidden; border-radius: 999px; background: var(--bg-tertiary); }
+  .section-heading > strong { color: var(--text-secondary); font-size: 18px; font-weight: 650; }
+  .progress-track { height: 4px; margin: var(--spacing-md) 0; overflow: hidden; border-radius: 999px; background: var(--bg-tertiary); }
   .progress-track span { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width var(--transition-normal); }
   .focus-total { padding-top: var(--spacing-sm); border-top: 1px solid var(--border-light); color: var(--text-secondary); font-size: var(--text-sm); }
 </style>
