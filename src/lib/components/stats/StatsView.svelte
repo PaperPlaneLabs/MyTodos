@@ -1,7 +1,6 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import { fade, fly } from "svelte/transition";
-    import { uiStore } from "$lib/stores/ui.svelte";
     import { timerStore } from "$lib/stores/timer.svelte";
     import { windowTrackingStore } from "$lib/stores/window-tracking.svelte";
     import { db, type TimeStats, type WindowActivityStats } from "$lib/services/db";
@@ -239,19 +238,6 @@
 
 <div class="stats-view" transition:fade={{ duration: 200 }}>
     <header class="stats-header">
-        <button class="back-btn" onclick={() => uiStore.closeStatsView()}>
-            <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-            >
-                <path d="m15 18-6-6 6-6" />
-            </svg>
-            <span>Back</span>
-        </button>
         <h2>Time Statistics</h2>
     </header>
 
@@ -622,25 +608,6 @@
     .stats-header h2 {
         font-size: 16px;
         font-weight: 600;
-        color: var(--text-primary);
-    }
-
-    .back-btn {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        padding: 6px 12px;
-        border-radius: var(--radius-md);
-        color: var(--text-secondary);
-        background-color: var(--bg-primary);
-        border: 1px solid var(--border);
-        font-size: 13px;
-        font-weight: 500;
-        transition: all var(--transition-fast);
-    }
-
-    .back-btn:hover {
-        background-color: var(--bg-hover);
         color: var(--text-primary);
     }
 

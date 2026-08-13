@@ -1,5 +1,41 @@
 # Task Timer Walkthrough
 
+## Calendar Month Navigation Repair
+
+- Replaced the webview-dependent native month text field with a purpose-built
+  picker showing all twelve months, current-month highlighting, and year arrows.
+- Anchored Month arrow navigation to the first day of the target month, fixing
+  month skips caused by `Date.setMonth()` overflow from dates such as the 31st.
+- Kept Week arrows as exact seven-day moves and left Today behavior unchanged.
+
+### Verification
+
+- Calendar utility tests: 6 passed, including August 31 → September 1, March 31
+  → February 1, and seven-day Week navigation cases.
+- `npm run check`: passed with 0 errors and 0 warnings.
+- `npm run test -- --run`: 12 files and 86 tests passed.
+- `npm run build`: production SvelteKit build passed; existing mixed-import
+  warnings remain informational.
+- `git diff --check`: passed with line-ending normalization notices only.
+- `graphify update .`: rebuilt the project graph with 1,580 nodes and 3,467 edges.
+
+## Primary Navigation Cleanup
+
+- Removed the duplicated Back buttons from Calendar, Time Statistics, and
+  Settings, leaving the persistent Todoz header as the single route to Today.
+- Preserved each view title, Calendar period controls, and all other navigation.
+- Removed the now-unused Statistics `uiStore` import and dead button styles from
+  all three views.
+
+### Verification
+
+- `npm run check`: passed with 0 errors and 0 warnings.
+- `npm run test -- --run`: 12 files and 84 tests passed.
+- `npm run build`: production SvelteKit build passed; existing mixed-import
+  warnings remain informational.
+- `git diff --check`: passed with line-ending normalization notices only.
+- `graphify update .`: rebuilt the project graph with 1,577 nodes and 3,462 edges.
+
 ## Calendar Interaction Refinement
 
 - Limited the persistent bottom `ActiveTimerWidget` to the Projects workspace;

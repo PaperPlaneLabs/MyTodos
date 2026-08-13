@@ -41,6 +41,19 @@ export function getWeekDays(date: Date, weekStart: WeekStart): Date[] {
   });
 }
 
+export function navigateCalendarPeriod(
+  date: Date,
+  viewMode: "month" | "week",
+  direction: -1 | 1,
+): Date {
+  if (viewMode === "month") {
+    return new Date(date.getFullYear(), date.getMonth() + direction, 1);
+  }
+  const next = new Date(date);
+  next.setDate(next.getDate() + direction * 7);
+  return next;
+}
+
 export function timeToMinutes(time: string | null): number | null {
   if (!time) return null;
   const [hours, minutes] = time.split(":").map(Number);

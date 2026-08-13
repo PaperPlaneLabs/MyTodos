@@ -3,6 +3,7 @@ import type { CalendarItem } from "$lib/types/calendar";
 import {
   addDays,
   getWeekStart,
+  navigateCalendarPeriod,
   positionTimedItems,
   taskToCalendarItem,
 } from "$lib/components/calendar/calendar-utils";
@@ -16,6 +17,19 @@ describe("calendar utilities", () => {
 
   it("moves across month boundaries using local dates", () => {
     expect(addDays("2026-01-31", 1)).toBe("2026-02-01");
+  });
+
+  it("navigates months without overflowing dates near month end", () => {
+    const next = navigateCalendarPeriod(new Date(2026, 7, 31), "month", 1);
+    const previous = navigateCalendarPeriod(new Date(2026, 2, 31), "month", -1);
+
+    expect([next.getFullYear(), next.getMonth(), next.getDate()]).toEqual([2026, 8, 1]);
+    expect([previous.getFullYear(), previous.getMonth(), previous.getDate()]).toEqual([2026, 1, 1]);
+  });
+
+  it("keeps Week navigation on seven-day increments", () => {
+    const next = navigateCalendarPeriod(new Date(2026, 7, 31), "week", 1);
+    expect([next.getFullYear(), next.getMonth(), next.getDate()]).toEqual([2026, 8, 7]);
   });
 
   it("normalizes timed tasks with their planned duration", () => {

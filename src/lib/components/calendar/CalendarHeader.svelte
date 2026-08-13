@@ -1,10 +1,11 @@
 <script lang="ts">
   import { calendarStore } from "$lib/stores/calendar.svelte";
   import { uiStore } from "$lib/stores/ui.svelte";
+  import { navigateCalendarPeriod } from "$lib/components/calendar/calendar-utils";
   import type { CalendarSource } from "$lib/types/calendar";
 
   let showJump = $state(false);
-  let jumpMonth = $state("");
+  let pickerYear = $state(new Date().getFullYear());
   let isPortrait = $derived(uiStore.windowOrientation === "left" || uiStore.windowOrientation === "right");
   let weekDays = $derived(calendarStore.generateWeekDays(calendarStore.currentDate));
   let title = $derived.by(() => {
@@ -29,33 +30,31 @@
     { id: "google", label: "Google", short: "G" },
     { id: "time", label: "Actual time", short: "A" },
   ];
+  const months = Array.from({ length: 12 }, (_, index) => ({
+    index,
+    label: new Date(2000, index, 1).toLocaleDateString("en-US", { month: "short" }),
+    fullLabel: new Date(2000, index, 1).toLocaleDateString("en-US", { month: "long" }),
+  }));
 
   function navigate(direction: -1 | 1) {
-    const next = new Date(calendarStore.currentDate);
-    if (calendarStore.viewMode === "month") next.setMonth(next.getMonth() + direction);
-    else next.setDate(next.getDate() + direction * 7);
-    calendarStore.setCurrentDate(next);
+    calendarStore.setCurrentDate(
+      navigateCalendarPeriod(calendarStore.currentDate, calendarStore.viewMode, direction),
+    );
   }
 
   function openJump() {
-    jumpMonth = `${calendarStore.currentDate.getFullYear()}-${String(calendarStore.currentDate.getMonth() + 1).padStart(2, "0")}`;
+    pickerYear = calendarStore.currentDate.getFullYear();
     showJump = true;
   }
 
-  function applyJump() {
-    const [year, month] = jumpMonth.split("-").map(Number);
-    if (year && month) calendarStore.setCurrentDate(new Date(year, month - 1, 1));
+  function selectMonth(month: number) {
+    calendarStore.setCurrentDate(new Date(pickerYear, month, 1));
     showJump = false;
   }
 </script>
 
 <header class="calendar-toolbar">
   <div class="primary-row">
-    <button type="button" class="back-btn" aria-label="Back to projects" onclick={() => uiStore.closeCalendarView()}>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6" /></svg>
-      {#if !isPortrait}<span>Calendar</span>{/if}
-    </button>
-
     <div class="date-navigation">
       <button type="button" class="icon-btn" aria-label="Previous period" onclick={() => navigate(-1)}>‹</button>
       <button type="button" class="date-title" onclick={openJump} aria-haspopup="dialog" aria-expanded={showJump}>{title}<span aria-hidden="true">⌄</span></button>
@@ -64,8 +63,22 @@
       {#if showJump}
         <button type="button" class="backdrop" aria-label="Close date jump" onclick={() => (showJump = false)}></button>
         <div class="jump-popover" role="dialog" aria-label="Jump to month">
-          <label><span>Month</span><input class="input" type="month" bind:value={jumpMonth} /></label>
-          <button type="button" onclick={applyJump}>Go</button>
+          <div class="picker-year">
+            <button type="button" class="year-arrow" aria-label="Previous year" onclick={() => (pickerYear -= 1)}>‹</button>
+            <strong>{pickerYear}</strong>
+            <button type="button" class="year-arrow" aria-label="Next year" onclick={() => (pickerYear += 1)}>›</button>
+          </div>
+          <div class="month-grid" aria-label={`Months in ${pickerYear}`}>
+            {#each months as month}
+              <button
+                type="button"
+                class="month-option"
+                class:active={pickerYear === calendarStore.currentDate.getFullYear() && month.index === calendarStore.currentDate.getMonth()}
+                aria-label={`${month.fullLabel} ${pickerYear}`}
+                onclick={() => selectMonth(month.index)}
+              >{month.label}</button>
+            {/each}
+          </div>
         </div>
       {/if}
     </div>
@@ -101,9 +114,8 @@
   .calendar-toolbar { position:relative; flex:0 0 auto; border-bottom:1px solid var(--border); background:var(--bg-secondary); z-index:30; }
   .primary-row { min-height:56px; display:flex; align-items:center; gap:var(--spacing-md); padding:var(--spacing-sm) var(--spacing-md); }
   button { font:inherit; }
-  .back-btn, .icon-btn, .today-btn, .date-title, .new-event { cursor:pointer; }
-  .back-btn { display:flex; align-items:center; gap:7px; border:0; background:transparent; color:var(--text-secondary); padding:7px 9px; border-radius:var(--radius-md); font-size:13px; font-weight:600; }
-  .back-btn:hover, .icon-btn:hover, .date-title:hover { background:var(--bg-hover); color:var(--text-primary); }
+  .icon-btn, .today-btn, .date-title, .new-event { cursor:pointer; }
+  .icon-btn:hover, .date-title:hover { background:var(--bg-hover); color:var(--text-primary); }
   .date-navigation { position:relative; display:flex; align-items:center; gap:4px; min-width:0; }
   .icon-btn { width:32px; height:32px; border:0; border-radius:50%; background:transparent; color:var(--text-secondary); font-size:24px; line-height:1; }
   .date-title { min-width:190px; max-width:260px; border:0; background:transparent; color:var(--text-primary); padding:7px 9px; border-radius:var(--radius-md); font-size:15px; font-weight:650; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -126,9 +138,15 @@
   .time .source-shape { border-radius:1px; transform:rotate(45deg); }
   .stale-status { margin-left:auto; color:var(--warning); font-size:10px; white-space:nowrap; }
   .backdrop { position:fixed; inset:0; border:0; background:transparent; z-index:40; }
-  .jump-popover { position:absolute; left:70px; top:calc(100% + 8px); display:flex; align-items:flex-end; gap:8px; padding:var(--spacing-md); border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--bg-secondary); box-shadow:0 12px 32px rgba(0,0,0,.22); z-index:41; }
-  .jump-popover label { display:flex; flex-direction:column; gap:5px; color:var(--text-tertiary); font-size:10px; text-transform:uppercase; }
-  .jump-popover button { height:34px; border:1px solid var(--accent); border-radius:var(--radius-md); background:var(--accent); color:var(--accent-contrast); font-weight:600; cursor:pointer; }
+  .jump-popover { position:absolute; left:34px; top:calc(100% + 8px); width:236px; padding:var(--spacing-md); border:1px solid var(--border); border-radius:var(--radius-lg); background:var(--bg-secondary); box-shadow:0 12px 32px rgba(0,0,0,.22); z-index:41; }
+  .picker-year { display:grid; grid-template-columns:34px 1fr 34px; align-items:center; margin-bottom:var(--spacing-sm); }
+  .picker-year strong { color:var(--text-primary); text-align:center; font-size:14px; }
+  .year-arrow { width:32px; height:32px; border:0; border-radius:50%; background:transparent; color:var(--text-secondary); cursor:pointer; font-size:21px; }
+  .year-arrow:hover { background:var(--bg-hover); color:var(--text-primary); }
+  .month-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:5px; }
+  .month-option { height:34px; border:1px solid transparent; border-radius:var(--radius-md); background:var(--bg-primary); color:var(--text-secondary); cursor:pointer; font-size:11px; font-weight:600; }
+  .month-option:hover { border-color:var(--border); background:var(--bg-hover); color:var(--text-primary); }
+  .month-option.active { border-color:var(--accent); background:color-mix(in srgb,var(--accent) 12%,var(--bg-primary)); color:var(--accent); }
   @media (max-width:720px) { .primary-row { gap:5px; padding-inline:var(--spacing-sm); } .date-title { min-width:130px; font-size:13px; } .today-btn { display:none; } .view-toggle button { min-width:34px; } .source-row { padding-inline:var(--spacing-sm); } }
   :global(body.compact-mode) .primary-row { min-height:48px; }
   @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }

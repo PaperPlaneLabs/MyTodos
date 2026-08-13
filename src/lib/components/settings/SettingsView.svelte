@@ -400,24 +400,6 @@
 
 <div class="settings-view" transition:fade={{ duration: 200 }}>
     <header class="settings-header">
-        <button
-            type="button"
-            class="back-btn"
-            onclick={() => uiStore.closeSettingsView()}
-        >
-            <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                aria-hidden="true"
-            >
-                <path d="m15 18-6-6 6-6" />
-            </svg>
-            <span>Back</span>
-        </button>
         <h2>Settings</h2>
     </header>
 
@@ -1164,25 +1146,6 @@
     .settings-header h2 {
         font-size: 16px;
         font-weight: 600;
-        color: var(--text-primary);
-    }
-
-    .back-btn {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        padding: 6px 12px;
-        border-radius: var(--radius-md);
-        color: var(--text-secondary);
-        background-color: var(--bg-primary);
-        border: 1px solid var(--border);
-        font-size: 13px;
-        font-weight: 500;
-        transition: all var(--transition-fast);
-    }
-
-    .back-btn:hover {
-        background-color: var(--bg-hover);
         color: var(--text-primary);
     }
 
