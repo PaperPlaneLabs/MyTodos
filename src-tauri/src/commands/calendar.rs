@@ -1,12 +1,93 @@
 use crate::db::{
-    models::{CalendarEvent, Task},
+    models::{CalendarEvent, Task, TodayTask, TodayTaskSummary},
     DbConnection,
 };
-use crate::error::Result;
+use crate::error::{AppError, Result};
 use crate::google::GoogleCalendarState;
 use crate::services::tasks_service;
 use rusqlite::params;
 use tauri::State;
+
+pub fn get_today_task_summary_impl(
+    conn: &rusqlite::Connection,
+    today_start: &str,
+    tomorrow_start: &str,
+) -> Result<TodayTaskSummary> {
+    if today_start >= tomorrow_start {
+        return Err(AppError::InvalidInput(
+            "today_start must be before tomorrow_start".into(),
+        ));
+    }
+
+    let mut stmt = conn.prepare(
+        "SELECT t.id, t.project_id, t.section_id, t.title, t.description,
+                t.position, t.total_time_seconds, t.deadline, p.name, p.color,
+                t.completed
+         FROM tasks t
+         LEFT JOIN projects p ON p.id = t.project_id
+         WHERE t.is_system = 0
+           AND t.deadline IS NOT NULL
+           AND t.deadline < ?2
+         ORDER BY t.deadline ASC, t.position ASC, t.id ASC",
+    )?;
+
+    let tasks = stmt
+        .query_map(params![today_start, tomorrow_start], |row| {
+            Ok((
+                TodayTask {
+                    id: row.get(0)?,
+                    project_id: row.get(1)?,
+                    section_id: row.get(2)?,
+                    title: row.get(3)?,
+                    description: row.get(4)?,
+                    position: row.get(5)?,
+                    total_time_seconds: row.get(6)?,
+                    deadline: row.get(7)?,
+                    project_name: row.get(8)?,
+                    project_color: row.get(9)?,
+                },
+                row.get::<_, bool>(10)?,
+            ))
+        })?
+        .collect::<std::result::Result<Vec<_>, _>>()?;
+
+    let mut overdue = Vec::new();
+    let mut today = Vec::new();
+    let mut completed_today = 0;
+    let mut total_today = 0;
+
+    for (task, completed) in tasks {
+        if task.deadline.as_str() < today_start {
+            if !completed {
+                overdue.push(task);
+            }
+        } else {
+            total_today += 1;
+            if completed {
+                completed_today += 1;
+            } else {
+                today.push(task);
+            }
+        }
+    }
+
+    Ok(TodayTaskSummary {
+        overdue,
+        today,
+        completed_today,
+        total_today,
+    })
+}
+
+#[tauri::command]
+pub fn get_today_task_summary(
+    db: State<DbConnection>,
+    today_start: String,
+    tomorrow_start: String,
+) -> Result<TodayTaskSummary> {
+    let conn = db.lock();
+    get_today_task_summary_impl(&conn, &today_start, &tomorrow_start)
+}
 
 #[tauri::command]
 pub fn get_tasks_by_deadline_range(

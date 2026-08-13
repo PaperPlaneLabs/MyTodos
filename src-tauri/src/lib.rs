@@ -114,6 +114,7 @@ pub fn run() {
             commands::move_window,
             commands::start_window_drag,
             commands::get_tasks_by_deadline_range,
+            commands::get_today_task_summary,
             commands::update_task_deadline,
             commands::create_calendar_event,
             commands::get_calendar_events_in_range,

@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { uiStore } from "$lib/stores/ui.svelte";
+  import { getTodayDateBoundaries } from "$lib/stores/today-loader";
   import { timerStore } from "$lib/stores/timer.svelte";
   import { db } from "$lib/services/db";
   import TimeDisplay from "$lib/components/common/TimeDisplay.svelte";
@@ -183,7 +184,20 @@
   data-tauri-drag-region
 >
   <div class="header-left">
-    <h1>Todoz</h1>
+    <button
+      type="button"
+      class="brand-btn"
+      class:active={uiStore.primaryView === "today"}
+      onclick={() => uiStore.openTodayView()}
+      aria-label="Open Today workspace"
+      title="Today"
+    >Todoz</button>
+    <button
+      type="button"
+      class="projects-btn"
+      class:active={uiStore.primaryView === "projects"}
+      onclick={() => uiStore.openProjectsView()}
+    >Projects</button>
   </div>
 
   <div class="header-right">
@@ -214,7 +228,12 @@
             type="button"
             role="menuitem"
             onclick={() => {
-              uiStore.openTaskModal();
+              uiStore.openTaskModal({
+                deadline:
+                  uiStore.primaryView === "today"
+                    ? getTodayDateBoundaries().todayStart
+                    : undefined,
+              });
               uiStore.closeQuickAdd();
             }}
             class="menu-item"
@@ -260,7 +279,7 @@
     <button
       type="button"
       class="icon-btn"
-      class:active={uiStore.showCalendarView}
+      class:active={uiStore.primaryView === "calendar"}
       aria-label="Open calendar view"
       onclick={() => uiStore.openCalendarView()}
       title="Calendar"
@@ -271,6 +290,7 @@
     <button
       type="button"
       class="icon-btn"
+      class:active={uiStore.primaryView === "stats"}
       aria-label="Open statistics view"
       onclick={() => uiStore.openStatsView()}
       title="View statistics"
@@ -281,6 +301,7 @@
     <button
       type="button"
       class="icon-btn"
+      class:active={uiStore.primaryView === "settings"}
       aria-label="Open settings view"
       onclick={() => uiStore.openSettingsView()}
       title="Settings"
@@ -341,10 +362,36 @@
     user-select: none;
   }
 
-  .header-left h1 {
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+  }
+
+  .brand-btn,
+  .projects-btn {
+    border: 0;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .brand-btn {
     font-size: 18px;
     font-weight: 700;
     color: var(--accent);
+  }
+
+  .projects-btn {
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-size: var(--text-sm);
+  }
+
+  .projects-btn:hover,
+  .projects-btn.active {
+    color: var(--text-primary);
+    background: var(--bg-hover);
   }
 
   .header-right {

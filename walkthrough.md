@@ -1,5 +1,55 @@
 # Task Timer Walkthrough
 
+## Unified Today Agenda
+
+- Replaced the separate Work Queue and Schedule cards with one Agenda card ordered as All day, Anytime, and Timeline.
+- Added a discriminated agenda item model and pure deterministic sorting that places events before tasks at equal times.
+- Reused Today task rows unchanged and added keyboard-accessible event buttons that select today and open Calendar without mutating the timer or event.
+- Kept overdue work separate, progress task-only, the active timer above loading content, and the existing page-level scrolling behavior.
+
+### Verification
+
+- Focused Today Vitest run: 2 files and 9 tests passed.
+- `npm run check`: 0 errors and 0 warnings.
+- `npm run build`: passed with the existing mixed-import chunk warnings only.
+- `git diff --check`: passed with line-ending normalization notices only.
+- `graphify update .`: rebuilt the code graph with 1505 nodes and 3271 edges.
+
+## Today Workspace
+
+- Added Today as the default top-level workspace while keeping Projects,
+  Calendar, Statistics, and Settings mutually exclusive through one typed view
+  state. Returning to Projects preserves the selected project.
+- Added a parameterized Today summary query that uses explicit local-date
+  boundaries, separates incomplete overdue and current-day work, excludes system
+  tasks, includes project display metadata, and reports daily completion counts.
+- Added a Svelte 5 Today store that concurrently loads tasks, calendar events,
+  and time statistics while rejecting stale successes and failures.
+- Added responsive Today presentation for the active timer, overdue work, today's
+  queue, all-day/timed schedule, task completion progress, and live focused time.
+- Added single-column docked/portrait and two-column centered layouts, compact
+  mode, reduced-motion behavior, keyboard focus states, loading skeletons,
+  retained-snapshot errors, and disconnected-calendar guidance.
+- Reused existing task editing, completion, context menu, and timer behavior.
+  Shared task mutations, Google Calendar sync, timer changes, task-modal edits,
+  window focus, manual refresh, and local midnight now refresh Today.
+
+### Today Verification
+
+- `npm run check`: passed with 0 errors and 0 warnings.
+- `npm run test -- --run`: 76 frontend tests passed, including 14 Today store,
+  scheduling, formatting, responsive-state, active-timer, and action tests.
+- `npm run build`: production SvelteKit build passed; existing dynamic-import
+  chunk warnings remain informational.
+- `cargo fmt --check` and `cargo check`: passed.
+- `cargo test`: 129 Rust tests passed, including 4 Today query tests.
+- `git diff --check`: passed.
+- `graphify update .`: rebuilt the project graph with 1497 nodes and 3255
+  edges; the six reported settings/configuration files are the existing
+  non-code sources that produce no AST nodes.
+
+---
+
 ## Updater Restart Capability
 
 - Added `process:allow-restart` to the desktop capability so the updater's existing `relaunch()` calls can restart the installed application.
@@ -256,3 +306,68 @@
   Graphify reported the same six settings/configuration sources that produce no
   AST nodes; the renamed code and release workflow are present in the refreshed
   graph.
+
+---
+
+## Today Workspace Visual Polish
+
+- Refined the landing-page hierarchy by replacing strong nested borders and
+  badges with low-contrast surfaces, plain metadata, and subtle elevation.
+- Reduced overdue and active-timer emphasis to narrow status accents while
+  retaining clear semantic color and timer state visibility.
+- Simplified task rows, deadline labels, schedule events, empty states, and
+  progress bars; hover and keyboard focus continue to reveal interaction.
+- Preserved the existing responsive grid, docked layout, compact mode, theme
+  variables, actions, and accessible labels.
+
+### Verification
+
+- `npm run check`: 0 errors and 0 warnings.
+- Focused Today Vitest run: 3 files and 9 tests passed.
+- `npm run build`: production frontend build passed; only the existing mixed
+  dynamic/static import warnings were emitted.
+- `git diff --check`: passed (Git reported line-ending normalization notices).
+- `graphify update .`: rebuilt the graph with 1497 nodes and 3255 edges.
+
+### Current Timer Task Switching
+
+- The active timer remains visible on Today with its current task, elapsed or
+  remaining time, and Pause/Resume and Stop controls.
+- Added a Switch task action that opens the standard Projects view through
+  `uiStore.openProjectsView()` without pausing or stopping the current timer.
+- Added an interaction assertion that Projects navigation occurs and the timer
+  stop action is not called.
+- `npm run check`: 0 errors and 0 warnings.
+- Focused Today workspace tests: 4 tests passed.
+- `npm run build`: passed with only the existing mixed-import warnings.
+- `git diff --check`: passed with line-ending normalization notices only.
+- `graphify update .`: rebuilt the graph with 1499 nodes and 3258 edges.
+
+### Today Timer Visibility Regression
+
+- Compared the current landing-page path with commit `0040a7a`; the active
+  timer card was gated behind completion of the independent Today data load.
+- Moved the timer card above that loading branch so an active timer remains
+  visible even while Today tasks and calendar data show skeletons or fail.
+- Added regression coverage for an active timer during initial Today loading,
+  including Switch task, Pause, and Stop controls.
+- `npm run check`: 0 errors and 0 warnings.
+- Focused Today workspace tests: 5 tests passed.
+- `npm run build`: passed with only the existing mixed-import warnings.
+- `git diff --check`: passed with line-ending normalization notices only.
+- `graphify update .`: rebuilt the graph with 1500 nodes and 3259 edges.
+
+### Today Workspace Scrolling
+
+- Replaced the nested Today scroller with a single scroll owner on the
+  `100vh` app shell whenever Today is active.
+- The Today workspace now grows in normal flow, preventing timer, task,
+  schedule, and progress cards from being clipped by the shell's previous
+  `overflow: hidden` boundary.
+- Added a stable scrollbar gutter to avoid width shifts as the landing page
+  grows beyond the window height.
+- `npm run check`: 0 errors and 0 warnings.
+- Focused Today suite: 3 files and 10 tests passed.
+- `npm run build`: passed with only the existing mixed-import warnings.
+- `git diff --check`: passed with line-ending normalization notices only.
+- `graphify update .`: rebuilt the graph with 1501 nodes and 3260 edges.

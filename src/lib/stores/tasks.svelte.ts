@@ -1,5 +1,13 @@
 import { db, type Task } from "$lib/services/db";
 import { calendarStore } from "./calendar.svelte";
+import { todayStore } from "./today.svelte";
+
+async function refreshDateViews(): Promise<void> {
+  await Promise.all([
+    calendarStore.refreshCurrentRange(),
+    todayStore.refresh(),
+  ]);
+}
 
 let tasks = $state<Task[]>([]);
 let currentProjectId = $state<number | null>(null);
@@ -55,7 +63,7 @@ export const taskStore = {
       error = null;
       const task = await db.tasks.create(projectId, sectionId, title, description);
       tasks = [...tasks, task];
-      await calendarStore.refreshCurrentRange();
+      await refreshDateViews();
       return task;
     } catch (e) {
       error = e instanceof Error ? e.message : "Failed to create task";
@@ -76,7 +84,7 @@ export const taskStore = {
       if (completed !== undefined) {
         await db.tasks.reorder(sortedTasks.map(t => t.id));
       }
-      await calendarStore.refreshCurrentRange();
+      await refreshDateViews();
     } catch (e) {
       error = e instanceof Error ? e.message : "Failed to update task";
       console.error("Failed to update task:", e);
@@ -91,7 +99,7 @@ export const taskStore = {
       tasks = tasks.map((t) =>
         t.id === id ? { ...t, deadline } : t
       );
-      await calendarStore.refreshCurrentRange();
+      await refreshDateViews();
     } catch (e) {
       error = e instanceof Error ? e.message : "Failed to update task deadline";
       console.error("Failed to update task deadline:", e);
@@ -104,7 +112,7 @@ export const taskStore = {
       error = null;
       await db.tasks.delete(id);
       tasks = tasks.filter((t) => t.id !== id);
-      await calendarStore.refreshCurrentRange();
+      await refreshDateViews();
     } catch (e) {
       error = e instanceof Error ? e.message : "Failed to delete task";
       console.error("Failed to delete task:", e);
@@ -122,7 +130,7 @@ export const taskStore = {
       const sortedIds = sortedTasks.map(t => t.id);
       await db.tasks.reorder(sortedIds);
 
-      await calendarStore.refreshCurrentRange();
+      await refreshDateViews();
       return newCompleted;
     } catch (e) {
       error = e instanceof Error ? e.message : "Failed to toggle task";
@@ -163,7 +171,7 @@ export const taskStore = {
       error = null;
       await db.tasks.resetTime(id);
       tasks = tasks.map((t) => (t.id === id ? { ...t, total_time_seconds: 0 } : t));
-      await calendarStore.refreshCurrentRange();
+      await refreshDateViews();
     } catch (e) {
       error = e instanceof Error ? e.message : "Failed to reset task time";
       console.error("Failed to reset task time:", e);

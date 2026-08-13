@@ -59,6 +59,26 @@ export interface ActiveTimer {
   timer_expires_at?: number;
 }
 
+export interface TodayTask {
+  id: number;
+  project_id?: number;
+  section_id?: number;
+  title: string;
+  description?: string;
+  position: number;
+  total_time_seconds: number;
+  deadline: string;
+  project_name?: string;
+  project_color?: string;
+}
+
+export interface TodayTaskSummary {
+  overdue: TodayTask[];
+  today: TodayTask[];
+  completed_today: number;
+  total_today: number;
+}
+
 export interface TimedTimerCompletion {
   task_id: number;
   task_title: string;
@@ -221,6 +241,11 @@ export const db = {
     getUnassigned: () => invoke<Task[]>("get_unassigned_tasks"),
     getByDeadlineRange: (startDate: string, endDate: string) =>
       invoke<Task[]>("get_tasks_by_deadline_range", { startDate, endDate }),
+    getTodaySummary: (todayStart: string, tomorrowStart: string) =>
+      invoke<TodayTaskSummary>("get_today_task_summary", {
+        todayStart,
+        tomorrowStart,
+      }),
     create: (projectId: number | null, sectionId: number | null, title: string, description?: string) =>
       invoke<Task>("create_task", { projectId, sectionId, title, description }),
     update: (id: number, title?: string, description?: string, completed?: boolean) =>

@@ -1,4 +1,5 @@
 import { db } from "$lib/services/db";
+import { todayStore } from "$lib/stores/today.svelte";
 
 let connected = $state(false);
 let connecting = $state(false);
@@ -72,6 +73,7 @@ export const googleCalendarStore = {
 
     try {
       const result = await db.googleCalendar.syncAll();
+      await todayStore.refresh();
       lastSyncResult = { synced: result.synced, failed: result.failed };
       if (result.failed > 0) {
         error = `${result.failed} task(s) failed to sync`;
