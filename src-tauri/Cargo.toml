@@ -1,7 +1,7 @@
 [package]
 name = "my-todos"
 default-run = "my-todos"
-version = "0.1.72"
+version = "0.1.73"
 description = "Todoz desktop task and time tracker"
 authors = ["you"]
 edition = "2021"
