@@ -18,6 +18,7 @@ fn task_from_row(row: &Row<'_>) -> rusqlite::Result<Task> {
         total_time_seconds: row.get("total_time_seconds")?,
         deadline: row.get("deadline")?,
         google_event_id: row.get("google_event_id")?,
+        planned_duration_minutes: row.get("planned_duration_minutes")?,
         created_at: row.get("created_at")?,
         updated_at: row.get("updated_at")?,
     })
@@ -78,7 +79,7 @@ pub fn create_task(
 
 pub fn get_task(conn: &Connection, id: i64) -> Result<Task> {
     conn.query_row(
-        "SELECT id, project_id, section_id, title, description, completed, position, total_time_seconds, deadline, google_event_id, created_at, updated_at
+        "SELECT id, project_id, section_id, title, description, completed, position, total_time_seconds, deadline, google_event_id, planned_duration_minutes, created_at, updated_at
          FROM tasks
          WHERE id = ?1 AND is_system = 0",
         [id],
@@ -108,6 +109,36 @@ pub fn set_task_deadline(
     get_task(conn, task_id)
 }
 
+pub fn set_task_schedule(
+    conn: &Connection,
+    task_id: i64,
+    deadline: Option<String>,
+    planned_duration_minutes: Option<i64>,
+) -> Result<Task> {
+    if let Some(duration) = planned_duration_minutes {
+        if !(5..=1440).contains(&duration) {
+            return Err(AppError::InvalidInput(
+                "Planned duration must be between 5 and 1440 minutes".into(),
+            ));
+        }
+    }
+
+    let now = now_timestamp();
+    let rows = conn.execute(
+        "UPDATE tasks
+         SET deadline = ?1, planned_duration_minutes = ?2, updated_at = ?3
+         WHERE id = ?4 AND is_system = 0",
+        params![deadline, planned_duration_minutes, now, task_id],
+    )?;
+    if rows == 0 {
+        return Err(AppError::NotFound(format!(
+            "Task with id {} not found",
+            task_id
+        )));
+    }
+    get_task(conn, task_id)
+}
+
 pub fn set_task_completed(conn: &Connection, task_id: i64, completed: bool) -> Result<Task> {
     let now = now_timestamp();
     let rows = conn.execute(
@@ -131,7 +162,7 @@ pub fn set_task_completed(conn: &Connection, task_id: i64, completed: bool) -> R
 
 pub fn list_due_tasks(conn: &Connection, start_date: &str, end_date: &str) -> Result<Vec<Task>> {
     let mut stmt = conn.prepare(
-        "SELECT id, project_id, section_id, title, description, completed, position, total_time_seconds, deadline, google_event_id, created_at, updated_at
+        "SELECT id, project_id, section_id, title, description, completed, position, total_time_seconds, deadline, google_event_id, planned_duration_minutes, created_at, updated_at
          FROM tasks
          WHERE deadline BETWEEN ?1 AND ?2
            AND deadline IS NOT NULL
@@ -160,7 +191,7 @@ pub fn find_tasks(
     let limit = limit.clamp(1, 50);
     let like_query = format!("%{}%", query);
     let mut stmt = conn.prepare(
-        "SELECT id, project_id, section_id, title, description, completed, position, total_time_seconds, deadline, google_event_id, created_at, updated_at
+        "SELECT id, project_id, section_id, title, description, completed, position, total_time_seconds, deadline, google_event_id, planned_duration_minutes, created_at, updated_at
          FROM tasks
          WHERE is_system = 0
            AND (?1 OR completed = 0)

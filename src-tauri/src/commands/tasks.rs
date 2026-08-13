@@ -9,7 +9,7 @@ use tauri::State;
 pub fn get_tasks_by_project(db: State<DbConnection>, project_id: i64) -> Result<Vec<Task>> {
     let conn = db.lock();
     let mut stmt = conn.prepare(
-        "SELECT id, project_id, section_id, title, description, completed, position, total_time_seconds, deadline, google_event_id, created_at, updated_at
+        "SELECT id, project_id, section_id, title, description, completed, position, total_time_seconds, deadline, google_event_id, planned_duration_minutes, created_at, updated_at
          FROM tasks
          WHERE project_id = ? AND is_system = 0
          ORDER BY position ASC"
@@ -28,8 +28,9 @@ pub fn get_tasks_by_project(db: State<DbConnection>, project_id: i64) -> Result<
                 total_time_seconds: row.get(7)?,
                 deadline: row.get(8)?,
                 google_event_id: row.get(9)?,
-                created_at: row.get(10)?,
-                updated_at: row.get(11)?,
+                planned_duration_minutes: row.get(10)?,
+                created_at: row.get(11)?,
+                updated_at: row.get(12)?,
             })
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -41,7 +42,7 @@ pub fn get_tasks_by_project(db: State<DbConnection>, project_id: i64) -> Result<
 pub fn get_unassigned_tasks(db: State<DbConnection>) -> Result<Vec<Task>> {
     let conn = db.lock();
     let mut stmt = conn.prepare(
-        "SELECT id, project_id, section_id, title, description, completed, position, total_time_seconds, deadline, google_event_id, created_at, updated_at
+        "SELECT id, project_id, section_id, title, description, completed, position, total_time_seconds, deadline, google_event_id, planned_duration_minutes, created_at, updated_at
          FROM tasks
          WHERE project_id IS NULL AND is_system = 0
          ORDER BY position ASC"
@@ -60,8 +61,9 @@ pub fn get_unassigned_tasks(db: State<DbConnection>) -> Result<Vec<Task>> {
                 total_time_seconds: row.get(7)?,
                 deadline: row.get(8)?,
                 google_event_id: row.get(9)?,
-                created_at: row.get(10)?,
-                updated_at: row.get(11)?,
+                planned_duration_minutes: row.get(10)?,
+                created_at: row.get(11)?,
+                updated_at: row.get(12)?,
             })
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;
@@ -73,7 +75,7 @@ pub fn get_unassigned_tasks(db: State<DbConnection>) -> Result<Vec<Task>> {
 pub fn get_tasks_by_section(db: State<DbConnection>, section_id: i64) -> Result<Vec<Task>> {
     let conn = db.lock();
     let mut stmt = conn.prepare(
-        "SELECT id, project_id, section_id, title, description, completed, position, total_time_seconds, deadline, google_event_id, created_at, updated_at
+        "SELECT id, project_id, section_id, title, description, completed, position, total_time_seconds, deadline, google_event_id, planned_duration_minutes, created_at, updated_at
          FROM tasks
          WHERE section_id = ? AND is_system = 0
          ORDER BY position ASC"
@@ -92,8 +94,9 @@ pub fn get_tasks_by_section(db: State<DbConnection>, section_id: i64) -> Result<
                 total_time_seconds: row.get(7)?,
                 deadline: row.get(8)?,
                 google_event_id: row.get(9)?,
-                created_at: row.get(10)?,
-                updated_at: row.get(11)?,
+                planned_duration_minutes: row.get(10)?,
+                created_at: row.get(11)?,
+                updated_at: row.get(12)?,
             })
         })?
         .collect::<std::result::Result<Vec<_>, _>>()?;

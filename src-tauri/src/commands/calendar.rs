@@ -4,7 +4,7 @@ use crate::db::{
 };
 use crate::error::{AppError, Result};
 use crate::google::GoogleCalendarState;
-use crate::services::tasks_service;
+use crate::services::{calendar_service, tasks_service};
 use rusqlite::params;
 use tauri::State;
 
@@ -124,31 +124,52 @@ pub fn update_task_deadline(
 }
 
 #[tauri::command]
+pub fn update_task_schedule(
+    db: State<DbConnection>,
+    google_state: State<GoogleCalendarState>,
+    task_id: i64,
+    deadline: Option<String>,
+    planned_duration_minutes: Option<i64>,
+) -> Result<()> {
+    let conn = db.lock();
+    tasks_service::set_task_schedule(&conn, task_id, deadline, planned_duration_minutes)?;
+    drop(conn);
+
+    let db = db.inner().clone();
+    let google_state = google_state.inner().clone();
+    tauri::async_runtime::spawn(async move {
+        if let Err(error) =
+            crate::google::sync::sync_task_to_calendar(db, &google_state, task_id).await
+        {
+            eprintln!("Failed to sync task schedule to Google Calendar: {}", error);
+        }
+    });
+    Ok(())
+}
+
+#[tauri::command]
 pub fn create_calendar_event(
     db: State<DbConnection>,
-    title: String,
-    description: Option<String>,
-    date: String,
-    is_all_day: bool,
-    color: Option<String>,
+    input: calendar_service::CalendarEventInput,
 ) -> Result<CalendarEvent> {
     let conn = db.lock();
-    let now = chrono::Utc::now().timestamp();
-    conn.execute(
-        "INSERT INTO calendar_events (title, description, date, is_all_day, color, created_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        params![title, description, date, is_all_day as i64, color, now],
-    )?;
+    calendar_service::create_event(&conn, input)
+}
 
-    let id = conn.last_insert_rowid();
-    Ok(CalendarEvent {
-        id,
-        title,
-        description,
-        date,
-        is_all_day,
-        color: color.unwrap_or_default(),
-    })
+#[tauri::command]
+pub fn update_calendar_event(
+    db: State<DbConnection>,
+    event_id: i64,
+    input: calendar_service::CalendarEventInput,
+) -> Result<CalendarEvent> {
+    let conn = db.lock();
+    calendar_service::update_event(&conn, event_id, input)
+}
+
+#[tauri::command]
+pub fn delete_calendar_event(db: State<DbConnection>, event_id: i64) -> Result<()> {
+    let conn = db.lock();
+    calendar_service::delete_event(&conn, event_id)
 }
 
 #[tauri::command]
@@ -158,23 +179,5 @@ pub fn get_calendar_events_in_range(
     end_date: String,
 ) -> Result<Vec<CalendarEvent>> {
     let conn = db.lock();
-    let mut stmt = conn.prepare(
-        "SELECT * FROM calendar_events
-         WHERE date BETWEEN ?1 AND ?2
-         ORDER BY date, is_all_day DESC",
-    )?;
-
-    let events = stmt.query_map([start_date, end_date], |row| {
-        Ok(CalendarEvent {
-            id: row.get(0)?,
-            title: row.get(1)?,
-            description: row.get(2)?,
-            date: row.get(3)?,
-            is_all_day: row.get::<_, i64>(4)? == 1,
-            color: row.get(5)?,
-        })
-    })?;
-
-    let events: std::result::Result<Vec<CalendarEvent>, rusqlite::Error> = events.collect();
-    Ok(events?)
+    calendar_service::list_events(&conn, &start_date, &end_date)
 }

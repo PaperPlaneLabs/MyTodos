@@ -109,6 +109,7 @@
     }
 
     uiStore.initTheme();
+    calendarStore.initPreferences();
     try {
       const savedDockPreference = await db.window.getDockPreference();
       if (isWindowOrientation(savedDockPreference)) {

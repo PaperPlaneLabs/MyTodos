@@ -7,6 +7,7 @@
         type WindowOrientation,
     } from "$lib/stores/ui.svelte";
     import { googleCalendarStore } from "$lib/stores/google-calendar.svelte";
+    import { calendarStore } from "$lib/stores/calendar.svelte";
     import { projectStore } from "$lib/stores/projects.svelte";
     import { timerStore } from "$lib/stores/timer.svelte";
     import { windowTrackingStore } from "$lib/stores/window-tracking.svelte";
@@ -454,6 +455,24 @@
                 >
                     <span class="toggle-knob"></span>
                 </button>
+            </div>
+
+            <div class="setting-item">
+                <div class="setting-info">
+                    <span class="setting-label" id="calendar-week-start-label">Calendar week</span>
+                    <span class="setting-desc">Choose the first day shown in Month and Week</span>
+                </div>
+                <div class="setting-select">
+                    <select
+                        class="input setting-native-select"
+                        aria-labelledby="calendar-week-start-label"
+                        value={calendarStore.weekStart}
+                        onchange={(event) => calendarStore.setWeekStart(event.currentTarget.value as "monday" | "sunday")}
+                    >
+                        <option value="monday">Starts Monday</option>
+                        <option value="sunday">Starts Sunday</option>
+                    </select>
+                </div>
             </div>
 
             <div class="setting-item">

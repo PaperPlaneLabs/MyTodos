@@ -7,7 +7,7 @@
   );
 
   // Generate a generic grid (5 weeks, 7 days)
-  const weeks = Array(5).fill(0);
+  const weeks = Array(6).fill(0);
   const days = Array(7).fill(0);
 </script>
 

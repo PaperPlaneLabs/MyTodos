@@ -1,5 +1,4 @@
 import type { Task } from "$lib/services/db";
-import type { TimeEntryWithTask } from "$lib/types/calendar";
 
 let showProjectModal = $state(false);
 let showTaskModal = $state(false);
@@ -17,7 +16,6 @@ let theme = $state<Theme>("light");
 export type WindowOrientation = "left" | "right" | "center";
 let windowOrientation = $state<WindowOrientation>("center");
 let compactMode = $state(false);
-let calendarSelectedEntry = $state<TimeEntryWithTask | null>(null);
 type TaskModalPayload = number | { taskId?: number; task?: Pick<Task, "id">; deadline?: string };
 
 // Context Menu State
@@ -69,10 +67,6 @@ export const uiStore = {
 
   get windowOrientation() {
     return windowOrientation;
-  },
-
-  get calendarSelectedEntry() {
-    return calendarSelectedEntry;
   },
 
   get theme() {
@@ -143,24 +137,18 @@ export const uiStore = {
 
   closeCalendarView() {
     primaryView = "projects";
-    calendarSelectedEntry = null;
   },
 
   openTodayView() {
     primaryView = "today";
-    calendarSelectedEntry = null;
   },
 
   openProjectsView() {
     primaryView = "projects";
-    calendarSelectedEntry = null;
   },
 
   setPrimaryView(view: PrimaryView) {
     primaryView = view;
-    if (view !== "calendar") {
-      calendarSelectedEntry = null;
-    }
   },
 
   setWindowOrientation(orientation: WindowOrientation) {
@@ -169,10 +157,6 @@ export const uiStore = {
     // We assume there is a command to update this, or the frontend just stores the preference 
     // and the backend reads it or we invoke a command.
     // For now we just update the store.
-  },
-
-  selectCalendarEntry(entry: TimeEntryWithTask | null) {
-    calendarSelectedEntry = entry;
   },
 
   openProjectModal(projectId: number | null = null) {

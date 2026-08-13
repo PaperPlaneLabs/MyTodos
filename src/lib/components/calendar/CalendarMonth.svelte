@@ -11,11 +11,14 @@
   );
 
   let isPortrait = $derived(uiStore.windowOrientation === 'left' || uiStore.windowOrientation === 'right');
+  let weekdayLabels = $derived(
+    calendarStore.generateWeekDays(calendarStore.currentDate).map((day) => day.dayName),
+  );
 </script>
 
 <div class="calendar-month" class:portrait={isPortrait}>
   <div class="weekday-header">
-    {#each ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as day}
+    {#each weekdayLabels as day}
       <span class="weekday">{day}</span>
     {/each}
   </div>
@@ -58,11 +61,13 @@
   .days-grid {
     display: grid;
     grid-template-columns: repeat(7, minmax(0, 1fr));
-    grid-auto-rows: minmax(100px, auto);
+    grid-template-rows: repeat(6, minmax(92px, 1fr));
+    min-height: calc(100% - 31px);
+    border-left: 1px solid var(--border-light);
   }
 
   .portrait .days-grid {
-    grid-auto-rows: minmax(80px, auto);
+    grid-template-rows: repeat(6, minmax(70px, 1fr));
   }
 
   .portrait .weekday {

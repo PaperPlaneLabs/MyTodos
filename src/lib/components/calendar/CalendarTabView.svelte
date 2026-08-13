@@ -1,218 +1,82 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { fade } from "svelte/transition";
+  import CalendarHeader from "$lib/components/calendar/CalendarHeader.svelte";
+  import CalendarInspector from "$lib/components/calendar/CalendarInspector.svelte";
+  import CalendarMonth from "$lib/components/calendar/CalendarMonth.svelte";
+  import CalendarSkeleton from "$lib/components/calendar/CalendarSkeleton.svelte";
+  import CalendarWeek from "$lib/components/calendar/CalendarWeek.svelte";
+  import { db } from "$lib/services/db";
   import { calendarStore } from "$lib/stores/calendar.svelte";
   import { uiStore } from "$lib/stores/ui.svelte";
-  import { db } from "$lib/services/db";
-  import CalendarHeader from "./CalendarHeader.svelte";
-  import CalendarMonth from "./CalendarMonth.svelte";
-  import CalendarWeek from "./CalendarWeek.svelte";
-  import CalendarSkeleton from "./CalendarSkeleton.svelte";
-  import TimeEntryPanel from "./TimeEntryPanel.svelte";
-  import DayTaskList from "./DayTaskList.svelte";
 
   let isInitializing = $state(true);
+  let isPortrait = $derived(uiStore.windowOrientation === "left" || uiStore.windowOrientation === "right");
 
   onMount(async () => {
+    calendarStore.initPreferences();
     try {
       await calendarStore.ensureCurrentRangeLoaded();
       const orientation = await db.window.getOrientation();
-      uiStore.setWindowOrientation(
-        orientation.side as "left" | "right" | "center",
-      );
-    } catch (e) {
-      console.error("Failed to load calendar:", e);
+      if (orientation.side === "left" || orientation.side === "right" || orientation.side === "center") {
+        uiStore.setWindowOrientation(orientation.side);
+      }
+    } catch (error) {
+      console.error("Failed to initialize calendar:", error);
     } finally {
       isInitializing = false;
     }
   });
 </script>
 
-<div class="calendar-tab" transition:fade={{ duration: 200 }}>
-  <header class="calendar-header-panel">
-    <button class="back-btn" onclick={() => uiStore.closeCalendarView()}>
-      <svg
-        width="20"
-        height="20"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-      >
-        <path d="m15 18-6-6 6-6" />
-      </svg>
-      <span>Back</span>
-    </button>
-    <h2>Calendar</h2>
-  </header>
-
-  {#if isInitializing && calendarStore.isLoading}
-    <CalendarSkeleton />
-  {:else}
-    <div
-      class="calendar-body"
-      class:portrait={uiStore.windowOrientation === "left" ||
-        uiStore.windowOrientation === "right"}
-    >
-      <div class="calendar-main">
-        <CalendarHeader />
-
-        <div class="calendar-content slim-scroll">
+<section class="calendar-page" class:portrait={isPortrait} transition:fade={{ duration: 140 }}>
+  <CalendarHeader />
+  <div class="calendar-workspace" class:has-inspector={calendarStore.inspectorOpen || !!calendarStore.editorDraft}>
+    <main class="calendar-canvas">
+      {#if isInitializing && calendarStore.isLoading}
+        <CalendarSkeleton />
+      {:else if calendarStore.error && calendarStore.allItems.length === 0}
+        <div class="calendar-error" role="alert">
+          <h3>Calendar could not load</h3>
+          <p>{calendarStore.error}</p>
+          <button type="button" onclick={() => calendarStore.refreshCurrentRange()}>Try again</button>
+        </div>
+      {:else}
+        {#if calendarStore.error}
+          <div class="retained-error" role="status">Some calendar data could not refresh. Showing the last loaded range.</div>
+        {/if}
+        <div class="view-stage">
           {#key calendarStore.viewMode}
-            <div
-              class="view-transition-wrapper"
-              in:fade={{ duration: 200, delay: 100 }}
-              out:fade={{ duration: 100 }}
-            >
-              {#if calendarStore.viewMode === "month"}
-                <CalendarMonth />
-              {:else}
-                <CalendarWeek />
-              {/if}
+            <div class="view-transition" in:fade={{ duration: 150 }}>
+              {#if calendarStore.viewMode === "month"}<CalendarMonth />{:else}<CalendarWeek />{/if}
             </div>
           {/key}
         </div>
-      </div>
-
-      <div class="day-list-panel">
-        <DayTaskList />
-      </div>
-
-      {#if uiStore.calendarSelectedEntry}
-        <div class="entry-panel-wrapper">
-          <TimeEntryPanel entry={uiStore.calendarSelectedEntry} />
-        </div>
       {/if}
-    </div>
-  {/if}
-</div>
+    </main>
+
+    {#if calendarStore.inspectorOpen || calendarStore.editorDraft}
+      {#if isPortrait}<button type="button" class="sheet-backdrop" aria-label="Close calendar details" onclick={() => { calendarStore.closeEventEditor(); calendarStore.closeInspector(); }}></button>{/if}
+      <div class="inspector-panel" transition:fade={{ duration: 120 }}><CalendarInspector /></div>
+    {/if}
+  </div>
+</section>
 
 <style>
-  .calendar-tab {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    background: var(--bg-primary);
-    overflow: hidden;
-  }
-
-  .calendar-header-panel {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-md);
-    padding: var(--spacing-md);
-    border-bottom: 1px solid var(--border);
-    background: var(--bg-secondary);
-    flex-shrink: 0;
-  }
-
-  .back-btn {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: var(--spacing-sm) var(--spacing-md);
-    border-radius: var(--radius-md);
-    color: var(--text-secondary);
-    font-size: var(--text-sm);
-    font-weight: 500;
-    transition: all var(--transition-fast);
-  }
-
-  .back-btn:hover {
-    background: var(--bg-hover);
-    color: var(--text-primary);
-  }
-
-  .calendar-header-panel h2 {
-    font-size: 18px;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin: 0;
-  }
-
-  .calendar-body {
-    display: flex;
-    flex: 1;
-    overflow: hidden;
-  }
-
-  .calendar-main {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .calendar-content {
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    position: relative;
-  }
-
-  .view-transition-wrapper {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .calendar-content > :global(*) {
-    /* Ensure the children stretch to fill the absolute wrapper */
-    flex: 1;
-  }
-
-  .slim-scroll::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  .slim-scroll::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .slim-scroll::-webkit-scrollbar-thumb {
-    background: var(--border);
-    border-radius: 3px;
-  }
-  .slim-scroll::-webkit-scrollbar-thumb:hover {
-    background: var(--text-tertiary);
-  }
-
-  .calendar-body.portrait {
-    flex-direction: column;
-  }
-
-  .entry-panel-wrapper {
-    width: 320px;
-    flex-shrink: 0;
-    border-left: 1px solid var(--border);
-  }
-
-  .calendar-body.portrait .entry-panel-wrapper {
-    width: 100%;
-    max-height: 40%;
-    border-top: 1px solid var(--border);
-    border-left: none;
-  }
-
-  .day-list-panel {
-    width: 320px;
-    flex-shrink: 0;
-    border-left: 1px solid var(--border);
-    background: var(--bg-secondary);
-  }
-
-  .calendar-body.portrait .day-list-panel {
-    width: 100%;
-    max-height: 40%;
-    border-top: 1px solid var(--border);
-    border-left: none;
-  }
-
-
+  .calendar-page { height:100%; min-height:0; display:flex; flex-direction:column; overflow:hidden; background:var(--bg-primary); }
+  .calendar-workspace { flex:1; min-height:0; display:grid; grid-template-columns:minmax(0,1fr); position:relative; }
+  .calendar-workspace.has-inspector { grid-template-columns:minmax(0,1fr) minmax(280px,330px); }
+  .calendar-canvas { min-width:0; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
+  .view-stage, .view-transition { min-height:0; flex:1; display:flex; flex-direction:column; }
+  .inspector-panel { min-width:0; min-height:0; border-left:1px solid var(--border); overflow:hidden; box-shadow:-6px 0 18px rgba(0,0,0,.05); z-index:20; }
+  .retained-error { flex:0 0 auto; padding:5px 10px; background:var(--warning-light,var(--bg-hover)); color:var(--warning); font-size:10px; text-align:center; }
+  .calendar-error { margin:auto; max-width:360px; padding:var(--spacing-xl); text-align:center; color:var(--text-secondary); }
+  .calendar-error h3 { color:var(--text-primary); }
+  .calendar-error button { border:1px solid var(--accent); border-radius:var(--radius-md); background:var(--accent); color:var(--accent-contrast); padding:7px 12px; cursor:pointer; }
+  .portrait .calendar-workspace.has-inspector { grid-template-columns:minmax(0,1fr); }
+  .portrait .inspector-panel { position:absolute; left:0; right:0; bottom:0; height:min(68%,560px); border-left:0; border-top:1px solid var(--border); border-radius:var(--radius-lg) var(--radius-lg) 0 0; box-shadow:0 -12px 36px rgba(0,0,0,.24); }
+  .sheet-backdrop { position:absolute; inset:0; border:0; background:rgba(0,0,0,.18); z-index:19; }
+  @media (max-width:900px) and (min-width:601px) { .calendar-workspace.has-inspector { grid-template-columns:minmax(0,1fr) 290px; } }
+  @media (max-width:600px) { .calendar-workspace.has-inspector { grid-template-columns:minmax(0,1fr); } .inspector-panel { position:absolute; left:0; right:0; bottom:0; height:min(72%,600px); border-left:0; border-top:1px solid var(--border); z-index:20; } }
+  @media (prefers-reduced-motion:reduce) { :global(.view-transition) { transition:none !important; } }
 </style>

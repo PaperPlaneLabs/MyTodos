@@ -206,7 +206,7 @@ pub fn get_time_entries_with_tasks(
          JOIN tasks t ON te.task_id = t.id
          LEFT JOIN projects p ON t.project_id = p.id
          WHERE t.is_system = 0
-           AND date(te.created_at, 'unixepoch') BETWEEN ? AND ?
+           AND date(COALESCE(te.started_at, te.created_at), 'unixepoch', 'localtime') BETWEEN ? AND ?
          ORDER BY started_at ASC",
     )?;
 

@@ -47,6 +47,7 @@ export function buildTodayAgenda(tasks: TodayTask[], events: CalendarEvent[]): T
 
 export function formatEventTime(event: CalendarEvent): string {
   if (event.is_all_day) return "All day";
+  if (event.start_time && /^\d{2}:\d{2}$/.test(event.start_time)) return event.start_time;
   if (!event.date.includes("T")) return "Scheduled";
   const time = event.date.slice(11, 16);
   return /^\d{2}:\d{2}$/.test(time) ? time : "Scheduled";

@@ -1,5 +1,6 @@
 import { db } from "$lib/services/db";
 import { todayStore } from "$lib/stores/today.svelte";
+import { calendarStore } from "$lib/stores/calendar.svelte";
 
 let connected = $state(false);
 let connecting = $state(false);
@@ -61,6 +62,7 @@ export const googleCalendarStore = {
       connected = false;
       lastSyncResult = null;
       error = null;
+      await calendarStore.refreshCurrentRange();
     } catch (e) {
       error = e instanceof Error ? e.message : String(e);
     }
@@ -73,7 +75,7 @@ export const googleCalendarStore = {
 
     try {
       const result = await db.googleCalendar.syncAll();
-      await todayStore.refresh();
+      await Promise.all([todayStore.refresh(), calendarStore.refreshCurrentRange()]);
       lastSyncResult = { synced: result.synced, failed: result.failed };
       if (result.failed > 0) {
         error = `${result.failed} task(s) failed to sync`;
@@ -97,6 +99,7 @@ export const googleCalendarStore = {
         if (event.payload) {
           connected = true;
           error = null;
+          void calendarStore.refreshCurrentRange();
         } else {
           error = "Authentication failed. Please try again.";
         }

@@ -31,6 +31,7 @@ export interface Task {
   total_time_seconds: number;
   deadline?: string | null;
   google_event_id?: string | null;
+  planned_duration_minutes?: number | null;
   created_at: number;
   updated_at: number;
 }
@@ -183,11 +184,58 @@ export interface TimeStats {
 
 export interface CalendarEvent {
   id: number;
+  series_id?: number;
+  series_start_date?: string;
+  series_end_date?: string;
+  occurrence_key?: string;
   title: string;
   description: string | null;
   date: string;
   is_all_day: boolean;
   color: string;
+  start_date?: string;
+  end_date?: string;
+  start_time?: string | null;
+  end_time?: string | null;
+  start_at?: number | null;
+  end_at?: number | null;
+  timezone?: string | null;
+  recurrence_rule?: string | null;
+}
+
+export interface CalendarEventInput {
+  title: string;
+  description: string | null;
+  is_all_day: boolean;
+  color: string | null;
+  start_date: string;
+  end_date: string;
+  start_time: string | null;
+  end_time: string | null;
+  start_at: number | null;
+  end_at: number | null;
+  timezone: string | null;
+  recurrence_rule: string | null;
+}
+
+export interface GoogleCalendarEvent {
+  external_id: string;
+  title: string;
+  description: string | null;
+  is_all_day: boolean;
+  start_date: string;
+  end_date: string;
+  start_at: number | null;
+  end_at: number | null;
+  timezone: string | null;
+  html_link: string | null;
+  color: string;
+}
+
+export interface GoogleCalendarRange {
+  events: GoogleCalendarEvent[];
+  stale: boolean;
+  error?: string | null;
 }
 
 export interface TimeEntryWithTask {
@@ -252,6 +300,15 @@ export const db = {
       invoke<void>("update_task", { id, title, description, completed }),
     updateDeadline: (id: number, deadline: string | null) =>
       invoke<void>("update_task_deadline", { taskId: id, deadline }),
+    updateSchedule: (
+      id: number,
+      deadline: string | null,
+      plannedDurationMinutes: number | null,
+    ) => invoke<void>("update_task_schedule", {
+      taskId: id,
+      deadline,
+      plannedDurationMinutes,
+    }),
     delete: (id: number) => invoke<void>("delete_task", { id }),
     toggleCompletion: (id: number) => invoke<boolean>("toggle_task_completion", { id }),
     reorder: (taskIds: number[]) => invoke<void>("reorder_tasks", { taskIds }),
@@ -261,6 +318,12 @@ export const db = {
   calendarEvents: {
     getInRange: (startDate: string, endDate: string) =>
       invoke<CalendarEvent[]>("get_calendar_events_in_range", { startDate, endDate }),
+    create: (input: CalendarEventInput) =>
+      invoke<CalendarEvent>("create_calendar_event", { input }),
+    update: (eventId: number, input: CalendarEventInput) =>
+      invoke<CalendarEvent>("update_calendar_event", { eventId, input }),
+    delete: (eventId: number) =>
+      invoke<void>("delete_calendar_event", { eventId }),
   },
 
   timer: {
@@ -288,6 +351,8 @@ export const db = {
     getWithTasks: (startDate: string, endDate: string) =>
       invoke<TimeEntryWithTask[]>("get_time_entries_with_tasks", { startDate, endDate }),
     delete: (id: number) => invoke<void>("delete_time_entry", { id }),
+    update: (id: number, durationSeconds: number, note?: string | null) =>
+      invoke<void>("update_time_entry", { id, durationSeconds, note }),
     getDailyTotalTime: (startTimestamp: number) =>
       invoke<number>("get_daily_total_time", { startTimestamp }),
     getTimeStats: (includeActiveTimer: boolean = true) =>
@@ -362,5 +427,10 @@ export const db = {
       invoke<{ synced: number; failed: number; errors: string[] }>(
         "google_sync_all_tasks"
       ),
+    getEventsInRange: (startDate: string, endDate: string) =>
+      invoke<GoogleCalendarRange>("google_get_events_in_range", {
+        startDate,
+        endDate,
+      }),
   },
 };

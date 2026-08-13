@@ -16,10 +16,10 @@ pub async fn sync_task_to_calendar(
     }
 
     // Read task data from DB
-    let (title, description, deadline, google_event_id) = {
+    let (title, description, deadline, google_event_id, planned_duration_minutes) = {
         let conn = db.lock();
         conn.query_row(
-            "SELECT title, description, deadline, google_event_id FROM tasks WHERE id = ?",
+            "SELECT title, description, deadline, google_event_id, planned_duration_minutes FROM tasks WHERE id = ?",
             [task_id],
             |row| {
                 Ok((
@@ -27,6 +27,7 @@ pub async fn sync_task_to_calendar(
                     row.get::<_, Option<String>>(1)?,
                     row.get::<_, Option<String>>(2)?,
                     row.get::<_, Option<String>>(3)?,
+                    row.get::<_, Option<i64>>(4)?,
                 ))
             },
         )
@@ -38,9 +39,14 @@ pub async fn sync_task_to_calendar(
     match (deadline.as_deref(), google_event_id.as_deref()) {
         // Has deadline, no event yet -> create
         (Some(date), None) => {
-            let event_id =
-                calendar_api::create_event(&access_token, &title, description.as_deref(), date)
-                    .await?;
+            let event_id = calendar_api::create_event(
+                &access_token,
+                &title,
+                description.as_deref(),
+                date,
+                planned_duration_minutes,
+            )
+            .await?;
 
             // Store event ID in DB
             let conn = db.lock();
@@ -58,6 +64,7 @@ pub async fn sync_task_to_calendar(
                 &title,
                 description.as_deref(),
                 date,
+                planned_duration_minutes,
             )
             .await?;
         }

@@ -1,410 +1,141 @@
 <script lang="ts">
   import { calendarStore } from "$lib/stores/calendar.svelte";
   import { uiStore } from "$lib/stores/ui.svelte";
-  import { projectStore } from "$lib/stores/projects.svelte";
-  import type { CalendarDay, CalendarTask } from "$lib/types/calendar";
+  import type { CalendarDay, CalendarItem } from "$lib/types/calendar";
 
   let { day } = $props<{ day: CalendarDay }>();
-
-  const taskLimit = 3;
-  const eventLimit = 1;
-
-  function formatDate(date: Date): string {
-    return calendarStore.dateToString(date);
-  }
-
-  function getDayAriaLabel(date: Date): string {
-    return date.toLocaleDateString("en-US", {
-      weekday: "long",
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    });
-  }
-
-  function handleDayClick() {
-    calendarStore.setSelectedDate(day.date);
-    // Removed automatic modal opening to favor the new task list at the bottom
-  }
-
-  function handleTaskClick(e: Event, task: CalendarTask) {
-    e.stopPropagation();
-    uiStore.openTaskModal({ taskId: task.id, deadline: formatDate(day.date) });
-  }
-
-  function handleAddTaskClick(e: Event) {
-    e.stopPropagation();
-    uiStore.openTaskModal({ deadline: formatDate(day.date) });
-  }
-
-  function handleTaskDragStart(e: DragEvent, task: CalendarTask) {
-    e.dataTransfer?.setData("task-id", String(task.id));
-    e.dataTransfer!.effectAllowed = "move";
-  }
-
-  async function handleDrop(e: DragEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    const taskId = e.dataTransfer?.getData("task-id");
-    if (taskId && day.isCurrentMonth) {
-      const newDeadline = formatDate(day.date);
-      await calendarStore.updateTaskDeadline(parseInt(taskId, 10), newDeadline);
-    }
-  }
-
-  function handleDragOver(e: DragEvent) {
-    e.preventDefault();
-    e.dataTransfer!.dropEffect = "move";
-  }
-
-  function getTaskColor(task: CalendarTask): string {
-    if (task.project_id) {
-      const project = projectStore.projects.find(
-        (p) => p.id === task.project_id,
-      );
-      if (project?.color) {
-        return project.color;
-      }
-    }
-    return "var(--accent)";
-  }
-
-  let totalCount = $derived(day.tasks.length + day.events.length);
   let isDragOver = $state(false);
-  let isWeekend = $derived(
-    day.date.getDay() === 0 || day.date.getDay() === 6
-  );
+  let visibleItems = $derived(day.items.slice(0, 3));
+  let overflowCount = $derived(Math.max(0, day.items.length - visibleItems.length));
 
-  // Unique project colors for the dot indicators (month view)
-  let projectDots = $derived.by(() => {
-    const seen = new Set<string>();
-    const colors: string[] = [];
-    for (const task of day.tasks) {
-      const color = getTaskColor(task);
-      if (!seen.has(color)) {
-        seen.add(color);
-        colors.push(color);
-      }
-    }
-    // Add a generic accent dot for calendar events
-    if (day.events.length > 0 && !seen.has('var(--accent)')) {
-      colors.push('var(--accent)');
-    }
-    return colors;
-  });
-
-  let extraDotCount = $derived(Math.max(0, projectDots.length - 3));
-
-  function handleDragEnter(e: DragEvent) {
-    if (!day.isCurrentMonth) return;
-    e.preventDefault();
-    isDragOver = true;
+  function sourceSymbol(item: CalendarItem): string {
+    if (item.kind === "task") return item.task.completed ? "✓" : "□";
+    if (item.kind === "google_event") return "G";
+    if (item.kind === "time_entry") return "◷";
+    return item.event.recurrence_rule ? "↻" : "●";
   }
 
-  function handleDragLeave(e: DragEvent) {
-    // Only clear if leaving the cell entirely (not entering a child)
-    const target = e.currentTarget as HTMLElement;
-    if (!target.contains(e.relatedTarget as Node)) {
-      isDragOver = false;
-    }
+  function selectDay() {
+    calendarStore.setSelectedDate(day.date);
+  }
+
+  function selectItem(event: MouseEvent, item: CalendarItem) {
+    event.stopPropagation();
+    calendarStore.selectItem(item);
+  }
+
+  function addTask(event: MouseEvent) {
+    event.stopPropagation();
+    uiStore.openTaskModal({ deadline: day.dateKey });
+  }
+
+  function dragStart(event: DragEvent, item: CalendarItem) {
+    if (item.readOnly || item.kind === "time_entry" || (item.kind === "local_event" && !!item.event.recurrence_rule)) return;
+    event.dataTransfer?.setData("calendar-item-key", item.key);
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+  }
+
+  async function drop(event: DragEvent) {
+    event.preventDefault();
+    isDragOver = false;
+    const key = event.dataTransfer?.getData("calendar-item-key");
+    const item = calendarStore.allItems.find((candidate) => candidate.key === key);
+    if (item) await calendarStore.rescheduleItem(item, day.dateKey, null);
   }
 </script>
 
 <div
   class="day-cell"
   class:today={day.isToday}
-  class:other-month={!day.isCurrentMonth}
   class:selected={day.isSelected}
-  class:has-content={totalCount > 0}
+  class:other-month={!day.isCurrentMonth}
+  class:weekend={day.date.getDay() === 0 || day.date.getDay() === 6}
   class:drag-over={isDragOver}
-  class:weekend={isWeekend}
-  ondragover={handleDragOver}
-  ondragenter={handleDragEnter}
-  ondragleave={handleDragLeave}
-  ondrop={(e) => { isDragOver = false; handleDrop(e); }}
-  onclick={handleDayClick}
-  aria-label={getDayAriaLabel(day.date)}
   role="button"
   tabindex="0"
-  onkeydown={(e) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      handleDayClick();
+  aria-label={day.date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+  onclick={selectDay}
+  onkeydown={(event) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      selectDay();
     }
   }}
+  ondragover={(event) => { event.preventDefault(); isDragOver = day.isCurrentMonth; }}
+  ondragleave={(event) => { if (!(event.currentTarget as HTMLElement).contains(event.relatedTarget as Node)) isDragOver = false; }}
+  ondrop={drop}
 >
-  <div class="day-header-row">
-    <span class="day-number" class:today-num={day.isToday}
-      >{day.date.getDate()}</span
-    >
+  <div class="day-heading">
+    <span class="day-number">{day.date.getDate()}</span>
     {#if day.isCurrentMonth}
-      <button
-        type="button"
-        class="add-task-btn"
-        onclick={handleAddTaskClick}
-        aria-label="Add task for this day">+</button
-      >
+      <button type="button" class="add-task" aria-label={`Add task on ${day.dateKey}`} onclick={addTask}>+</button>
     {/if}
   </div>
 
-  {#if totalCount > 0}
-    <div class="day-content">
-      {#if calendarStore.viewMode === "month"}
-        <div class="project-dots">
-          {#each projectDots.slice(0, 3) as color}
-            <span class="project-dot" style="background-color: {color}"></span>
-          {/each}
-          {#if extraDotCount > 0}
-            <span class="dot-overflow">+{extraDotCount}</span>
-          {/if}
-        </div>
-      {:else}
-        {#each day.events.slice(0, eventLimit) as event}
-          <div
-            class="event-chip"
-            style="border-left-color: {event.color || 'var(--accent)'}"
-          >
-            <span class="event-title">{event.title}</span>
-          </div>
-        {/each}
+  <div class="item-stack">
+    {#each visibleItems as item (item.key)}
+      <button
+        type="button"
+        class={`calendar-chip ${item.source}`}
+        class:completed={item.kind === "task" && item.task.completed}
+        draggable={!item.readOnly && item.kind !== "time_entry" && !(item.kind === "local_event" && !!item.event.recurrence_rule)}
+        style={`--item-color:${item.color}`}
+        onclick={(event) => selectItem(event, item)}
+        ondragstart={(event) => dragStart(event, item)}
+        title={`${item.title}${item.startTime ? ` · ${item.startTime}` : ""}`}
+      >
+        <span class="item-symbol" aria-hidden="true">{sourceSymbol(item)}</span>
+        <span class="item-title">{item.title}</span>
+        {#if item.startTime}<span class="item-time">{item.startTime}</span>{/if}
+      </button>
+    {/each}
+    {#if overflowCount > 0}
+      <button type="button" class="more-items" onclick={(event) => { event.stopPropagation(); selectDay(); }}>+{overflowCount} more</button>
+    {/if}
+  </div>
 
-        {#each day.tasks.slice(0, taskLimit) as task}
-          <button
-            type="button"
-            class="task-chip"
-            class:completed={task.completed}
-            draggable="true"
-            ondragstart={(e) => handleTaskDragStart(e, task)}
-            onclick={(e) => handleTaskClick(e, task)}
-            style="--task-color: {getTaskColor(task)}"
-          >
-            {#if task.completed}
-              <span class="check-icon">✓</span>
-            {/if}
-            <span class="task-title">{task.title}</span>
-          </button>
-        {/each}
-
-        {#if day.tasks.length > taskLimit || day.events.length > eventLimit}
-          <span class="more-tasks">
-            +{Math.max(0, day.tasks.length - taskLimit) +
-              Math.max(0, day.events.length - eventLimit)} more
-          </span>
-        {/if}
-      {/if}
+  {#if day.items.length > 0}
+    <div class="compact-dots" aria-hidden="true">
+      {#each day.items.slice(0, 4) as item (item.key)}<span style={`--item-color:${item.color}`}></span>{/each}
+      {#if day.items.length > 4}<small>+{day.items.length - 4}</small>{/if}
     </div>
   {/if}
 </div>
 
 <style>
-  .day-cell {
-    min-height: 100px;
-    min-width: 0; /* Prevents long task contents from expanding grid columns */
-    padding: var(--spacing-xs);
-    border: 1px solid var(--border-light);
-    background: var(--bg-primary);
-    cursor: pointer;
-    transition: all 0.15s;
-    display: flex;
-    flex-direction: column;
+  .day-cell { min-width:0; min-height:104px; display:flex; flex-direction:column; gap:4px; padding:6px; border-right:1px solid var(--border-light); border-bottom:1px solid var(--border-light); background:var(--bg-primary); cursor:pointer; transition:background .12s, box-shadow .12s; }
+  .day-cell:hover { background:var(--bg-hover); }
+  .day-cell.weekend:not(.today) { background:color-mix(in srgb,var(--text-tertiary) 3%,var(--bg-primary)); }
+  .day-cell.other-month { color:var(--text-tertiary); background:var(--bg-secondary); opacity:.62; }
+  .day-cell.today { background:color-mix(in srgb,var(--accent) 5%,var(--bg-primary)); }
+  .day-cell.selected { box-shadow:inset 0 0 0 2px var(--accent); z-index:2; }
+  .day-cell.drag-over { box-shadow:inset 0 0 0 2px var(--accent); background:color-mix(in srgb,var(--accent) 12%,var(--bg-primary)); }
+  .day-heading { min-height:24px; display:flex; align-items:center; justify-content:space-between; }
+  .day-number { width:24px; height:24px; display:grid; place-items:center; border-radius:50%; color:var(--text-secondary); font-size:12px; font-weight:650; }
+  .today .day-number { background:var(--accent); color:var(--accent-contrast); }
+  .add-task { width:22px; height:22px; display:grid; place-items:center; padding:0; border:0; border-radius:50%; background:transparent; color:var(--text-tertiary); cursor:pointer; opacity:0; }
+  .day-cell:hover .add-task, .add-task:focus-visible { opacity:1; }
+  .add-task:hover { background:var(--bg-primary); color:var(--accent); }
+  .item-stack { min-width:0; display:flex; flex-direction:column; gap:3px; }
+  .calendar-chip { min-width:0; height:20px; display:flex; align-items:center; gap:4px; padding:2px 5px; border:0; border-left:3px solid var(--item-color); border-radius:4px; background:color-mix(in srgb,var(--item-color) 9%,var(--bg-primary)); color:var(--text-primary); text-align:left; cursor:pointer; }
+  .calendar-chip:hover { background:color-mix(in srgb,var(--item-color) 17%,var(--bg-primary)); }
+  .calendar-chip.google { border-left-style:dashed; background:transparent; box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--item-color) 28%,transparent); }
+  .calendar-chip.time { opacity:.72; background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--item-color) 10%,transparent) 0 4px,transparent 4px 8px); }
+  .calendar-chip.completed { opacity:.55; }
+  .item-symbol { width:11px; flex:0 0 auto; color:var(--item-color); font-size:9px; text-align:center; }
+  .item-title { min-width:0; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10px; font-weight:550; }
+  .completed .item-title { text-decoration:line-through; }
+  .item-time { flex:0 0 auto; color:var(--text-tertiary); font-size:8px; font-variant-numeric:tabular-nums; }
+  .more-items { align-self:flex-start; border:0; background:transparent; color:var(--text-secondary); padding:1px 4px; font-size:9px; font-weight:650; cursor:pointer; }
+  .compact-dots { display:none; align-items:center; gap:3px; margin:auto 2px 1px; }
+  .compact-dots span { width:6px; height:6px; border-radius:50%; background:var(--item-color); }
+  .compact-dots small { color:var(--text-tertiary); font-size:8px; }
+  @media (max-width:760px) {
+    .day-cell { min-height:76px; padding:4px; }
+    .item-stack { display:none; }
+    .compact-dots { display:flex; }
+    .add-task { display:none; }
   }
-
-  .day-cell:hover {
-    background: var(--bg-hover);
-  }
-
-  .day-cell.today {
-    background: color-mix(in srgb, var(--accent) 6%, transparent);
-    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent);
-  }
-
-  .day-cell.weekend:not(.today) {
-    background: color-mix(in srgb, var(--text-tertiary) 4%, var(--bg-primary));
-  }
-
-  .day-cell.selected {
-    box-shadow: inset 0 0 0 2px var(--accent);
-    background: color-mix(in srgb, var(--accent) 8%, transparent);
-  }
-
-  .day-cell.drag-over {
-    border-color: var(--accent);
-    background: color-mix(in srgb, var(--accent) 12%, transparent);
-    box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent);
-  }
-
-  .day-cell.other-month {
-    opacity: 0.4;
-    background: var(--bg-secondary);
-  }
-
-  .day-cell:not(.other-month):hover {
-    border-color: var(--accent);
-  }
-
-  .day-number {
-    font-size: var(--text-sm);
-    font-weight: 500;
-    color: var(--text-primary);
-    width: 24px;
-    height: 24px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-
-  .day-number.today-num {
-    background: var(--accent);
-    color: var(--accent-contrast);
-    font-weight: 700;
-  }
-
-  .day-header-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: var(--spacing-xs);
-    gap: var(--spacing-xs);
-  }
-
-  .add-task-btn {
-    width: 20px;
-    height: 20px;
-    border-radius: 50%;
-    background: var(--bg-secondary);
-    color: var(--text-secondary);
-    border: 1px solid var(--border);
-    font-size: 14px;
-    line-height: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: all var(--transition-fast);
-    opacity: 0;
-  }
-
-  .day-cell:hover .add-task-btn {
-    opacity: 1;
-  }
-
-  .add-task-btn:hover {
-    background: var(--accent-light);
-    color: var(--accent);
-    border-color: var(--accent);
-  }
-
-  .today .day-number {
-    color: var(--accent);
-    font-weight: 700;
-  }
-
-  .day-content {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    overflow: hidden;
-  }
-
-  .event-chip {
-    font-size: 10px;
-    padding: 2px 4px;
-    border-radius: var(--radius-sm);
-    background: var(--bg-secondary);
-    border-left: 3px solid var(--accent);
-    color: var(--text-primary);
-  }
-
-  .event-title {
-    display: block;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .task-chip {
-    font-size: 11px;
-    padding: 2px 4px;
-    border-radius: var(--radius-sm);
-    color: var(--text-primary);
-    border: 1px solid color-mix(in srgb, var(--task-color) 30%, var(--border));
-    border-left: 3px solid var(--task-color);
-    background: color-mix(in srgb, var(--task-color) 14%, var(--bg-primary));
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    cursor: grab;
-    text-align: left;
-    transition: transform 0.1s;
-  }
-
-  .task-chip:active {
-    cursor: grabbing;
-    transform: scale(0.98);
-  }
-
-  .task-chip.completed {
-    opacity: 0.6;
-    text-decoration: line-through;
-  }
-
-  .task-title {
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .check-icon {
-    flex-shrink: 0;
-    font-size: 10px;
-  }
-
-  .more-tasks {
-    font-size: 11px;
-    color: var(--text-secondary);
-    padding: 2px 4px;
-  }
-
-
-
-  /* Project dot indicators (month view) */
-  .project-dots {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    flex-wrap: wrap;
-    margin-top: 4px;
-  }
-
-  .project-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
-  }
-
-  .dot-overflow {
-    font-size: 10px;
-    font-weight: 600;
-    color: var(--text-tertiary);
-    line-height: 1;
-  }
-
-  @media (max-width: 480px) {
-    .day-cell {
-      min-height: 80px;
-    }
-
-
-
-    .task-chip,
-    .more-tasks {
-      font-size: 10px;
-    }
-  }
+  :global(body.compact-mode) .day-cell { min-height:84px; padding:4px; }
+  :global(body.compact-mode) .calendar-chip { height:17px; }
 </style>

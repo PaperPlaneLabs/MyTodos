@@ -1,5 +1,39 @@
 # Task Timer Walkthrough
 
+## Calendar Redesign
+
+- Rebuilt Calendar around a normalized item model for scheduled tasks, local
+  events, read-only Google events, and an optional tracked-time overlay.
+- Added a consolidated toolbar, persistent source filters, configurable Monday
+  or Sunday week starts, a six-row Month view with readable item labels, and a
+  responsive contextual inspector/editor.
+- Replaced the Week agenda with a 24-hour scheduling grid featuring overlapping
+  event layout, all-day items, the current-time marker, click-to-create,
+  drag-to-reschedule, resize handles, and a focused portrait day layout.
+- Added local all-day/timed event CRUD and daily, weekly, monthly, and yearly
+  recurrence expansion. Recurring edits operate on the whole series in V1.
+- Added Google range import with pagination, SQLite cache fallback, stale-state
+  reporting, and deduplication of Todoz tasks already exported to Google.
+- Preserved timed task scheduling with planned durations and made tracked-time
+  sessions inspectable, editable, and deletable from Calendar.
+- Migrated legacy local events without data loss and corrected calendar-range
+  time-entry queries to use the session start timestamp.
+
+### Calendar Verification
+
+- `npm run check`: passed with 0 errors and 0 warnings.
+- `npm run test -- --run`: 11 files and 82 tests passed, including four new
+  date, week-start, normalization, and overlap-layout tests.
+- `npm run build`: production SvelteKit build passed.
+- `cargo fmt -- --check` and `cargo clippy --all-targets -- -D warnings`: passed.
+- `cargo test`: all Rust suites passed, including six new calendar migration,
+  CRUD, recurrence, range, and planned-duration tests.
+- `git diff --check`: passed; Git reported line-ending normalization notices only.
+- `graphify update .`: rebuilt the project graph with 1,569 nodes and 3,451 edges.
+- Desktop startup reached the Tauri development runtime successfully. A visual
+  capture was unavailable because the saved window state kept the test window
+  hidden, so UI verification is covered by compile, test, and build gates.
+
 ## Unified Today Agenda
 
 - Replaced the separate Work Queue and Schedule cards with one Agenda card ordered as All day, Anytime, and Timeline.

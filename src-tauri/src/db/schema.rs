@@ -171,6 +171,21 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
             created_at INTEGER NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS google_calendar_event_cache (
+            external_id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            description TEXT,
+            is_all_day INTEGER NOT NULL DEFAULT 0,
+            start_date TEXT NOT NULL,
+            end_date TEXT NOT NULL,
+            start_at INTEGER,
+            end_at INTEGER,
+            timezone TEXT,
+            html_link TEXT,
+            color TEXT NOT NULL DEFAULT '#4285f4',
+            updated_at INTEGER NOT NULL
+        );
+
         CREATE INDEX IF NOT EXISTS idx_sections_project ON sections(project_id);
         CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_id);
         CREATE INDEX IF NOT EXISTS idx_tasks_section ON tasks(section_id);
@@ -223,6 +238,38 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
 
     // Migration: Add google_event_id column to tasks if it doesn't exist
     let _ = conn.execute("ALTER TABLE tasks ADD COLUMN google_event_id TEXT", []);
+    let _ = conn.execute(
+        "ALTER TABLE tasks ADD COLUMN planned_duration_minutes INTEGER",
+        [],
+    );
+
+    // Calendar V2 keeps the original `date` column for upgrade compatibility.
+    let _ = conn.execute("ALTER TABLE calendar_events ADD COLUMN start_date TEXT", []);
+    let _ = conn.execute("ALTER TABLE calendar_events ADD COLUMN end_date TEXT", []);
+    let _ = conn.execute("ALTER TABLE calendar_events ADD COLUMN start_time TEXT", []);
+    let _ = conn.execute("ALTER TABLE calendar_events ADD COLUMN end_time TEXT", []);
+    let _ = conn.execute(
+        "ALTER TABLE calendar_events ADD COLUMN start_at INTEGER",
+        [],
+    );
+    let _ = conn.execute("ALTER TABLE calendar_events ADD COLUMN end_at INTEGER", []);
+    let _ = conn.execute("ALTER TABLE calendar_events ADD COLUMN timezone TEXT", []);
+    let _ = conn.execute(
+        "ALTER TABLE calendar_events ADD COLUMN recurrence_rule TEXT",
+        [],
+    );
+    let _ = conn.execute(
+        "ALTER TABLE calendar_events ADD COLUMN updated_at INTEGER",
+        [],
+    );
+    conn.execute(
+        "UPDATE calendar_events
+         SET start_date = COALESCE(start_date, date),
+             end_date = COALESCE(end_date, date(date, '+1 day')),
+             updated_at = COALESCE(updated_at, created_at)
+         WHERE start_date IS NULL OR end_date IS NULL OR updated_at IS NULL",
+        [],
+    )?;
 
     // Migration: Add dock preference persistence for relaunch layout restore
     let _ = conn.execute(
@@ -264,6 +311,14 @@ pub fn initialize_schema(conn: &Connection) -> Result<()> {
     );
     let _ = conn.execute(
         "CREATE INDEX IF NOT EXISTS idx_calendar_events_date ON calendar_events(date)",
+        [],
+    );
+    let _ = conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_calendar_events_start_date ON calendar_events(start_date)",
+        [],
+    );
+    let _ = conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_google_calendar_cache_range ON google_calendar_event_cache(start_date, end_date)",
         [],
     );
     let _ = conn.execute(

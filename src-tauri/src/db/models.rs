@@ -40,6 +40,8 @@ pub struct Task {
     pub deadline: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub google_event_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub planned_duration_minutes: Option<i64>,
     pub created_at: i64,
     pub updated_at: i64,
 }
@@ -140,12 +142,58 @@ pub struct ProjectStats {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CalendarEvent {
     pub id: i64,
+    pub series_id: i64,
+    pub series_start_date: String,
+    pub series_end_date: String,
+    pub occurrence_key: String,
     pub title: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
     pub date: String,
     pub is_all_day: bool,
     pub color: String,
+    pub start_date: String,
+    pub end_date: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_time: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_time: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timezone: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recurrence_rule: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GoogleCalendarEvent {
+    pub external_id: String,
+    pub title: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    pub is_all_day: bool,
+    pub start_date: String,
+    pub end_date: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub start_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub end_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub timezone: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub html_link: Option<String>,
+    pub color: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GoogleCalendarRange {
+    pub events: Vec<GoogleCalendarEvent>,
+    pub stale: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
