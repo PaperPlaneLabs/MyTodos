@@ -6,6 +6,7 @@
   import StatsView from "$lib/components/stats/StatsView.svelte";
   import SettingsView from "$lib/components/settings/SettingsView.svelte";
   import CalendarTabView from "$lib/components/calendar/CalendarTabView.svelte";
+  import { shouldShowBottomTimer } from "$lib/components/calendar/calendar-interaction-policy";
   import ContextMenu from "$lib/components/common/ContextMenu.svelte";
   import UpdateNotification from "$lib/components/common/UpdateNotification.svelte";
   import WhatsNewModal from "$lib/components/common/WhatsNewModal.svelte";
@@ -244,7 +245,7 @@
         </div>
       {/if}
 
-      {#if uiStore.primaryView !== "today"}
+      {#if shouldShowBottomTimer(uiStore.primaryView)}
         <ActiveTimerWidget onStop={handleStopTimer} />
       {/if}
     {/if}

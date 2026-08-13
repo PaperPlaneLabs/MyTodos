@@ -1,6 +1,5 @@
 <script lang="ts">
   import { calendarStore } from "$lib/stores/calendar.svelte";
-  import { uiStore } from "$lib/stores/ui.svelte";
   import type { CalendarDay, CalendarItem } from "$lib/types/calendar";
 
   let { day } = $props<{ day: CalendarDay }>();
@@ -22,11 +21,6 @@
   function selectItem(event: MouseEvent, item: CalendarItem) {
     event.stopPropagation();
     calendarStore.selectItem(item);
-  }
-
-  function addTask(event: MouseEvent) {
-    event.stopPropagation();
-    uiStore.openTaskModal({ deadline: day.dateKey });
   }
 
   function dragStart(event: DragEvent, item: CalendarItem) {
@@ -67,9 +61,6 @@
 >
   <div class="day-heading">
     <span class="day-number">{day.date.getDate()}</span>
-    {#if day.isCurrentMonth}
-      <button type="button" class="add-task" aria-label={`Add task on ${day.dateKey}`} onclick={addTask}>+</button>
-    {/if}
   </div>
 
   <div class="item-stack">
@@ -113,9 +104,6 @@
   .day-heading { min-height:24px; display:flex; align-items:center; justify-content:space-between; }
   .day-number { width:24px; height:24px; display:grid; place-items:center; border-radius:50%; color:var(--text-secondary); font-size:12px; font-weight:650; }
   .today .day-number { background:var(--accent); color:var(--accent-contrast); }
-  .add-task { width:22px; height:22px; display:grid; place-items:center; padding:0; border:0; border-radius:50%; background:transparent; color:var(--text-tertiary); cursor:pointer; opacity:0; }
-  .day-cell:hover .add-task, .add-task:focus-visible { opacity:1; }
-  .add-task:hover { background:var(--bg-primary); color:var(--accent); }
   .item-stack { min-width:0; display:flex; flex-direction:column; gap:3px; }
   .calendar-chip { min-width:0; height:20px; display:flex; align-items:center; gap:4px; padding:2px 5px; border:0; border-left:3px solid var(--item-color); border-radius:4px; background:color-mix(in srgb,var(--item-color) 9%,var(--bg-primary)); color:var(--text-primary); text-align:left; cursor:pointer; }
   .calendar-chip:hover { background:color-mix(in srgb,var(--item-color) 17%,var(--bg-primary)); }
@@ -134,7 +122,6 @@
     .day-cell { min-height:76px; padding:4px; }
     .item-stack { display:none; }
     .compact-dots { display:flex; }
-    .add-task { display:none; }
   }
   :global(body.compact-mode) .day-cell { min-height:84px; padding:4px; }
   :global(body.compact-mode) .calendar-chip { height:17px; }

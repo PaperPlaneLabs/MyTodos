@@ -1,5 +1,29 @@
 # Task Timer Walkthrough
 
+## Calendar Interaction Refinement
+
+- Limited the persistent bottom `ActiveTimerWidget` to the Projects workspace;
+  it no longer consumes space in Calendar, Statistics, or Settings.
+- Changed Week date headers, blank time slots, and keyboard activation to select
+  and inspect a day instead of immediately opening event creation.
+- Removed the hover-only Month-cell plus so task creation has one predictable
+  location after selecting a date.
+- Added a compact sticky “Add to this day” footer beneath the selected day's
+  tasks and events. Its Task and Event actions retain the selected date.
+
+### Verification
+
+- `npm run check`: passed with 0 errors and 0 warnings.
+- `npm run test -- --run`: 12 files and 84 tests passed, including two new
+  navigation/timer visibility and Week-grid interaction policy tests.
+- `npm run build`: production SvelteKit build passed; existing mixed-import
+  chunk warnings remain informational.
+- `git diff --check`: passed with line-ending normalization notices only.
+- `graphify update .`: rebuilt the project graph with 1,575 nodes and 3,461 edges.
+- Tauri/Vite startup passed. The process had no visible top-level window because
+  Todoz retained its hidden window state, so the launched dev processes were
+  stopped after the startup smoke test.
+
 ## Calendar Redesign
 
 - Rebuilt Calendar around a normalized item model for scheduled tasks, local

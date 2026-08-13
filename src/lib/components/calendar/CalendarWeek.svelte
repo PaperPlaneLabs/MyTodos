@@ -8,6 +8,7 @@
     positionTimedItems,
   } from "$lib/components/calendar/calendar-utils";
   import type { CalendarItem } from "$lib/types/calendar";
+  import { shouldSelectWeekGridTarget } from "$lib/components/calendar/calendar-interaction-policy";
 
   const pixelsPerMinute = 0.8;
   const dayHeight = 24 * 60 * pixelsPerMinute;
@@ -59,12 +60,9 @@
     calendarStore.setCurrentDate(date);
   }
 
-  function gridClick(event: MouseEvent, date: Date) {
-    if ((event.target as HTMLElement).closest(".timed-item")) return;
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    const rawMinutes = (event.clientY - rect.top) / pixelsPerMinute;
-    const rounded = Math.max(0, Math.min(23 * 60 + 30, Math.round(rawMinutes / 30) * 30));
-    calendarStore.openNewEvent(dateToKey(date), minutesToTime(rounded));
+  function selectGridDay(event: MouseEvent, date: Date) {
+    if (!shouldSelectWeekGridTarget(event.target as Element | null)) return;
+    calendarStore.setSelectedDate(date);
   }
 
   function dragStart(event: DragEvent, item: CalendarItem) {
@@ -143,9 +141,12 @@
         role="gridcell"
         tabindex="0"
         aria-label={`Schedule for ${day.date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`}
-        onclick={(event) => gridClick(event, day.date)}
+        onclick={(event) => selectGridDay(event, day.date)}
         onkeydown={(event) => {
-          if (event.key === "Enter") calendarStore.openNewEvent(dateToKey(day.date), "09:00");
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            calendarStore.setSelectedDate(day.date);
+          }
         }}
         ondragover={(event) => event.preventDefault()}
         ondrop={(event) => dropOnGrid(event, day.date)}

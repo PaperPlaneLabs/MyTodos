@@ -120,22 +120,31 @@
           {/if}
         {/if}
       {:else if selectedDateKey}
-        <div class="date-actions">
-          <button type="button" class="primary" onclick={() => uiStore.openTaskModal({ deadline: selectedDateKey! })}>+ Task</button>
-          <button type="button" class="secondary" onclick={() => calendarStore.openNewEvent(selectedDateKey!, null)}>+ Event</button>
+        <div class="selected-day-content">
+          {#if dateItems.length === 0}
+            <div class="empty-state"><span aria-hidden="true">○</span><p>No tasks or events scheduled.</p></div>
+          {:else}
+            <div class="day-items">
+              {#each dateItems as item (item.key)}
+                <button type="button" class={`day-item ${item.source}`} onclick={() => calendarStore.selectItem(item)}>
+                  <span class="item-mark" style={`--item-color:${item.color}`}></span>
+                  <span class="item-copy"><strong>{item.title}</strong><small>{formatTime(item)} · {sourceLabel(item)}</small></span>
+                </button>
+              {/each}
+            </div>
+          {/if}
         </div>
-        {#if dateItems.length === 0}
-          <div class="empty-state"><span>Open day</span><p>No tasks or events scheduled.</p></div>
-        {:else}
-          <div class="day-items">
-            {#each dateItems as item (item.key)}
-              <button type="button" class={`day-item ${item.source}`} onclick={() => calendarStore.selectItem(item)}>
-                <span class="item-mark" style={`--item-color:${item.color}`}></span>
-                <span class="item-copy"><strong>{item.title}</strong><small>{formatTime(item)} · {sourceLabel(item)}</small></span>
-              </button>
-            {/each}
+
+        <div class="day-composer" aria-label="Add to selected day">
+          <div class="composer-copy">
+            <strong>Add to this day</strong>
+            <span>The date will be filled in for you.</span>
           </div>
-        {/if}
+          <div class="date-actions">
+            <button type="button" class="primary" onclick={() => uiStore.openTaskModal({ deadline: selectedDateKey! })}>+ Task</button>
+            <button type="button" class="secondary" onclick={() => calendarStore.openNewEvent(selectedDateKey!, null)}>+ Event</button>
+          </div>
+        </div>
       {/if}
       {#if error}<p class="error" role="alert">{error}</p>{/if}
     </div>
@@ -168,6 +177,11 @@
   .full { width:100%; }
   label { display:flex; flex-direction:column; gap:5px; }
   .day-items { display:flex; flex-direction:column; gap:5px; }
+  .selected-day-content { flex:1; display:flex; flex-direction:column; min-height:120px; }
+  .day-composer { position:sticky; bottom:calc(-1 * var(--spacing-lg)); display:flex; flex-direction:column; gap:10px; margin:var(--spacing-sm) calc(-1 * var(--spacing-lg)) calc(-1 * var(--spacing-lg)); padding:var(--spacing-md) var(--spacing-lg); border-top:1px solid var(--border); background:color-mix(in srgb,var(--bg-secondary) 94%,transparent); box-shadow:0 -8px 20px rgba(0,0,0,.06); backdrop-filter:blur(10px); }
+  .composer-copy { display:flex; flex-direction:column; gap:2px; }
+  .composer-copy strong { color:var(--text-primary); font-size:12px; }
+  .composer-copy span { color:var(--text-tertiary); font-size:10px; }
   .day-item { width:100%; display:flex; align-items:center; gap:10px; padding:9px; border:1px solid transparent; border-radius:var(--radius-md); background:var(--bg-primary); color:var(--text-primary); text-align:left; cursor:pointer; }
   .day-item:hover { border-color:var(--border); background:var(--bg-hover); }
   .item-mark { width:4px; height:30px; flex:0 0 auto; border-radius:3px; background:var(--item-color); }
@@ -182,4 +196,5 @@
   .empty-state p { font-size:13px; }
   .error { color:var(--danger); font-size:12px; }
   :global(body.compact-mode) .inspector-content, :global(body.compact-mode) .inspector-header { padding:var(--spacing-md); }
+  :global(body.compact-mode) .day-composer { bottom:calc(-1 * var(--spacing-md)); margin-left:calc(-1 * var(--spacing-md)); margin-right:calc(-1 * var(--spacing-md)); margin-bottom:calc(-1 * var(--spacing-md)); padding:var(--spacing-sm) var(--spacing-md); }
 </style>
