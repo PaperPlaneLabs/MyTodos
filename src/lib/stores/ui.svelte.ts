@@ -2,7 +2,6 @@ import type { Task } from "$lib/services/db";
 
 let showProjectModal = $state(false);
 let showTaskModal = $state(false);
-let showQuickAdd = $state(false);
 export type PrimaryView = "today" | "projects" | "calendar" | "stats" | "settings";
 let primaryView = $state<PrimaryView>("today");
 let isCollapsed = $state(false);
@@ -43,10 +42,6 @@ export const uiStore = {
 
   get newTaskDeadline() {
     return newTaskDeadline;
-  },
-
-  get showQuickAdd() {
-    return showQuickAdd;
   },
 
   get showStatsView() {
@@ -94,14 +89,6 @@ export const uiStore = {
   get contextMenuPos() { return contextMenuPos; },
   get contextMenuType() { return contextMenuType; },
   get contextMenuId() { return contextMenuId; },
-
-  toggleQuickAdd() {
-    showQuickAdd = !showQuickAdd;
-  },
-
-  closeQuickAdd() {
-    showQuickAdd = false;
-  },
 
   setCollapsed(collapsed: boolean) {
     isCollapsed = collapsed;

@@ -1,5 +1,21 @@
 # Task Timer Walkthrough
 
+## Header Quick-Add Removal
+
+- Removed the global Add new plus and its task/project dropdown from the app header.
+- Removed the unreachable quick-add state, Today deadline helper import,
+  transition import, menu identifier, and associated CSS.
+- Preserved `+ New` in Projects and `+ Task` in the selected project's task list.
+
+### Verification
+
+- `npm run check`: passed with 0 errors and 0 warnings.
+- `npm run test -- --run`: 12 files and 86 tests passed.
+- `npm run build`: production SvelteKit build passed; existing mixed-import
+  warnings remain informational.
+- `git diff --check`: passed with line-ending normalization notices only.
+- `graphify update .`: rebuilt the project graph with 1,582 nodes and 3,467 edges.
+
 ## Calendar Month Navigation Repair
 
 - Replaced the webview-dependent native month text field with a purpose-built
