@@ -545,3 +545,15 @@
 - `npm run check`: 0 errors and 0 warnings.
 - `npm run build`: passed; emitted only existing mixed dynamic/static import
   chunking warnings.
+# Collapsible Overdue Preview
+
+- The Today workspace now initially shows the three oldest overdue tasks when more than three exist.
+- A count-aware `Show N more` control expands the full list, changes to `Show less`, and exposes its state through `aria-expanded`.
+- Existing task actions and overdue ordering are unchanged; expansion remains local to the mounted Today view.
+
+### Verification
+
+- `npx vitest run src/lib/components/today/TodayWorkspace.test.ts`: 8 tests passed.
+- `npm run check`: passed with 0 errors and 0 warnings.
+
+---

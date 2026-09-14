@@ -146,6 +146,37 @@ describe("TodayWorkspace", () => {
     expect(states.timerState.stop).not.toHaveBeenCalled();
   });
 
+  it("shows a three-task overdue preview that can be expanded and collapsed", async () => {
+    states.todayState.taskSummary = {
+      overdue: [
+        { id: 1, title: "Oldest task", position: 0, total_time_seconds: 0, deadline: "2026-08-08" },
+        { id: 2, title: "Second task", position: 1, total_time_seconds: 0, deadline: "2026-08-09" },
+        { id: 3, title: "Third task", position: 2, total_time_seconds: 0, deadline: "2026-08-10" },
+        { id: 4, title: "Fourth task", position: 3, total_time_seconds: 0, deadline: "2026-08-11" },
+        { id: 5, title: "Fifth task", position: 4, total_time_seconds: 0, deadline: "2026-08-11" },
+      ],
+      today: [],
+      upcoming: [],
+      completed_today: 0,
+      total_today: 0,
+    };
+
+    render(TodayWorkspace, { props });
+
+    expect(screen.getByText("Oldest task")).toBeTruthy();
+    expect(screen.getByText("Third task")).toBeTruthy();
+    expect(screen.queryByText("Fourth task")).toBeNull();
+    const toggle = screen.getByRole("button", { name: "Show 2 more" });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+
+    await fireEvent.click(toggle);
+    expect(screen.getByText("Fifth task")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Show less" }).getAttribute("aria-expanded")).toBe("true");
+
+    await fireEvent.click(screen.getByRole("button", { name: "Show less" }));
+    expect(screen.queryByText("Fourth task")).toBeNull();
+  });
+
   it("renders loading and retained-snapshot error states with retry", async () => {
     states.todayState.loading = true;
     states.todayState.date = "";

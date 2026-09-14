@@ -26,12 +26,25 @@
 
   let mounted = $state(false);
   let wasTaskModalOpen = false;
+  let overdueExpanded = $state(false);
 
   const isPortrait = $derived(
     uiStore.windowOrientation === "left" || uiStore.windowOrientation === "right",
   );
   const agenda = $derived(buildTodayAgenda(todayStore.taskSummary.today, todayStore.events));
   const upcomingTaskGroups = $derived(groupUpcomingTasks(todayStore.taskSummary.upcoming, todayStore.date));
+  const overduePreviewLimit = 3;
+  const hasHiddenOverdueTasks = $derived(
+    todayStore.taskSummary.overdue.length > overduePreviewLimit,
+  );
+  const visibleOverdueTasks = $derived(
+    overdueExpanded || !hasHiddenOverdueTasks
+      ? todayStore.taskSummary.overdue
+      : todayStore.taskSummary.overdue.slice(0, overduePreviewLimit),
+  );
+  const hiddenOverdueCount = $derived(
+    todayStore.taskSummary.overdue.length - overduePreviewLimit,
+  );
   const remainingCount = $derived(
     todayStore.taskSummary.overdue.length + todayStore.taskSummary.today.length,
   );
@@ -140,8 +153,8 @@
               </div>
               <span class="count danger-count">{todayStore.taskSummary.overdue.length}</span>
             </div>
-            <div class="item-list">
-              {#each todayStore.taskSummary.overdue as task (task.id)}
+            <div id="overdue-task-list" class="item-list">
+              {#each visibleOverdueTasks as task (task.id)}
                 <TodayTaskRow
                   {task}
                   overdue
@@ -152,6 +165,15 @@
                 />
               {/each}
             </div>
+            {#if hasHiddenOverdueTasks}
+              <button
+                type="button"
+                class="overdue-toggle"
+                aria-controls="overdue-task-list"
+                aria-expanded={overdueExpanded}
+                onclick={() => overdueExpanded = !overdueExpanded}
+              >{overdueExpanded ? "Show less" : `Show ${hiddenOverdueCount} more`}</button>
+            {/if}
           </section>
         {/if}
 
@@ -235,6 +257,9 @@
   .count { min-width: 20px; color: var(--text-tertiary); font-size: var(--text-xs); font-weight: 700; text-align: right; }
   .danger-count { color: var(--danger); }
   .item-list { display: flex; flex-direction: column; gap: 2px; }
+  .overdue-toggle { align-self: flex-start; border: 0; border-radius: var(--radius-md); padding: var(--spacing-xs) var(--spacing-sm); color: var(--danger); background: transparent; cursor: pointer; font-size: var(--text-xs); font-weight: 700; }
+  .overdue-toggle:hover { background: var(--danger-light); }
+  .overdue-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   small { color: var(--text-tertiary); font-size: var(--text-xs); }
   .agenda-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--spacing-sm); }
   .agenda-meta, .calendar-notice { color: var(--text-tertiary); font-size: var(--text-xs); }
