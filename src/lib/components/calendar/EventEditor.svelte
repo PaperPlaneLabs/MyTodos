@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
+  import DateTimePicker from "$lib/components/common/DateTimePicker.svelte";
   import { calendarStore } from "$lib/stores/calendar.svelte";
   import type { EventEditorDraft, RecurrenceFrequency } from "$lib/types/calendar";
 
@@ -57,6 +58,13 @@
     };
   }
 
+  function setRequiredDate(
+    update: (date: string) => void,
+    fallback: string,
+  ) {
+    return (date: string | null) => update(date ?? fallback);
+  }
+
   async function submit(event: SubmitEvent) {
     event.preventDefault();
     if (!form.title.trim()) {
@@ -108,11 +116,11 @@
   </label>
 
   <div class="field-grid">
-    <label><span>Starts</span><input class="input" type="date" bind:value={form.startDate} /></label>
+    <label><span>Starts</span><DateTimePicker date={form.startDate} showTime={false} clearable={false} emptyLabel="Choose a start date" fieldLabel="Event start date" triggerAriaLabel="Choose event start date" onDateChange={setRequiredDate((date) => (form.startDate = date), form.startDate)} /></label>
     {#if !form.isAllDay}
       <label><span>Time</span><input class="input" type="time" bind:value={form.startTime} /></label>
     {/if}
-    <label><span>Ends</span><input class="input" type="date" min={form.startDate} bind:value={form.endDate} /></label>
+    <label><span>Ends</span><DateTimePicker date={form.endDate} minDate={form.startDate} showTime={false} clearable={false} emptyLabel="Choose an end date" fieldLabel="Event end date" triggerAriaLabel="Choose event end date" onDateChange={setRequiredDate((date) => (form.endDate = date), form.endDate)} /></label>
     {#if !form.isAllDay}
       <label><span>Time</span><input class="input" type="time" bind:value={form.endTime} /></label>
     {/if}
@@ -147,7 +155,7 @@
           <option value="count">Ends after count</option>
         </select>
         {#if recurrenceEnd === "date"}
-          <input class="input" type="date" min={form.startDate} bind:value={form.recurrence.until} />
+          <DateTimePicker date={form.recurrence.until} minDate={form.startDate} showTime={false} clearable={false} emptyLabel="Choose a recurrence end date" fieldLabel="Recurrence end date" triggerAriaLabel="Choose recurrence end date" onDateChange={setRequiredDate((date) => { if (form.recurrence) form.recurrence = { ...form.recurrence, until: date }; }, form.endDate)} />
         {:else if recurrenceEnd === "count"}
           <input class="input" type="number" min="1" max="999" bind:value={form.recurrence.count} aria-label="Occurrence count" />
         {/if}

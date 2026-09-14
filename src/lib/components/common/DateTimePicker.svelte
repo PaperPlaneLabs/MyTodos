@@ -7,12 +7,24 @@
     date = $bindable(null),
     time = $bindable(""),
     disabled = false,
+    showTime = true,
+    clearable = true,
+    minDate = null,
+    emptyLabel = "No deadline",
+    fieldLabel = "Deadline",
     triggerAriaLabel = "Choose a deadline date and time",
+    onDateChange,
   } = $props<{
     date?: string | null;
     time?: string;
     disabled?: boolean;
+    showTime?: boolean;
+    clearable?: boolean;
+    minDate?: string | null;
+    emptyLabel?: string;
+    fieldLabel?: string;
     triggerAriaLabel?: string;
+    onDateChange?: (date: string | null) => void;
   }>();
 
   let showPicker = $state(false);
@@ -97,7 +109,7 @@
 
   // Helper to format the displayed trigger text
   let displayString = $derived.by(() => {
-    if (!date) return "No deadline";
+    if (!date) return emptyLabel;
     const d = new Date(date + "T00:00:00");
     const dStr = d.toLocaleDateString("en-US", {
       month: "short",
@@ -105,7 +117,7 @@
       year: "numeric"
     });
     
-    if (time) {
+    if (showTime && time) {
       // Just visually formatting HH:MM to 12h or keep as is.
       // Easiest is to parse dummy date
       const fake = new Date(`2000-01-01T${time}`);
@@ -225,13 +237,16 @@
   }
 
   function selectDate(dateStr: string) {
+    if (minDate && dateStr < minDate) return;
     date = dateStr;
-    // Keep picker open so user can adjust time if they want
+    onDateChange?.(date);
+    // Keep picker open so a date-and-time field can adjust its time.
   }
 
   function handleClear() {
     date = null;
     time = "";
+    onDateChange?.(date);
     closePicker();
   }
 
@@ -259,7 +274,7 @@
     class="picker-trigger input" 
     class:has-value={!!date}
     {disabled}
-    aria-label={date ? `Deadline: ${displayString}` : triggerAriaLabel}
+    aria-label={date ? `${fieldLabel}: ${displayString}` : triggerAriaLabel}
     aria-controls={pickerPopoverId}
     aria-expanded={showPicker}
     aria-haspopup="dialog"
@@ -312,6 +327,7 @@
         {#each calendarDays as d}
           {@const isSelected = date === d.dateStr}
           {@const isToday = new Date().toLocaleDateString('en-CA') === d.dateStr}
+          {@const unavailable = !!minDate && d.dateStr < minDate}
           
           <button 
             type="button"
@@ -320,8 +336,10 @@
             class:other-month={!d.isCurrentMonth}
             class:selected={isSelected}
             class:today={isToday}
+            class:unavailable
             aria-label={formatDateAriaLabel(d.dateStr)}
             aria-pressed={isSelected}
+            disabled={unavailable}
             onclick={() => selectDate(d.dateStr)}
           >
             <div class="day-number">{d.num}</div>
@@ -329,9 +347,11 @@
         {/each}
       </div>
 
-      <!-- Time Input & Actions -->
-      <div class="popover-footer">
-        <div class="custom-time-section" class:disabled={!date}>
+      <!-- Optional Time Input & Actions -->
+      {#if showTime || clearable}
+        <div class="popover-footer">
+          {#if showTime}
+            <div class="custom-time-section" class:disabled={!date}>
           <span class="time-icon" aria-hidden="true">⏱</span>
           <div class="time-inputs box-input">
             <input 
@@ -366,12 +386,16 @@
           >
             {customPeriod}
           </button>
-        </div>
+            </div>
+          {/if}
         
-        <button type="button" class="btn btn-ghost btn-sm clear-btn" onclick={handleClear}>
-          Clear
-        </button>
-      </div>
+          {#if clearable}
+            <button type="button" class="btn btn-ghost btn-sm clear-btn" onclick={handleClear}>
+              Clear
+            </button>
+          {/if}
+        </div>
+      {/if}
     </div>
   {/if}
 </div>
@@ -538,6 +562,9 @@
     background: var(--accent-contrast);
   }
 
+  .day-btn.unavailable { cursor: not-allowed; opacity: .35; }
+  .day-btn.unavailable:hover { background: transparent; }
+
   /* Custom Time Input & Footer */
   .popover-footer {
     display: flex;
@@ -546,6 +573,8 @@
     padding-top: var(--spacing-md);
     border-top: 1px solid var(--border-light);
   }
+
+  .popover-footer:has(.clear-btn):not(:has(.custom-time-section)) { justify-content: flex-end; }
 
   .custom-time-section {
     display: flex;

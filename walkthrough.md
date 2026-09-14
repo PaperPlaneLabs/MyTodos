@@ -504,3 +504,24 @@
 - `cargo check`: passed.
 - `git diff --check`: passed; Git emitted only existing line-ending notices.
 - `graphify update .`: rebuilt the code graph with 1626 nodes and 3543 edges.
+
+---
+
+## Unified Date Picker
+
+- Generalized `DateTimePicker` for date-only fields as well as optional
+  date-and-time deadlines. It now supports clearability, minimum-date guards,
+  configurable accessible labels, and a typed date-change callback.
+- Replaced Calendar event start, end, and recurrence-end native date inputs
+  with the shared picker. End and recurrence dates cannot be selected before
+  the event start date.
+- Kept the Calendar toolbar's month jump as navigation, since it changes the
+  displayed calendar period rather than editing a date field.
+
+### Verification
+
+- Focused date-picker/Calendar Vitest run: 3 files and 8 tests passed.
+- `npm run check`: 0 errors and 0 warnings.
+- `npm run build`: passed; emitted only existing mixed dynamic/static import
+  chunking warnings.
+- `graphify update .`: rebuilt the code graph with 1631 nodes and 3548 edges.
