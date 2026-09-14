@@ -25,7 +25,7 @@ fn groups_incomplete_tasks_using_explicit_local_date_boundaries() {
     set_deadline(&db, today_id, "2026-08-12T15:30:00");
     set_deadline(&db, tomorrow_id, "2026-08-13");
 
-    let summary = get_today_task_summary_impl(&db.lock(), "2026-08-12", "2026-08-13")
+    let summary = get_today_task_summary_impl(&db.lock(), "2026-08-12", "2026-08-13", "2026-08-19")
         .expect("today summary should load");
 
     assert_eq!(summary.overdue.len(), 1);
@@ -34,12 +34,14 @@ fn groups_incomplete_tasks_using_explicit_local_date_boundaries() {
     assert_eq!(summary.today[0].id, today_id);
     assert_eq!(summary.today[0].project_name.as_deref(), Some("Launch"));
     assert_eq!(summary.today[0].project_color.as_deref(), Some("#6366f1"));
+    assert_eq!(summary.upcoming.len(), 1);
+    assert_eq!(summary.upcoming[0].id, tomorrow_id);
     assert_eq!(summary.completed_today, 0);
     assert_eq!(summary.total_today, 1);
 }
 
 #[test]
-fn excludes_completed_system_and_future_tasks() {
+fn excludes_completed_system_and_tasks_outside_the_rolling_window() {
     let db = setup_test_db();
     let completed_id = create_test_task(&db, None, None, "Completed");
     let future_id = create_test_task(&db, None, None, "Future");
@@ -52,7 +54,7 @@ fn excludes_completed_system_and_future_tasks() {
         )
         .unwrap();
         conn.execute(
-            "UPDATE tasks SET deadline = '2026-08-14' WHERE id = ?1",
+            "UPDATE tasks SET deadline = '2026-08-19' WHERE id = ?1",
             [future_id],
         )
         .unwrap();
@@ -64,10 +66,12 @@ fn excludes_completed_system_and_future_tasks() {
         .unwrap();
     }
 
-    let summary = get_today_task_summary_impl(&db.lock(), "2026-08-12", "2026-08-13").unwrap();
+    let summary =
+        get_today_task_summary_impl(&db.lock(), "2026-08-12", "2026-08-13", "2026-08-19").unwrap();
 
     assert!(summary.overdue.is_empty());
     assert!(summary.today.is_empty());
+    assert!(summary.upcoming.is_empty());
     assert_eq!(summary.completed_today, 1);
     assert_eq!(summary.total_today, 1);
 }
@@ -98,7 +102,8 @@ fn orders_each_group_by_deadline_then_position_then_id() {
         .unwrap();
     }
 
-    let summary = get_today_task_summary_impl(&db.lock(), "2026-08-12", "2026-08-13").unwrap();
+    let summary =
+        get_today_task_summary_impl(&db.lock(), "2026-08-12", "2026-08-13", "2026-08-19").unwrap();
 
     let ids: Vec<i64> = summary.today.into_iter().map(|task| task.id).collect();
     assert_eq!(ids, vec![earlier_first, earlier_second, later]);
@@ -108,6 +113,40 @@ fn orders_each_group_by_deadline_then_position_then_id() {
 fn rejects_reversed_or_equal_boundaries() {
     let db = setup_test_db();
 
-    assert!(get_today_task_summary_impl(&db.lock(), "2026-08-13", "2026-08-12",).is_err());
-    assert!(get_today_task_summary_impl(&db.lock(), "2026-08-12", "2026-08-12",).is_err());
+    assert!(
+        get_today_task_summary_impl(&db.lock(), "2026-08-13", "2026-08-12", "2026-08-19").is_err()
+    );
+    assert!(
+        get_today_task_summary_impl(&db.lock(), "2026-08-12", "2026-08-12", "2026-08-19").is_err()
+    );
+    assert!(
+        get_today_task_summary_impl(&db.lock(), "2026-08-12", "2026-08-13", "2026-08-12").is_err()
+    );
+}
+
+#[test]
+fn keeps_only_incomplete_tasks_inside_the_rolling_seven_day_window() {
+    let db = setup_test_db();
+    let tomorrow_id = create_test_task(&db, None, None, "Tomorrow");
+    let final_day_id = create_test_task(&db, None, None, "Final day");
+    let boundary_id = create_test_task(&db, None, None, "Outside window");
+    let completed_id = create_test_task(&db, None, None, "Completed future");
+
+    set_deadline(&db, tomorrow_id, "2026-08-13");
+    set_deadline(&db, final_day_id, "2026-08-18T23:59:59");
+    set_deadline(&db, boundary_id, "2026-08-19");
+    {
+        let conn = db.lock();
+        conn.execute(
+            "UPDATE tasks SET deadline = '2026-08-14', completed = 1 WHERE id = ?1",
+            [completed_id],
+        )
+        .unwrap();
+    }
+
+    let summary =
+        get_today_task_summary_impl(&db.lock(), "2026-08-12", "2026-08-13", "2026-08-19").unwrap();
+    let ids: Vec<i64> = summary.upcoming.into_iter().map(|task| task.id).collect();
+
+    assert_eq!(ids, vec![tomorrow_id, final_day_id]);
 }

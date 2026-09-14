@@ -8,6 +8,7 @@ const states = vi.hoisted(() => ({
     taskSummary: {
       overdue: [] as Array<Record<string, unknown>>,
       today: [] as Array<Record<string, unknown>>,
+      upcoming: [] as Array<Record<string, unknown>>,
       completed_today: 0,
       total_today: 0,
     },
@@ -63,6 +64,7 @@ beforeEach(() => {
   states.todayState.taskSummary = {
     overdue: [],
     today: [],
+    upcoming: [],
     completed_today: 0,
     total_today: 0,
   };
@@ -109,6 +111,7 @@ describe("TodayWorkspace", () => {
         project_color: "#6366f1",
       }],
       today: [],
+      upcoming: [],
       completed_today: 2,
       total_today: 4,
     };
@@ -189,6 +192,7 @@ describe("TodayWorkspace", () => {
         project_name: "Todoz",
         project_color: "#6366f1",
       }],
+      upcoming: [],
       completed_today: 0,
       total_today: 1,
     };
@@ -202,5 +206,26 @@ describe("TodayWorkspace", () => {
     await fireEvent.click(timer);
     expect(props.onCompleteTask).toHaveBeenCalledWith(8);
     expect(props.onToggleTimer).toHaveBeenCalledWith(8);
+  });
+
+  it("shows incomplete tasks due in the rolling seven-day window by deadline date", () => {
+    states.todayState.taskSummary = {
+      overdue: [],
+      today: [],
+      upcoming: [
+        { id: 9, title: "Plan sprint", position: 0, total_time_seconds: 0, deadline: "2026-08-13" },
+        { id: 10, title: "Send report", position: 0, total_time_seconds: 0, deadline: "2026-08-16T15:00:00" },
+      ],
+      completed_today: 0,
+      total_today: 0,
+    };
+
+    render(TodayWorkspace, { props });
+
+    expect(screen.getByText("Next 7 days")).toBeTruthy();
+    expect(screen.getByText("Tomorrow")).toBeTruthy();
+    expect(screen.getByText("Sunday, Aug 16")).toBeTruthy();
+    expect(screen.getByText("Plan sprint")).toBeTruthy();
+    expect(screen.getByText("Send report")).toBeTruthy();
   });
 });

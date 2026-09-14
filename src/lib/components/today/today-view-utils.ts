@@ -10,6 +10,12 @@ export interface TodayAgenda {
   timeline: TodayAgendaItem[];
 }
 
+export interface UpcomingTaskGroup {
+  date: string;
+  label: string;
+  tasks: TodayTask[];
+}
+
 export function getTodayProgress(completed: number, total: number): number {
   if (total <= 0) return 0;
   return Math.min(100, Math.round((Math.max(0, completed) / total) * 100));
@@ -43,6 +49,45 @@ export function buildTodayAgenda(tasks: TodayTask[], events: CalendarEvent[]): T
     anytime: taskItems.filter((item) => item.time === null).sort(compareAgendaItems),
     timeline: [...taskItems.filter((item) => item.time !== null), ...eventItems.filter((item) => !item.isAllDay)].sort(compareAgendaItems),
   };
+}
+
+function formatUpcomingDateLabel(date: string, today: string): string {
+  if (date === today) return "Today";
+
+  const tomorrow = new Date(`${today}T12:00:00`);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowKey = [
+    tomorrow.getFullYear(),
+    String(tomorrow.getMonth() + 1).padStart(2, "0"),
+    String(tomorrow.getDate()).padStart(2, "0"),
+  ].join("-");
+  if (date === tomorrowKey) return "Tomorrow";
+
+  return new Date(`${date}T12:00:00`).toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+export function groupUpcomingTasks(tasks: TodayTask[], today: string): UpcomingTaskGroup[] {
+  const groups = new Map<string, TodayTask[]>();
+
+  for (const task of tasks) {
+    const date = task.deadline.slice(0, 10);
+    const tasksForDate = groups.get(date);
+    if (tasksForDate) {
+      tasksForDate.push(task);
+    } else {
+      groups.set(date, [task]);
+    }
+  }
+
+  return [...groups.entries()].map(([date, groupedTasks]) => ({
+    date,
+    label: formatUpcomingDateLabel(date, today),
+    tasks: groupedTasks,
+  }));
 }
 
 export function formatEventTime(event: CalendarEvent): string {

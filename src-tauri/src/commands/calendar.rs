@@ -12,10 +12,11 @@ pub fn get_today_task_summary_impl(
     conn: &rusqlite::Connection,
     today_start: &str,
     tomorrow_start: &str,
+    week_end: &str,
 ) -> Result<TodayTaskSummary> {
-    if today_start >= tomorrow_start {
+    if today_start >= tomorrow_start || tomorrow_start > week_end {
         return Err(AppError::InvalidInput(
-            "today_start must be before tomorrow_start".into(),
+            "today_start must be before tomorrow_start, which must not be after week_end".into(),
         ));
     }
 
@@ -32,7 +33,7 @@ pub fn get_today_task_summary_impl(
     )?;
 
     let tasks = stmt
-        .query_map(params![today_start, tomorrow_start], |row| {
+        .query_map(params![today_start, week_end], |row| {
             Ok((
                 TodayTask {
                     id: row.get(0)?,
@@ -53,6 +54,7 @@ pub fn get_today_task_summary_impl(
 
     let mut overdue = Vec::new();
     let mut today = Vec::new();
+    let mut upcoming = Vec::new();
     let mut completed_today = 0;
     let mut total_today = 0;
 
@@ -61,19 +63,22 @@ pub fn get_today_task_summary_impl(
             if !completed {
                 overdue.push(task);
             }
-        } else {
+        } else if task.deadline.as_str() < tomorrow_start {
             total_today += 1;
             if completed {
                 completed_today += 1;
             } else {
                 today.push(task);
             }
+        } else if !completed {
+            upcoming.push(task);
         }
     }
 
     Ok(TodayTaskSummary {
         overdue,
         today,
+        upcoming,
         completed_today,
         total_today,
     })
@@ -84,9 +89,10 @@ pub fn get_today_task_summary(
     db: State<DbConnection>,
     today_start: String,
     tomorrow_start: String,
+    week_end: String,
 ) -> Result<TodayTaskSummary> {
     let conn = db.lock();
-    get_today_task_summary_impl(&conn, &today_start, &tomorrow_start)
+    get_today_task_summary_impl(&conn, &today_start, &tomorrow_start, &week_end)
 }
 
 #[tauri::command]

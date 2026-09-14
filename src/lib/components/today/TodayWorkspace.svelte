@@ -12,7 +12,7 @@
   import TodayProgressCard from "./TodayProgressCard.svelte";
   import TodayTaskRow from "./TodayTaskRow.svelte";
   import { scheduleLocalMidnightRefresh } from "./today-refresh";
-  import { buildTodayAgenda } from "./today-view-utils";
+  import { buildTodayAgenda, groupUpcomingTasks } from "./today-view-utils";
 
   let {
     onCompleteTask,
@@ -31,6 +31,7 @@
     uiStore.windowOrientation === "left" || uiStore.windowOrientation === "right",
   );
   const agenda = $derived(buildTodayAgenda(todayStore.taskSummary.today, todayStore.events));
+  const upcomingTaskGroups = $derived(groupUpcomingTasks(todayStore.taskSummary.upcoming, todayStore.date));
   const remainingCount = $derived(
     todayStore.taskSummary.overdue.length + todayStore.taskSummary.today.length,
   );
@@ -159,7 +160,7 @@
             <span class="agenda-meta">{todayStore.taskSummary.today.length} task{todayStore.taskSummary.today.length === 1 ? "" : "s"} · {todayStore.events.length} event{todayStore.events.length === 1 ? "" : "s"}</span>
           </div>
           {#if !googleCalendarStore.connected}<p class="calendar-notice">Calendar not connected. Tasks remain available here.</p>{/if}
-          {#if todayStore.taskSummary.today.length === 0 && todayStore.events.length === 0}
+          {#if todayStore.taskSummary.today.length === 0 && todayStore.events.length === 0 && todayStore.taskSummary.upcoming.length === 0}
             <div class="empty-state">
               <span aria-hidden="true">✓</span>
               <div><strong>Your agenda is clear</strong><small>Add a dated task when you are ready.</small></div>
@@ -178,6 +179,25 @@
                   {#if item.kind === "event"}<TodayEventRow event={item.event} onOpen={openEventInCalendar} />{:else}<TodayTaskRow task={item.task} onEdit={editTask} onComplete={onCompleteTask} {onToggleTimer} onContextMenu={onTaskContextMenu} />{/if}
                 {/each}
               </div></div>{/if}
+              {#if upcomingTaskGroups.length > 0}
+                <div class="upcoming-divider"><span>Next 7 days</span><span>{todayStore.taskSummary.upcoming.length} task{todayStore.taskSummary.upcoming.length === 1 ? "" : "s"}</span></div>
+                {#each upcomingTaskGroups as group (group.date)}
+                  <div class="agenda-group">
+                    <p class="agenda-label">{group.label}</p>
+                    <div class="item-list">
+                      {#each group.tasks as task (task.id)}
+                        <TodayTaskRow
+                          {task}
+                          onEdit={editTask}
+                          onComplete={onCompleteTask}
+                          {onToggleTimer}
+                          onContextMenu={onTaskContextMenu}
+                        />
+                      {/each}
+                    </div>
+                  </div>
+                {/each}
+              {/if}
             </div>
           {/if}
         </section>
@@ -213,6 +233,8 @@
   .calendar-notice { margin: calc(-1 * var(--spacing-xs)) 0 0; }
   .agenda-groups, .agenda-group { display: flex; flex-direction: column; gap: var(--spacing-sm); }
   .agenda-label { margin: 0; color: var(--text-tertiary); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+  .upcoming-divider { display: flex; justify-content: space-between; gap: var(--spacing-sm); padding-top: var(--spacing-md); border-top: 1px solid var(--border-light); color: var(--text-secondary); font-size: var(--text-xs); font-weight: 700; }
+  .upcoming-divider span:last-child { color: var(--text-tertiary); font-weight: 500; }
   .empty-state { min-height: 90px; display: flex; align-items: center; gap: var(--spacing-md); padding: var(--spacing-md); border-radius: var(--radius-md); color: var(--text-secondary); background: color-mix(in srgb, var(--bg-primary) 55%, transparent); }
   .empty-state > span { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 50%; color: var(--success); background: var(--success-light); font-weight: 800; }
   .empty-state > div { flex: 1; display: flex; flex-direction: column; }

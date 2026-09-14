@@ -481,3 +481,26 @@
 - `npm run build`: passed with only the existing mixed-import warnings.
 - `git diff --check`: passed with line-ending normalization notices only.
 - `graphify update .`: rebuilt the graph with 1501 nodes and 3260 edges.
+
+---
+
+## Rolling Seven-Day Up Next
+
+- Extended the existing Today task summary with an `upcoming` collection for
+  incomplete deadline-based tasks due tomorrow through the following six local
+  calendar days. The window is exclusive at day seven.
+- Kept overdue classification, today's agenda, and today's completion progress
+  unchanged. Completed future tasks are not shown.
+- Updated the landing Agenda card to group upcoming tasks by deadline date,
+  labeling Tomorrow explicitly and later dates with their weekday/date. Each
+  task retains the existing edit, completion, timer, and context-menu actions.
+
+### Verification
+
+- Focused Today Vitest run: 3 files and 16 tests passed.
+- `cargo fmt`: passed.
+- `cargo test --test today_workspace_tests`: 5 tests passed.
+- `npm run check`: 0 errors and 0 warnings.
+- `cargo check`: passed.
+- `git diff --check`: passed; Git emitted only existing line-ending notices.
+- `graphify update .`: rebuilt the code graph with 1626 nodes and 3543 edges.

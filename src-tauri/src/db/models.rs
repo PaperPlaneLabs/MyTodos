@@ -102,6 +102,7 @@ pub struct TodayTask {
 pub struct TodayTaskSummary {
     pub overdue: Vec<TodayTask>,
     pub today: Vec<TodayTask>,
+    pub upcoming: Vec<TodayTask>,
     pub completed_today: i64,
     pub total_today: i64,
 }

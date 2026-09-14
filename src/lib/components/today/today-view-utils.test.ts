@@ -5,6 +5,7 @@ import {
   formatEventTime,
   formatTodayDeadline,
   getTodayProgress,
+  groupUpcomingTasks,
 } from "$lib/components/today/today-view-utils";
 
 describe("Today view utilities", () => {
@@ -38,6 +39,19 @@ describe("Today view utilities", () => {
     expect(agenda.anytime.map((item) => item.title)).toEqual(["Any task"]);
     expect(agenda.timeline.map((item) => `${item.kind}:${item.title}`)).toEqual([
       "event:Zulu event", "task:Zulu task",
+    ]);
+  });
+
+  it("groups upcoming tasks by local deadline date with rolling-day labels", () => {
+    const task = (id: number, title: string, deadline: string) => ({ id, title, deadline, position: 0, total_time_seconds: 0 });
+
+    expect(groupUpcomingTasks([
+      task(1, "Plan", "2026-08-13"),
+      task(2, "Review", "2026-08-13T15:00:00"),
+      task(3, "Ship", "2026-08-16"),
+    ], "2026-08-12")).toEqual([
+      { date: "2026-08-13", label: "Tomorrow", tasks: [task(1, "Plan", "2026-08-13"), task(2, "Review", "2026-08-13T15:00:00")] },
+      { date: "2026-08-16", label: "Sunday, Aug 16", tasks: [task(3, "Ship", "2026-08-16")] },
     ]);
   });
 });

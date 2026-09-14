@@ -76,6 +76,7 @@ export interface TodayTask {
 export interface TodayTaskSummary {
   overdue: TodayTask[];
   today: TodayTask[];
+  upcoming: TodayTask[];
   completed_today: number;
   total_today: number;
 }
@@ -289,10 +290,11 @@ export const db = {
     getUnassigned: () => invoke<Task[]>("get_unassigned_tasks"),
     getByDeadlineRange: (startDate: string, endDate: string) =>
       invoke<Task[]>("get_tasks_by_deadline_range", { startDate, endDate }),
-    getTodaySummary: (todayStart: string, tomorrowStart: string) =>
+    getTodaySummary: (todayStart: string, tomorrowStart: string, weekEnd: string) =>
       invoke<TodayTaskSummary>("get_today_task_summary", {
         todayStart,
         tomorrowStart,
+        weekEnd,
       }),
     create: (projectId: number | null, sectionId: number | null, title: string, description?: string) =>
       invoke<Task>("create_task", { projectId, sectionId, title, description }),

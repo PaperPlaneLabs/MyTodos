@@ -5,7 +5,7 @@ import type {
 } from "$lib/services/db";
 
 export interface TodayDataSource {
-  getTaskSummary(todayStart: string, tomorrowStart: string): Promise<TodayTaskSummary>;
+  getTaskSummary(todayStart: string, tomorrowStart: string, weekEnd: string): Promise<TodayTaskSummary>;
   getEvents(startDate: string, endDate: string): Promise<CalendarEvent[]>;
   getStats(): Promise<TimeStats>;
 }
@@ -27,14 +27,18 @@ function dateToString(date: Date): string {
 export function getTodayDateBoundaries(now: Date = new Date()): {
   todayStart: string;
   tomorrowStart: string;
+  weekEnd: string;
 } {
   const today = new Date(now);
   today.setHours(0, 0, 0, 0);
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
+  const weekEnd = new Date(today);
+  weekEnd.setDate(weekEnd.getDate() + 7);
   return {
     todayStart: dateToString(today),
     tomorrowStart: dateToString(tomorrow),
+    weekEnd: dateToString(weekEnd),
   };
 }
 
@@ -45,13 +49,13 @@ export class TodayLoader {
 
   async load(now: Date = new Date()): Promise<TodaySnapshot | null> {
     const loadId = ++this.activeLoadId;
-    const { todayStart, tomorrowStart } = getTodayDateBoundaries(now);
+    const { todayStart, tomorrowStart, weekEnd } = getTodayDateBoundaries(now);
     let taskSummary: TodayTaskSummary;
     let events: CalendarEvent[];
     let stats: TimeStats;
     try {
       [taskSummary, events, stats] = await Promise.all([
-        this.dataSource.getTaskSummary(todayStart, tomorrowStart),
+        this.dataSource.getTaskSummary(todayStart, tomorrowStart, weekEnd),
         this.dataSource.getEvents(todayStart, todayStart),
         this.dataSource.getStats(),
       ]);

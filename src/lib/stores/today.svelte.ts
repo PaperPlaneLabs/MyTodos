@@ -2,8 +2,8 @@ import { db, type CalendarEvent, type TimeStats, type TodayTaskSummary } from "$
 import { TodayLoader, type TodayDataSource } from "$lib/stores/today-loader";
 
 const defaultDataSource: TodayDataSource = {
-  getTaskSummary: (todayStart, tomorrowStart) =>
-    db.tasks.getTodaySummary(todayStart, tomorrowStart),
+  getTaskSummary: (todayStart, tomorrowStart, weekEnd) =>
+    db.tasks.getTodaySummary(todayStart, tomorrowStart, weekEnd),
   getEvents: (startDate, endDate) =>
     db.calendarEvents.getInRange(startDate, endDate),
   getStats: () => db.timeEntries.getTimeStats(true),
@@ -13,6 +13,7 @@ const loader = new TodayLoader(defaultDataSource);
 let taskSummary = $state<TodayTaskSummary>({
   overdue: [],
   today: [],
+  upcoming: [],
   completed_today: 0,
   total_today: 0,
 });

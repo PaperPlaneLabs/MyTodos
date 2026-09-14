@@ -10,6 +10,7 @@ import {
 const emptySummary: TodayTaskSummary = {
   overdue: [],
   today: [],
+  upcoming: [],
   completed_today: 0,
   total_today: 0,
 };
@@ -29,6 +30,7 @@ describe("getTodayDateBoundaries", () => {
     expect(getTodayDateBoundaries(new Date(2026, 7, 31, 23, 45))).toEqual({
       todayStart: "2026-08-31",
       tomorrowStart: "2026-09-01",
+      weekEnd: "2026-09-07",
     });
   });
 });
@@ -40,7 +42,7 @@ describe("TodayLoader", () => {
 
     const snapshot = await loader.load(new Date(2026, 7, 12, 14, 0));
 
-    expect(source.getTaskSummary).toHaveBeenCalledWith("2026-08-12", "2026-08-13");
+    expect(source.getTaskSummary).toHaveBeenCalledWith("2026-08-12", "2026-08-13", "2026-08-19");
     expect(source.getEvents).toHaveBeenCalledWith("2026-08-12", "2026-08-12");
     expect(source.getStats).toHaveBeenCalledOnce();
     expect(snapshot?.date).toBe("2026-08-12");
@@ -53,6 +55,7 @@ describe("TodayLoader", () => {
     });
     const newer: TodayTaskSummary = {
       overdue: [],
+      upcoming: [],
       completed_today: 0,
       total_today: 1,
       today: [{
