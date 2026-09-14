@@ -11,6 +11,7 @@
   let taskTitle = $state("");
   let taskDeadline = $state<string | null>(null);
   let taskTime = $state("");
+  let taskProjectSelection = $state("");
   let showResetModal = $state(false);
   let taskToReset = $state<number | null>(null);
   let showDeleteModal = $state(false);
@@ -21,11 +22,6 @@
   let lastEditingProjectId = $state<number | null>(null);
   let lastTaskModalKey = $state<string | null>(null);
 
-  const isCalendarPresetDeadline = $derived(
-    uiStore.showTaskModal &&
-      !uiStore.editingTaskId &&
-      !!uiStore.newTaskDeadline,
-  );
   const taskTimerTask = $derived(
     taskToTime === null
       ? null
@@ -44,17 +40,6 @@
   export function confirmDelete(type: "project" | "task", id: number) {
     itemToDelete = { type, id };
     showDeleteModal = true;
-  }
-
-  function formatPresetDeadline(deadline: string | null): string {
-    if (!deadline) return "";
-    const date = new Date(`${deadline}T00:00:00`);
-    return date.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
   }
 
   $effect(() => {
@@ -98,17 +83,20 @@
             taskDeadline = null;
             taskTime = "";
           }
+          taskProjectSelection = task.project_id ? String(task.project_id) : "";
         }
       } else {
         taskTitle = "";
         taskDeadline = uiStore.newTaskDeadline;
         taskTime = "";
+        taskProjectSelection = projectStore.selectedId ? String(projectStore.selectedId) : "";
       }
     } else {
       lastTaskModalKey = null;
       taskTitle = "";
       taskDeadline = null;
       taskTime = "";
+      taskProjectSelection = "";
     }
   });
 
@@ -146,7 +134,7 @@
       }
 
       const task = await taskStore.createTask(
-        projectStore.selectedId,
+        taskProjectSelection === "" ? null : Number(taskProjectSelection),
         null,
         taskTitle,
       );
@@ -286,31 +274,32 @@
           />
         </div>
 
-        <div>
-          {#if isCalendarPresetDeadline}
-            <div class="text-sm text-secondary">Deadline</div>
-            <div class="deadline-input">
-              <div class="deadline-fixed">
-                <span>{formatPresetDeadline(taskDeadline)}</span>
-              </div>
-              <input
-                type="time"
-                class="input"
-                bind:value={taskTime}
-                step="300"
-                style="width: 110px;"
-              />
-            </div>
-          {:else}
-            <label for="task-deadline" class="text-sm text-secondary"
-              >Deadline (optional)</label
+        {#if !uiStore.editingTaskId}
+          <div>
+            <label for="task-project" class="text-sm text-secondary">Project</label>
+            <select
+              id="task-project"
+              class="input"
+              value={taskProjectSelection}
+              onchange={(event) => (taskProjectSelection = event.currentTarget.value)}
             >
-            <DateTimePicker
-              bind:date={taskDeadline}
-              bind:time={taskTime}
-              triggerAriaLabel="Choose an optional task deadline"
-            />
-          {/if}
+              <option value="">No project</option>
+              {#each projectStore.projects as project (project.id)}
+                <option value={String(project.id)}>{project.name}</option>
+              {/each}
+            </select>
+          </div>
+        {/if}
+
+        <div>
+          <label for="task-deadline" class="text-sm text-secondary"
+            >Deadline (optional)</label
+          >
+          <DateTimePicker
+            bind:date={taskDeadline}
+            bind:time={taskTime}
+            triggerAriaLabel="Choose an optional task deadline"
+          />
         </div>
 
         <div class="form-actions">
@@ -401,64 +390,6 @@
     display: flex;
     gap: var(--spacing-sm);
     justify-content: flex-end;
-  }
-
-  input[type="time"] {
-    appearance: none;
-    -webkit-appearance: none;
-    font-family: var(--font-mono);
-  }
-
-  :global([data-theme="dark"]) input[type="time"],
-  :global([data-theme="retro"]) input[type="time"],
-  :global([data-theme="ocean"]) input[type="time"],
-  :global([data-theme="nord"]) input[type="time"],
-  :global([data-theme="minecraft"]) input[type="time"] {
-    color-scheme: dark;
-  }
-
-  input[type="time"]::-webkit-calendar-picker-indicator {
-    cursor: pointer;
-    opacity: 0.5;
-    transition: all 0.2s;
-    filter: invert(0);
-  }
-
-  :global([data-theme="dark"])
-    input[type="time"]::-webkit-calendar-picker-indicator,
-  :global([data-theme="retro"])
-    input[type="time"]::-webkit-calendar-picker-indicator,
-  :global([data-theme="ocean"])
-    input[type="time"]::-webkit-calendar-picker-indicator,
-  :global([data-theme="nord"])
-    input[type="time"]::-webkit-calendar-picker-indicator,
-  :global([data-theme="minecraft"])
-    input[type="time"]::-webkit-calendar-picker-indicator {
-    filter: invert(1);
-    opacity: 0.7;
-  }
-
-  input[type="time"]::-webkit-calendar-picker-indicator:hover {
-    opacity: 1;
-    transform: scale(1.1);
-  }
-
-  .deadline-input {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-  }
-
-  .deadline-fixed {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
-    padding: var(--spacing-sm) var(--spacing-md);
-    border-radius: var(--radius-md);
-    border: 1px solid var(--border);
-    background: var(--bg-secondary);
-    color: var(--text-primary);
-    font-size: var(--text-sm);
   }
 
   .reset-modal-content {

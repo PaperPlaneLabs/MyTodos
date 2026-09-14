@@ -76,6 +76,10 @@
     uiStore.openTaskModal({ taskId });
   }
 
+  function openNewTask() {
+    uiStore.openTaskModal({ deadline: todayStore.date || undefined });
+  }
+
   function openEventInCalendar() {
     calendarStore.setSelectedDate(new Date(`${todayStore.date}T12:00:00`));
     uiStore.openCalendarView();
@@ -157,14 +161,17 @@
               <p class="section-kicker">Up next</p>
               <h3 id="agenda-heading">Agenda</h3>
             </div>
-            <span class="agenda-meta">{todayStore.taskSummary.today.length} task{todayStore.taskSummary.today.length === 1 ? "" : "s"} · {todayStore.events.length} event{todayStore.events.length === 1 ? "" : "s"}</span>
+            <div class="agenda-actions">
+              <span class="agenda-meta">{todayStore.taskSummary.today.length} task{todayStore.taskSummary.today.length === 1 ? "" : "s"} · {todayStore.events.length} event{todayStore.events.length === 1 ? "" : "s"}</span>
+              <button type="button" class="add-task-btn" onclick={openNewTask}>+ Add task</button>
+            </div>
           </div>
           {#if !googleCalendarStore.connected}<p class="calendar-notice">Calendar not connected. Tasks remain available here.</p>{/if}
           {#if todayStore.taskSummary.today.length === 0 && todayStore.events.length === 0 && todayStore.taskSummary.upcoming.length === 0}
             <div class="empty-state">
               <span aria-hidden="true">✓</span>
               <div><strong>Your agenda is clear</strong><small>Add a dated task when you are ready.</small></div>
-              <button type="button" onclick={() => uiStore.openTaskModal({ deadline: todayStore.date })}>Add task</button>
+              <button type="button" onclick={openNewTask}>Add task</button>
             </div>
           {:else}
             <div class="agenda-groups">
@@ -229,7 +236,10 @@
   .danger-count { color: var(--danger); }
   .item-list { display: flex; flex-direction: column; gap: 2px; }
   small { color: var(--text-tertiary); font-size: var(--text-xs); }
+  .agenda-actions { display: flex; align-items: center; justify-content: flex-end; gap: var(--spacing-sm); }
   .agenda-meta, .calendar-notice { color: var(--text-tertiary); font-size: var(--text-xs); }
+  .add-task-btn { border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-primary); color: var(--text-secondary); padding: 5px 8px; cursor: pointer; font-size: var(--text-xs); font-weight: 700; white-space: nowrap; }
+  .add-task-btn:hover { border-color: var(--accent); color: var(--accent); }
   .calendar-notice { margin: calc(-1 * var(--spacing-xs)) 0 0; }
   .agenda-groups, .agenda-group { display: flex; flex-direction: column; gap: var(--spacing-sm); }
   .agenda-label { margin: 0; color: var(--text-tertiary); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }

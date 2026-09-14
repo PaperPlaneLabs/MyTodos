@@ -62,7 +62,9 @@ export const taskStore = {
     try {
       error = null;
       const task = await db.tasks.create(projectId, sectionId, title, description);
-      tasks = [...tasks, task];
+      if (projectId === currentProjectId) {
+        tasks = [...tasks, task];
+      }
       await refreshDateViews();
       return task;
     } catch (e) {

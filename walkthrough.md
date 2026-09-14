@@ -524,4 +524,24 @@
 - `npm run check`: 0 errors and 0 warnings.
 - `npm run build`: passed; emitted only existing mixed dynamic/static import
   chunking warnings.
+- `graphify update .`: rebuilt the code graph with 1651 nodes and 3565 edges.
 - `graphify update .`: rebuilt the code graph with 1631 nodes and 3548 edges.
+
+---
+
+## Persistent Landing Add Task Flow
+
+- Kept `+ Add task` permanently available in the Up Next header, while the
+  empty-state shortcut uses the same action.
+- New tasks opened from the landing page start with today's date, but use the
+  shared date picker so the deadline remains optional and editable.
+- Added a new-task Project selector with No project and all project options;
+  it defaults to the currently selected project. Creating a task for another
+  project no longer inserts it into the current project's visible task list.
+
+### Verification
+
+- Focused Vitest run: 3 files and 9 tests passed.
+- `npm run check`: 0 errors and 0 warnings.
+- `npm run build`: passed; emitted only existing mixed dynamic/static import
+  chunking warnings.

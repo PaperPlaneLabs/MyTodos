@@ -228,4 +228,19 @@ describe("TodayWorkspace", () => {
     expect(screen.getByText("Plan sprint")).toBeTruthy();
     expect(screen.getByText("Send report")).toBeTruthy();
   });
+
+  it("keeps Add task available when the agenda has upcoming work", async () => {
+    states.todayState.taskSummary = {
+      overdue: [],
+      today: [],
+      upcoming: [{ id: 9, title: "Plan sprint", position: 0, total_time_seconds: 0, deadline: "2026-08-13" }],
+      completed_today: 0,
+      total_today: 0,
+    };
+
+    render(TodayWorkspace, { props });
+
+    await fireEvent.click(screen.getByRole("button", { name: "+ Add task" }));
+    expect(states.uiState.openTaskModal).toHaveBeenCalledWith({ deadline: "2026-08-12" });
+  });
 });
