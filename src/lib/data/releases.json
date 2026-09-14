@@ -1,5 +1,16 @@
 [
   {
+    "version": "0.1.76",
+    "date": "2026-09-14",
+    "title": "Collapsible overdue tasks on Today",
+    "summary": "Keeps the Today landing page clean with a collapsible preview for overdue tasks when more than three are pending.",
+    "highlights": [
+      "Overdue tasks are capped at a three-item preview by default to prevent long lists from dominating the Today workspace.",
+      "Expand or collapse the full overdue list anytime with the dedicated count-aware toggle button."
+    ],
+    "fixes": []
+  },
+  {
     "version": "0.1.75",
     "date": "2026-09-14",
     "title": "Today task creation & project selector",

@@ -1,6 +1,6 @@
 {
   "name": "my-todos",
-  "version": "0.1.75",
+  "version": "0.1.76",
   "description": "Todoz desktop task and time tracker",
   "type": "module",
   "scripts": {
