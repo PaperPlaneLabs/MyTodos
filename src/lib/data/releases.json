@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.1.75",
+    "date": "2026-09-14",
+    "title": "Today task creation & project selector",
+    "summary": "Adds persistent task creation directly from the Today landing page with an optional deadline and project selector.",
+    "highlights": [
+      "Create tasks directly from the Today Up Next header or empty states with today's date pre-filled and an editable deadline.",
+      "Assign new tasks to any project or leave them unassigned via the new project selector modal."
+    ],
+    "fixes": [
+      "Creating a task for another project from the modal no longer mistakenly inserts it into the currently selected project list."
+    ]
+  },
+  {
     "version": "0.1.74",
     "date": "2026-09-14",
     "title": "Interactive calendar & workspace refinements",
