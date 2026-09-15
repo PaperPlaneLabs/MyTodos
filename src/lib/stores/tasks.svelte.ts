@@ -1,5 +1,6 @@
 import { db, type Task } from "$lib/services/db";
 import { calendarStore } from "./calendar.svelte";
+import { projectStore } from "./projects.svelte";
 import { todayStore } from "./today.svelte";
 
 async function refreshDateViews(): Promise<void> {
@@ -58,6 +59,15 @@ export const taskStore = {
     }
   },
 
+  async getTask(id: number): Promise<Task | null> {
+    try {
+      return await db.tasks.get(id);
+    } catch (e) {
+      console.error(`Failed to get task ${id}:`, e);
+      return null;
+    }
+  },
+
   async createTask(projectId: number | null, sectionId: number | null, title: string, description?: string) {
     try {
       error = null;
@@ -90,6 +100,33 @@ export const taskStore = {
     } catch (e) {
       error = e instanceof Error ? e.message : "Failed to update task";
       console.error("Failed to update task:", e);
+      throw e;
+    }
+  },
+
+  async moveTask(id: number, projectId: number | null): Promise<Task> {
+    try {
+      error = null;
+      const updatedTask = await db.tasks.move(id, projectId);
+
+      if (currentProjectId !== null) {
+        if (projectId === currentProjectId) {
+          await this.loadByProject(currentProjectId);
+        } else {
+          tasks = tasks.filter((t) => t.id !== id);
+        }
+      } else if (projectId !== null) {
+        tasks = tasks.filter((t) => t.id !== id);
+      } else {
+        await this.loadByProject(null);
+      }
+
+      await projectStore.loadAll();
+      await refreshDateViews();
+      return updatedTask;
+    } catch (e) {
+      error = e instanceof Error ? e.message : "Failed to move task";
+      console.error("Failed to move task:", e);
       throw e;
     }
   },

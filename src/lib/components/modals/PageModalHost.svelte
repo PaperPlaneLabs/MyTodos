@@ -2,9 +2,11 @@
   import DateTimePicker from "$lib/components/common/DateTimePicker.svelte";
   import Modal from "$lib/components/common/Modal.svelte";
   import TaskTimerSetupModal from "$lib/components/timer/TaskTimerSetupModal.svelte";
+  import type { Task, TodayTask } from "$lib/services/db";
   import { projectStore } from "$lib/stores/projects.svelte";
   import { taskStore } from "$lib/stores/tasks.svelte";
   import { timerStore } from "$lib/stores/timer.svelte";
+  import { todayStore } from "$lib/stores/today.svelte";
   import { uiStore } from "$lib/stores/ui.svelte";
 
   let projectName = $state("");
@@ -12,6 +14,7 @@
   let taskDeadline = $state<string | null>(null);
   let taskTime = $state("");
   let taskProjectSelection = $state("");
+  let originalProjectId = $state<number | null>(null);
   let showResetModal = $state(false);
   let taskToReset = $state<number | null>(null);
   let showDeleteModal = $state(false);
@@ -70,10 +73,8 @@
       lastTaskModalKey = modalKey;
 
       if (uiStore.editingTaskId) {
-        const task = taskStore.tasks.find(
-          (item) => item.id === uiStore.editingTaskId,
-        );
-        if (task) {
+        const taskId = uiStore.editingTaskId;
+        const applyTask = (task: Task | TodayTask) => {
           taskTitle = task.title;
           if (task.deadline) {
             const [date, time] = task.deadline.split("T");
@@ -84,12 +85,35 @@
             taskTime = "";
           }
           taskProjectSelection = task.project_id ? String(task.project_id) : "";
+          originalProjectId = task.project_id ?? null;
+        };
+
+        const syncTask: Task | TodayTask | undefined =
+          (uiStore.editingTask?.id === taskId ? uiStore.editingTask : undefined) ??
+          taskStore.tasks.find((item) => item.id === taskId) ??
+          todayStore.findTask(taskId);
+
+        if (syncTask) {
+          applyTask(syncTask);
+        } else {
+          taskTitle = "";
+          taskDeadline = null;
+          taskTime = "";
+          taskProjectSelection = "";
+          originalProjectId = null;
         }
+
+        void taskStore.getTask(taskId).then((fetchedTask) => {
+          if (uiStore.showTaskModal && uiStore.editingTaskId === taskId && fetchedTask) {
+            applyTask(fetchedTask);
+          }
+        });
       } else {
         taskTitle = "";
         taskDeadline = uiStore.newTaskDeadline;
         taskTime = "";
         taskProjectSelection = projectStore.selectedId ? String(projectStore.selectedId) : "";
+        originalProjectId = projectStore.selectedId ?? null;
       }
     } else {
       lastTaskModalKey = null;
@@ -97,6 +121,7 @@
       taskDeadline = null;
       taskTime = "";
       taskProjectSelection = "";
+      originalProjectId = null;
     }
   });
 
@@ -122,13 +147,20 @@
 
     try {
       if (uiStore.editingTaskId) {
-        await taskStore.updateTask(uiStore.editingTaskId, taskTitle);
+        const taskId = uiStore.editingTaskId;
+        const targetProjectId = taskProjectSelection === "" ? null : Number(taskProjectSelection);
+
+        if (targetProjectId !== originalProjectId) {
+          await taskStore.moveTask(taskId, targetProjectId);
+        }
+
+        await taskStore.updateTask(taskId, taskTitle.trim());
         const fullDeadline = taskDeadline
           ? taskTime
             ? `${taskDeadline}T${taskTime}`
             : taskDeadline
           : null;
-        await taskStore.updateDeadline(uiStore.editingTaskId, fullDeadline);
+        await taskStore.updateDeadline(taskId, fullDeadline);
         uiStore.closeTaskModal();
         return;
       }
@@ -136,7 +168,7 @@
       const task = await taskStore.createTask(
         taskProjectSelection === "" ? null : Number(taskProjectSelection),
         null,
-        taskTitle,
+        taskTitle.trim(),
       );
       if (taskDeadline) {
         const fullDeadline = taskTime
@@ -274,22 +306,20 @@
           />
         </div>
 
-        {#if !uiStore.editingTaskId}
-          <div>
-            <label for="task-project" class="text-sm text-secondary">Project</label>
-            <select
-              id="task-project"
-              class="input"
-              value={taskProjectSelection}
-              onchange={(event) => (taskProjectSelection = event.currentTarget.value)}
-            >
-              <option value="">No project</option>
-              {#each projectStore.projects as project (project.id)}
-                <option value={String(project.id)}>{project.name}</option>
-              {/each}
-            </select>
-          </div>
-        {/if}
+        <div>
+          <label for="task-project" class="text-sm text-secondary">Project</label>
+          <select
+            id="task-project"
+            class="input"
+            value={taskProjectSelection}
+            onchange={(event) => (taskProjectSelection = event.currentTarget.value)}
+          >
+            <option value="">No project</option>
+            {#each projectStore.projects as project (project.id)}
+              <option value={String(project.id)}>{project.name}</option>
+            {/each}
+          </select>
+        </div>
 
         <div>
           <label for="task-deadline" class="text-sm text-secondary"

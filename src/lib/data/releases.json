@@ -1,5 +1,19 @@
 [
   {
+    "version": "0.1.78",
+    "date": "2026-09-15",
+    "title": "Task editing & project reassignment from dashboard",
+    "summary": "Fixes task editing from the dashboard Next 7 Days widget and allows reassigning tasks to different projects with automatic tracked time transfers.",
+    "highlights": [
+      "Clicking any task in the Next 7 Days widget or dashboard agenda opens the edit window with full details pre-filled.",
+      "Allows changing the project of existing tasks directly from the edit window or leaving them unassigned.",
+      "Moving tasks between projects automatically updates project and section tracked time totals."
+    ],
+    "fixes": [
+      "Fixed an issue where editing a task from the Next 7 Days widget showed an empty window and blocked deadline changes from saving."
+    ]
+  },
+  {
     "version": "0.1.77",
     "date": "2026-09-15",
     "title": "Expanded Todoz MCP server with project & time tracking",

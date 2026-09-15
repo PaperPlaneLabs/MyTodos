@@ -15,7 +15,7 @@
   }: {
     task: TodayTask;
     overdue?: boolean;
-    onEdit: (taskId: number) => void;
+    onEdit: (taskId: number, task?: TodayTask) => void;
     onComplete: (taskId: number) => void | Promise<void>;
     onToggleTimer: (taskId: number) => void | Promise<void>;
     onContextMenu: (event: MouseEvent, taskId: number) => void;
@@ -40,7 +40,7 @@
     title="Complete task"
     onclick={() => onComplete(task.id)}
   ><span aria-hidden="true">✓</span></button>
-  <button type="button" class="task-main" onclick={() => onEdit(task.id)}>
+  <button type="button" class="task-main" onclick={() => onEdit(task.id, task)}>
     <span class="project-dot" style:background={task.project_color ?? "var(--text-tertiary)"}></span>
     <span class="task-copy">
       <strong>{task.title}</strong>

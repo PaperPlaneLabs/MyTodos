@@ -1,4 +1,4 @@
-import type { Task } from "$lib/services/db";
+import type { Task, TodayTask } from "$lib/services/db";
 
 let showProjectModal = $state(false);
 let showTaskModal = $state(false);
@@ -9,13 +9,14 @@ let completedTasksCollapsed = $state(true);
 let handleTop = $state(120);
 let editingProjectId = $state<number | null>(null);
 let editingTaskId = $state<number | null>(null);
+let editingTask = $state<Task | TodayTask | null>(null);
 let newTaskDeadline = $state<string | null>(null);
 export type Theme = "light" | "dark" | "minecraft" | "retro" | "ocean" | "nord";
 let theme = $state<Theme>("light");
 export type WindowOrientation = "left" | "right" | "center";
 let windowOrientation = $state<WindowOrientation>("center");
 let compactMode = $state(false);
-type TaskModalPayload = number | { taskId?: number; task?: Pick<Task, "id">; deadline?: string };
+export type TaskModalPayload = number | { taskId?: number; task?: Task | TodayTask; deadline?: string };
 
 // Context Menu State
 let contextMenuOpen = $state(false);
@@ -38,6 +39,10 @@ export const uiStore = {
 
   get editingTaskId() {
     return editingTaskId;
+  },
+
+  get editingTask() {
+    return editingTask;
   },
 
   get newTaskDeadline() {
@@ -159,6 +164,7 @@ export const uiStore = {
   openTaskModal(payload: TaskModalPayload = {}) {
     const data = typeof payload === "number" ? { taskId: payload } : payload;
     editingTaskId = data.taskId ?? data.task?.id ?? null;
+    editingTask = data.task ?? null;
     newTaskDeadline = data.deadline ?? null;
     showTaskModal = true;
   },
@@ -166,6 +172,7 @@ export const uiStore = {
   closeTaskModal() {
     showTaskModal = false;
     editingTaskId = null;
+    editingTask = null;
     newTaskDeadline = null;
   },
 

@@ -206,3 +206,75 @@ pub fn find_tasks(
 
     Ok(tasks)
 }
+
+pub fn move_task(
+    conn: &Connection,
+    task_id: i64,
+    new_project_id: Option<i64>,
+) -> Result<Task> {
+    let existing = get_task(conn, task_id)?;
+    if existing.project_id == new_project_id {
+        return Ok(existing);
+    }
+
+    if let Some(pid) = new_project_id {
+        let exists: bool = conn.query_row(
+            "SELECT EXISTS(SELECT 1 FROM projects WHERE id = ?1)",
+            [pid],
+            |row| row.get(0),
+        )?;
+        if !exists {
+            return Err(AppError::NotFound(format!("Project with id {} not found", pid)));
+        }
+    }
+
+    let total_time = existing.total_time_seconds;
+    if total_time > 0 {
+        if let Some(old_pid) = existing.project_id {
+            conn.execute(
+                "UPDATE projects SET total_time_seconds = MAX(0, total_time_seconds - ?1) WHERE id = ?2",
+                params![total_time, old_pid],
+            )?;
+        }
+        if let Some(old_sid) = existing.section_id {
+            conn.execute(
+                "UPDATE sections SET total_time_seconds = MAX(0, total_time_seconds - ?1) WHERE id = ?2",
+                params![total_time, old_sid],
+            )?;
+        }
+        if let Some(new_pid) = new_project_id {
+            conn.execute(
+                "UPDATE projects SET total_time_seconds = total_time_seconds + ?1 WHERE id = ?2",
+                params![total_time, new_pid],
+            )?;
+        }
+    }
+
+    let max_position: i32 = if let Some(pid) = new_project_id {
+        conn.query_row(
+            "SELECT COALESCE(MAX(position), -1) FROM tasks WHERE project_id = ?1 AND section_id IS NULL AND is_system = 0",
+            [pid],
+            |row| row.get(0),
+        )
+    } else {
+        conn.query_row(
+            "SELECT COALESCE(MAX(position), -1) FROM tasks WHERE project_id IS NULL AND section_id IS NULL AND is_system = 0",
+            [],
+            |row| row.get(0),
+        )
+    }
+    .unwrap_or(0);
+
+    let now = now_timestamp();
+    conn.execute(
+        "UPDATE tasks SET project_id = ?1, section_id = NULL, position = ?2, updated_at = ?3 WHERE id = ?4 AND is_system = 0",
+        params![new_project_id, max_position + 1, now, task_id],
+    )?;
+
+    conn.execute(
+        "UPDATE active_timer SET project_id = ?1 WHERE task_id = ?2",
+        params![new_project_id, task_id],
+    )?;
+
+    get_task(conn, task_id)
+}

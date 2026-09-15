@@ -95,7 +95,7 @@
             {#if item.task.planned_duration_minutes}<span>{item.task.planned_duration_minutes} min planned</span>{/if}
           </div>
           <div class="actions">
-            <button type="button" class="secondary" onclick={() => uiStore.openTaskModal({ taskId: item.task.id })}>Open task</button>
+            <button type="button" class="secondary" onclick={() => uiStore.openTaskModal({ taskId: item.task.id, task: item.task })}>Open task</button>
             <button type="button" class="primary" onclick={() => calendarStore.toggleTask(item.task.id)}>{item.task.completed ? "Mark active" : "Complete"}</button>
           </div>
         {:else if item.kind === "local_event"}

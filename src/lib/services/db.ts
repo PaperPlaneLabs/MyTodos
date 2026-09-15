@@ -298,8 +298,11 @@ export const db = {
       }),
     create: (projectId: number | null, sectionId: number | null, title: string, description?: string) =>
       invoke<Task>("create_task", { projectId, sectionId, title, description }),
+    get: (id: number) => invoke<Task>("get_task", { id }),
     update: (id: number, title?: string, description?: string, completed?: boolean) =>
       invoke<void>("update_task", { id, title, description, completed }),
+    move: (id: number, projectId: number | null) =>
+      invoke<Task>("move_task", { id, projectId }),
     updateDeadline: (id: number, deadline: string | null) =>
       invoke<void>("update_task_deadline", { taskId: id, deadline }),
     updateSchedule: (

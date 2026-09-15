@@ -1,4 +1,4 @@
-import { db, type CalendarEvent, type TimeStats, type TodayTaskSummary } from "$lib/services/db";
+import { db, type CalendarEvent, type TimeStats, type TodayTask, type TodayTaskSummary } from "$lib/services/db";
 import { TodayLoader, type TodayDataSource } from "$lib/stores/today-loader";
 
 const defaultDataSource: TodayDataSource = {
@@ -42,6 +42,14 @@ export const todayStore = {
     },
     get error() {
       return error;
+    },
+
+    findTask(id: number) {
+      return (
+        taskSummary.today.find((t) => t.id === id) ??
+        taskSummary.upcoming.find((t) => t.id === id) ??
+        taskSummary.overdue.find((t) => t.id === id)
+      );
     },
 
     async refresh(now: Date = new Date()) {

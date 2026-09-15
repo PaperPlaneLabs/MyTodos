@@ -274,4 +274,29 @@ describe("TodayWorkspace", () => {
     await fireEvent.click(screen.getByRole("button", { name: "+ Add task" }));
     expect(states.uiState.openTaskModal).toHaveBeenCalledWith({ deadline: "2026-08-12" });
   });
+
+  it("opens edit task modal with task details when clicking a task in Next 7 days", async () => {
+    const task = {
+      id: 9,
+      title: "Plan sprint",
+      position: 0,
+      total_time_seconds: 0,
+      deadline: "2026-08-13",
+    };
+    states.todayState.taskSummary = {
+      overdue: [],
+      today: [],
+      upcoming: [task],
+      completed_today: 0,
+      total_today: 0,
+    };
+
+    render(TodayWorkspace, { props });
+
+    await fireEvent.click(screen.getByText("Plan sprint"));
+    expect(states.uiState.openTaskModal).toHaveBeenCalledWith({
+      taskId: 9,
+      task,
+    });
+  });
 });

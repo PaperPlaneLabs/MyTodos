@@ -299,3 +299,19 @@ pub fn reset_task_time(db: State<DbConnection>, id: i64) -> Result<()> {
 
     Ok(())
 }
+
+#[tauri::command]
+pub fn get_task(db: State<DbConnection>, id: i64) -> Result<Task> {
+    let conn = db.lock();
+    tasks_service::get_task(&conn, id)
+}
+
+#[tauri::command]
+pub fn move_task(
+    db: State<DbConnection>,
+    id: i64,
+    project_id: Option<i64>,
+) -> Result<Task> {
+    let conn = db.lock();
+    tasks_service::move_task(&conn, id, project_id)
+}

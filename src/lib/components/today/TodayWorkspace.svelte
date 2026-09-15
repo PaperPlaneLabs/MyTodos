@@ -1,6 +1,8 @@
+
 <script lang="ts">
   import { onMount } from "svelte";
 
+  import type { TodayTask } from "$lib/services/db";
   import { googleCalendarStore } from "$lib/stores/google-calendar.svelte";
   import { calendarStore } from "$lib/stores/calendar.svelte";
   import { timerStore } from "$lib/stores/timer.svelte";
@@ -85,8 +87,8 @@
     if (mounted) void todayStore.refresh();
   });
 
-  function editTask(taskId: number) {
-    uiStore.openTaskModal({ taskId });
+  function editTask(taskId: number, task?: TodayTask) {
+    uiStore.openTaskModal({ taskId, task: task ?? todayStore.findTask(taskId) });
   }
 
   function openNewTask() {
