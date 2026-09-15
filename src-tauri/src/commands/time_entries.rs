@@ -1,6 +1,7 @@
-use super::common::{apply_task_and_parent_time_delta, get_timestamp};
+use super::common::apply_task_and_parent_time_delta;
 use crate::db::{DbConnection, TimeEntry, TimeEntryWithTask};
 use crate::error::{AppError, Result};
+use crate::services::time_service;
 use tauri::State;
 
 #[tauri::command]
@@ -11,46 +12,7 @@ pub fn create_manual_entry(
     note: Option<String>,
 ) -> Result<TimeEntry> {
     let conn = db.lock();
-
-    let task_exists: bool = conn
-        .query_row("SELECT 1 FROM tasks WHERE id = ?", [task_id], |_| Ok(true))
-        .unwrap_or(false);
-
-    if !task_exists {
-        return Err(AppError::NotFound(format!(
-            "Task with id {} not found",
-            task_id
-        )));
-    }
-
-    if duration_seconds <= 0 {
-        return Err(AppError::InvalidInput(
-            "Duration must be positive".to_string(),
-        ));
-    }
-
-    let now = get_timestamp();
-
-    conn.execute(
-        "INSERT INTO time_entries (task_id, entry_type, duration_seconds, note, created_at)
-         VALUES (?, 'manual', ?, ?, ?)",
-        (task_id, duration_seconds, &note, now),
-    )?;
-
-    let id = conn.last_insert_rowid();
-
-    apply_task_and_parent_time_delta(&conn, task_id, duration_seconds)?;
-
-    Ok(TimeEntry {
-        id,
-        task_id,
-        entry_type: "manual".to_string(),
-        duration_seconds,
-        started_at: None,
-        ended_at: None,
-        note,
-        created_at: now,
-    })
+    time_service::create_manual_entry(&conn, task_id, duration_seconds, note)
 }
 
 #[tauri::command]

@@ -1,57 +1,19 @@
 use super::common::get_timestamp;
 use crate::db::{DbConnection, Project, ProjectStats};
 use crate::error::{AppError, Result};
+use crate::services::projects_service;
 use tauri::State;
 
 #[tauri::command]
 pub fn get_all_projects(db: State<DbConnection>) -> Result<Vec<Project>> {
     let conn = db.lock();
-    let mut stmt = conn.prepare(
-        "SELECT id, name, description, color, position, total_time_seconds, created_at, updated_at
-         FROM projects
-         WHERE is_system = 0
-         ORDER BY position ASC",
-    )?;
-
-    let projects = stmt
-        .query_map([], |row| {
-            Ok(Project {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                description: row.get(2)?,
-                color: row.get(3)?,
-                position: row.get(4)?,
-                total_time_seconds: row.get(5)?,
-                created_at: row.get(6)?,
-                updated_at: row.get(7)?,
-            })
-        })?
-        .collect::<std::result::Result<Vec<_>, _>>()?;
-
-    Ok(projects)
+    projects_service::get_all_projects(&conn)
 }
 
 #[tauri::command]
 pub fn get_project(db: State<DbConnection>, id: i64) -> Result<Project> {
     let conn = db.lock();
-    let mut stmt = conn.prepare(
-        "SELECT id, name, description, color, position, total_time_seconds, created_at, updated_at
-         FROM projects WHERE id = ?",
-    )?;
-
-    stmt.query_row([id], |row| {
-        Ok(Project {
-            id: row.get(0)?,
-            name: row.get(1)?,
-            description: row.get(2)?,
-            color: row.get(3)?,
-            position: row.get(4)?,
-            total_time_seconds: row.get(5)?,
-            created_at: row.get(6)?,
-            updated_at: row.get(7)?,
-        })
-    })
-    .map_err(|_| AppError::NotFound(format!("Project with id {} not found", id)))
+    projects_service::get_project(&conn, id)
 }
 
 #[tauri::command]

@@ -2,54 +2,61 @@
 
 Todoz includes a local stdio MCP server for trusted AI clients that need to read or update tasks.
 
-The Stage 1 product rename intentionally keeps the `mytodos-mcp` executable,
-the `mytodos` client key, and existing repository paths unchanged so current
-Gemini and Claude configurations continue to work.
-
 ## Binary
 
 Run from `src-tauri`:
 
 ```powershell
-cargo run --bin mytodos-mcp
+cargo run --bin todoz-mcp
 ```
 
-For an installed build, point the MCP client at the compiled `mytodos-mcp` executable.
+For an installed build, point the MCP client at the compiled `todoz-mcp` executable.
 
 For local client configuration, build the executable first:
 
 ```powershell
 cd F:\personal_projects\MyTodos\src-tauri
-cargo build --bin mytodos-mcp
+cargo build --bin todoz-mcp
 ```
 
 The debug executable will be:
 
 ```text
-F:\personal_projects\MyTodos\src-tauri\target\debug\mytodos-mcp.exe
+F:\personal_projects\MyTodos\src-tauri\target\debug\todoz-mcp.exe
 ```
 
 For regular personal use, prefer a release build:
 
 ```powershell
 cd F:\personal_projects\MyTodos\src-tauri
-cargo build --release --bin mytodos-mcp
+cargo build --release --bin todoz-mcp
 ```
 
 The release executable will be:
 
 ```text
-F:\personal_projects\MyTodos\src-tauri\target\release\mytodos-mcp.exe
+F:\personal_projects\MyTodos\src-tauri\target\release\todoz-mcp.exe
 ```
 
 ## Tools
 
-- `create_task`: creates a task with optional description, project, section, and deadline.
-- `set_task_deadline`: sets or clears a deadline by exact task id.
+### Projects
+- `list_projects`: lists all Todoz projects with ID, name, description, color, total time tracked (seconds and formatted duration string), and active/completed task counts. Supports optional `include_system` boolean.
+
+### Tasks & Deadlines
+- `create_task`: creates a task. Supports `title` (required), optional `description`, `project_id` OR `project_name` (case-insensitive lookup), optional `section_id` OR `section_name`, and `deadline` (`YYYY-MM-DD` or `YYYY-MM-DDTHH:mm`).
+- `set_task_deadline`: sets or clears (`null`) a deadline by exact task id. Automatically syncs to Google Calendar when connected.
 - `find_tasks`: searches task title and description text.
-- `list_due_tasks`: lists tasks in a deadline range.
+- `list_due_tasks`: lists tasks whose deadlines fall within an inclusive lexical date range.
 - `get_task`: returns a task by exact id.
 - `set_task_completed`: marks a task complete or incomplete by exact id.
+
+### Hours & Time Tracking
+- `get_time_stats`: returns today's tasks and time spent, this week's daily breakdown, and total hours/seconds per project. Supports optional `include_active_timer` boolean (default `true`).
+- `log_time`: manually logs time worked on a task (`task_id` required, `duration_minutes` or `duration_seconds`, optional `note`). Increments task and project denormalized time totals.
+- `get_timer_status`: returns active timer status (whether running, timed task id and title, elapsed time).
+- `start_timer`: starts the active timer for a specific task by task id.
+- `stop_timer`: stops the running active timer and saves the elapsed duration as a time entry.
 
 Deadlines must be normalized before tool calls as `YYYY-MM-DD` or `YYYY-MM-DDTHH:mm`.
 
@@ -74,8 +81,8 @@ Example:
 ```json
 {
   "mcpServers": {
-    "mytodos": {
-      "command": "F:\\personal_projects\\MyTodos\\src-tauri\\target\\release\\mytodos-mcp.exe",
+    "todoz": {
+      "command": "F:\\personal_projects\\MyTodos\\src-tauri\\target\\release\\todoz-mcp.exe",
       "timeout": 30000,
       "trust": false
     }
@@ -88,9 +95,9 @@ Development-only example using Cargo:
 ```json
 {
   "mcpServers": {
-    "mytodos": {
+    "todoz": {
       "command": "cargo",
-      "args": ["run", "--quiet", "--bin", "mytodos-mcp"],
+      "args": ["run", "--quiet", "--bin", "todoz-mcp"],
       "cwd": "F:\\personal_projects\\MyTodos\\src-tauri",
       "timeout": 30000,
       "trust": false
@@ -108,9 +115,9 @@ For Claude Code, add a project-scoped `.mcp.json` when you want the server enabl
 ```json
 {
   "mcpServers": {
-    "mytodos": {
+    "todoz": {
       "type": "stdio",
-      "command": "F:\\personal_projects\\MyTodos\\src-tauri\\target\\release\\mytodos-mcp.exe",
+      "command": "F:\\personal_projects\\MyTodos\\src-tauri\\target\\release\\todoz-mcp.exe",
       "args": [],
       "env": {}
     }
@@ -121,7 +128,7 @@ For Claude Code, add a project-scoped `.mcp.json` when you want the server enabl
 Or add it from the CLI:
 
 ```powershell
-claude mcp add --transport stdio mytodos -- F:\personal_projects\MyTodos\src-tauri\target\release\mytodos-mcp.exe
+claude mcp add --transport stdio todoz -- F:\personal_projects\MyTodos\src-tauri\target\release\todoz-mcp.exe
 ```
 
 Run `claude mcp list` or `/mcp` inside Claude Code to verify the tool list.
@@ -139,9 +146,9 @@ Example:
 ```json
 {
   "mcpServers": {
-    "mytodos": {
+    "todoz": {
       "type": "stdio",
-      "command": "F:\\personal_projects\\MyTodos\\src-tauri\\target\\release\\mytodos-mcp.exe",
+      "command": "F:\\personal_projects\\MyTodos\\src-tauri\\target\\release\\todoz-mcp.exe",
       "args": [],
       "env": {}
     }
@@ -156,11 +163,27 @@ Restart Claude Desktop after editing the file. If the server does not appear, co
 Use prompts that encourage lookup before mutation:
 
 ```text
-Use Todoz to find tasks matching "electricity bill". If there is one clear match, set its deadline to 2026-06-03T18:00.
+List all my Todoz projects and how much time has been tracked on each.
 ```
 
 ```text
-Create a Todoz task titled "Submit invoice" with deadline 2026-06-05.
+Create a Todoz task titled "Submit invoice" in the "Work" project with deadline 2026-06-05.
+```
+
+```text
+Log 45 minutes on task #12 with the note "Initial draft and outline".
+```
+
+```text
+How many hours have I worked today and this week according to Todoz?
+```
+
+```text
+Check if my timer is currently running, and if so, what task is it tracking?
+```
+
+```text
+Use Todoz to find tasks matching "electricity bill". If there is one clear match, set its deadline to 2026-06-03T18:00.
 ```
 
 ```text

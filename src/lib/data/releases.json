@@ -1,5 +1,17 @@
 [
   {
+    "version": "0.1.77",
+    "date": "2026-09-15",
+    "title": "Expanded Todoz MCP server with project & time tracking",
+    "summary": "Expands the Todoz MCP server (todoz-mcp) with project listing, direct project name assignment for tasks, complete time tracking and hours analytics, and live timer control.",
+    "highlights": [
+      "List all projects with total tracked time/hours and active/completed task counts via MCP.",
+      "Assign tasks directly to projects and sections by name or ID, complete with deadline scheduling.",
+      "Track and query hours through MCP with time stats summaries, manual time logging, and live timer start/stop controls."
+    ],
+    "fixes": []
+  },
+  {
     "version": "0.1.76",
     "date": "2026-09-14",
     "title": "Collapsible overdue tasks on Today",
