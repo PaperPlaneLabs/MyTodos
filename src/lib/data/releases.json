@@ -1,5 +1,18 @@
 [
   {
+    "version": "0.1.79",
+    "date": "2026-09-16",
+    "title": "Google Calendar widget style weekly view",
+    "summary": "Redesigns the weekly calendar into a continuous scrollable datewise card feed with rich task and event cards, inline completion checkboxes, and seamless multi-week scrolling.",
+    "highlights": [
+      "Week view now displays days vertically with cards for tasks and events, eliminating the need to click individual day tabs.",
+      "Complete or uncomplete tasks directly from their calendar card with a single click.",
+      "Scroll continuously through upcoming and past weeks with automatic loading and header synchronization.",
+      "Added a sticky 7-day strip at the top for quick jumping to any day in the current week."
+    ],
+    "fixes": []
+  },
+  {
     "version": "0.1.78",
     "date": "2026-09-15",
     "title": "Task editing & project reassignment from dashboard",
