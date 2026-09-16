@@ -1,68 +1,143 @@
 <script lang="ts">
   import { onMount, tick } from "svelte";
   import { calendarStore } from "$lib/stores/calendar.svelte";
-  import { uiStore } from "$lib/stores/ui.svelte";
-  import {
-    dateToKey,
-    minutesToTime,
-    positionTimedItems,
-  } from "$lib/components/calendar/calendar-utils";
-  import type { CalendarItem } from "$lib/types/calendar";
-  import { shouldSelectWeekGridTarget } from "$lib/components/calendar/calendar-interaction-policy";
+  import { projectStore } from "$lib/stores/projects.svelte";
+  import { dateToKey } from "$lib/components/calendar/calendar-utils";
+  import type { CalendarDay, CalendarItem } from "$lib/types/calendar";
 
-  const pixelsPerMinute = 0.8;
-  const dayHeight = 24 * 60 * pixelsPerMinute;
-  const hourHeight = 60 * pixelsPerMinute;
-  let scrollViewport: HTMLDivElement;
-  let weekDays = $derived(calendarStore.generateWeekDays(calendarStore.currentDate));
-  let isPortrait = $derived(uiStore.windowOrientation === "left" || uiStore.windowOrientation === "right");
-  let focusDate = $derived(calendarStore.selectedDate ?? calendarStore.currentDate);
-  let shownDays = $derived(isPortrait
-    ? weekDays.filter((day) => dateToKey(day.date) === dateToKey(focusDate)).slice(0, 1)
-    : weekDays);
-  let hours = Array.from({ length: 24 }, (_, index) => index);
-  let now = $state(new Date());
-  let resizeState = $state<{ item: CalendarItem; startY: number; startDuration: number } | null>(null);
+  let feedElement = $state<HTMLDivElement | null>(null);
+  let isProgrammaticScrolling = false;
+  let isLoadingMore = $state(false);
+  let dragOverDateKey = $state<string | null>(null);
+
+  // Multi-week data from store
+  let weekGroups = $derived(calendarStore.generateMultiWeekGroups());
+  let currentFocusDate = $derived(calendarStore.currentDate);
+  let currentWeekDays = $derived(calendarStore.generateWeekDays(currentFocusDate));
+  let todayKey = $derived(dateToKey(new Date()));
+
+  // Active day currently visible near the top
+  let activeDayKey = $state(dateToKey(new Date()));
 
   onMount(() => {
-    const timer = window.setInterval(() => (now = new Date()), 60_000);
     void tick().then(() => {
-      const initialHour = dateToKey(now) === dateToKey(focusDate) ? Math.max(0, now.getHours() - 2) : 7;
-      scrollViewport?.scrollTo({ top: initialHour * hourHeight, behavior: "instant" });
+      const initialDate = calendarStore.selectedDate ?? calendarStore.currentDate ?? new Date();
+      scrollToDay(dateToKey(initialDate), "instant");
     });
-    return () => window.clearInterval(timer);
   });
 
-  function itemsForDay(date: Date) {
-    return calendarStore.getItemsForDate(dateToKey(date));
+  // Watch for external scroll requests from CalendarHeader (<, >, Today buttons or jump dialog)
+  $effect(() => {
+    const target = calendarStore.scrollTarget;
+    if (target && feedElement) {
+      scrollToDay(dateToKey(target.date), target.behavior);
+      calendarStore.clearScrollTarget();
+    }
+  });
+
+  function formatWeekday(date: Date): string {
+    return date.toLocaleDateString("en-US", { weekday: "short" }).toUpperCase();
   }
 
-  function timedForDay(date: Date) {
-    return positionTimedItems(itemsForDay(date).filter((item) => !item.isAllDay), pixelsPerMinute);
+  function formatMonthHeader(date: Date): string {
+    return date.toLocaleDateString("en-US", { month: "long", year: "numeric" });
   }
 
-  function allDayForDay(date: Date) {
-    return itemsForDay(date).filter((item) => item.isAllDay);
+  function shouldShowMonthHeader(day: CalendarDay, dayIndex: number, weekIndex: number): boolean {
+    if (weekIndex === 0 && dayIndex === 0) return true;
+    return day.date.getDate() === 1;
   }
 
-  function formatHour(hour: number): string {
-    if (hour === 0) return "12 AM";
-    if (hour === 12) return "12 PM";
-    return `${hour % 12} ${hour < 12 ? "AM" : "PM"}`;
+  function formatCardTime(item: CalendarItem): string {
+    if (item.isAllDay) return "All day";
+    const format = (timeStr: string | null) => {
+      if (!timeStr) return "";
+      const [hours, minutes] = timeStr.split(":").map(Number);
+      const period = hours >= 12 ? "PM" : "AM";
+      const displayHours = hours % 12 || 12;
+      return `${displayHours}:${String(minutes).padStart(2, "0")} ${period}`;
+    };
+    if (item.startTime && item.endTime) {
+      return `${format(item.startTime)} – ${format(item.endTime)}`;
+    }
+    return format(item.startTime);
   }
 
-  function nowTop(): number {
-    return (now.getHours() * 60 + now.getMinutes()) * pixelsPerMinute;
+  function getProject(projectId: number | null | undefined) {
+    if (!projectId) return null;
+    return projectStore.projects.find((p) => p.id === projectId) ?? null;
   }
 
-  function setFocusedDay(date: Date) {
-    calendarStore.setSelectedDate(date);
-    calendarStore.setCurrentDate(date);
+  async function toggleTask(event: MouseEvent, taskId: number) {
+    event.stopPropagation();
+    await calendarStore.toggleTask(taskId);
   }
 
-  function selectGridDay(event: MouseEvent, date: Date) {
-    if (!shouldSelectWeekGridTarget(event.target as Element | null)) return;
-    calendarStore.setSelectedDate(date);
+  function selectCard(event: MouseEvent, item: CalendarItem) {
+    event.stopPropagation();
+    calendarStore.selectItem(item);
+  }
+
+  function scrollToDay(dateKey: string, behavior: ScrollBehavior = "smooth") {
+    if (!feedElement) return;
+    const targetEl = feedElement.querySelector<HTMLElement>(`[data-date-key="${dateKey}"]`);
+    if (targetEl) {
+      isProgrammaticScrolling = true;
+      targetEl.scrollIntoView({ behavior, block: "start" });
+      activeDayKey = dateKey;
+      setTimeout(() => {
+        isProgrammaticScrolling = false;
+      }, 500);
+    } else {
+      const [year, month, day] = dateKey.split("-").map(Number);
+      calendarStore.setCurrentDate(new Date(year, month - 1, day), true);
+    }
+  }
+
+  async function handleScroll() {
+    if (!feedElement || isProgrammaticScrolling || isLoadingMore) return;
+    const { scrollTop, scrollHeight, clientHeight } = feedElement;
+
+    // Infinite scroll: Near bottom -> load future weeks
+    if (scrollHeight - scrollTop - clientHeight < 350) {
+      isLoadingMore = true;
+      await calendarStore.loadMoreFutureWeeks(4);
+      isLoadingMore = false;
+    }
+
+    // Infinite scroll: Near top -> load past weeks
+    if (scrollTop < 120) {
+      isLoadingMore = true;
+      const prevHeight = feedElement.scrollHeight;
+      await calendarStore.loadMorePastWeeks(2);
+      await tick();
+      const newHeight = feedElement.scrollHeight;
+      feedElement.scrollTop = scrollTop + (newHeight - prevHeight);
+      isLoadingMore = false;
+    }
+
+    // Sync visible day with header
+    updateActiveVisibleDay();
+  }
+
+  function updateActiveVisibleDay() {
+    if (!feedElement) return;
+    const feedRect = feedElement.getBoundingClientRect();
+    const dayElements = feedElement.querySelectorAll<HTMLElement>(".day-group[data-date-key]");
+
+    for (const dayEl of dayElements) {
+      const rect = dayEl.getBoundingClientRect();
+      if (rect.bottom > feedRect.top + 36) {
+        const dateKey = dayEl.dataset.dateKey;
+        if (dateKey && dateKey !== activeDayKey) {
+          activeDayKey = dateKey;
+          const [y, m, d] = dateKey.split("-").map(Number);
+          const visibleDate = new Date(y, m - 1, d);
+          calendarStore.setCurrentDateSilent(visibleDate);
+        }
+        break;
+      }
+    }
   }
 
   function dragStart(event: DragEvent, item: CalendarItem) {
@@ -71,149 +146,695 @@
     if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
   }
 
-  async function dropOnGrid(event: DragEvent, date: Date) {
+  async function dropOnDay(event: DragEvent, dateKey: string) {
     event.preventDefault();
+    dragOverDateKey = null;
     const key = event.dataTransfer?.getData("calendar-item-key");
     const item = calendarStore.allItems.find((candidate) => candidate.key === key);
-    if (!item) return;
-    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
-    const minutes = Math.max(0, Math.min(23 * 60 + 45, Math.round(((event.clientY - rect.top) / pixelsPerMinute) / 15) * 15));
-    await calendarStore.rescheduleItem(item, dateToKey(date), minutesToTime(minutes));
-  }
-
-  function resizeStart(event: PointerEvent, item: CalendarItem) {
-    event.stopPropagation();
-    const start = item.startAt && item.endAt
-      ? Math.max(15, Math.round((item.endAt - item.startAt) / 60))
-      : item.kind === "task" ? item.task.planned_duration_minutes ?? 30 : 30;
-    resizeState = { item, startY: event.clientY, startDuration: start };
-    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
-  }
-
-  async function resizeEnd(event: PointerEvent) {
-    if (!resizeState) return;
-    const duration = resizeState.startDuration + (event.clientY - resizeState.startY) / pixelsPerMinute;
-    const item = resizeState.item;
-    resizeState = null;
-    await calendarStore.resizeItem(item, duration);
-  }
-
-  function itemTime(item: CalendarItem): string {
-    if (!item.startTime) return "";
-    return new Date(`2000-01-01T${item.startTime}:00`).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+    if (item) {
+      await calendarStore.rescheduleItem(item, dateKey, item.startTime ?? null);
+    }
   }
 </script>
 
-<div class="week-shell" class:portrait={isPortrait}>
-  {#if isPortrait}
-    <div class="day-strip" aria-label="Days in week">
-      {#each weekDays as day}
-        <button type="button" class:active={dateToKey(day.date) === dateToKey(focusDate)} class:today={dateToKey(day.date) === dateToKey(new Date())} onclick={() => setFocusedDay(day.date)}>
-          <span>{day.dayName}</span><strong>{day.date.getDate()}</strong>
-        </button>
-      {/each}
-    </div>
-  {/if}
-
-  <div class="all-day-header">
-    <div class="all-day-label">All day</div>
-    {#each shownDays as day}
-      <div class="all-day-column">
-        {#if !isPortrait}<button type="button" class:today={dateToKey(day.date) === dateToKey(new Date())} onclick={() => calendarStore.setSelectedDate(day.date)}><span>{day.dayName}</span><strong>{day.date.getDate()}</strong></button>{/if}
-        <div class="all-day-items">
-          {#each allDayForDay(day.date).slice(0, 3) as item (item.key)}
-            <button type="button" class={`all-day-item ${item.source}`} style={`--item-color:${item.color}`} onclick={() => calendarStore.selectItem(item)} draggable={!item.readOnly && item.kind !== "time_entry" && !(item.kind === "local_event" && !!item.event.recurrence_rule)} ondragstart={(event) => dragStart(event, item)}>{item.title}</button>
-          {/each}
-          {#if allDayForDay(day.date).length > 3}<small>+{allDayForDay(day.date).length - 3}</small>{/if}
-        </div>
-      </div>
+<div class="calendar-widget-week">
+  <!-- Sticky Week Strip (Google Calendar widget top day-selector) -->
+  <div class="sticky-week-strip" aria-label="Days in week">
+    {#each currentWeekDays as day}
+      {@const key = dateToKey(day.date)}
+      {@const isToday = key === todayKey}
+      {@const isActive = key === activeDayKey}
+      {@const dayItems = calendarStore.getItemsForDate(key)}
+      <button
+        type="button"
+        class="strip-day-btn"
+        class:today={isToday}
+        class:active={isActive}
+        onclick={() => scrollToDay(key, "smooth")}
+        aria-label={`${day.dayName} ${day.date.getDate()}`}
+      >
+        <span class="strip-day-name">{day.dayName}</span>
+        <span class="strip-day-num">{day.date.getDate()}</span>
+        {#if dayItems.length > 0}
+          <span class="strip-item-dot" style={`--dot-color: ${dayItems[0].color}`}></span>
+        {:else}
+          <span class="strip-item-dot empty"></span>
+        {/if}
+      </button>
     {/each}
   </div>
 
-  <div class="week-scroll" bind:this={scrollViewport}>
-    <div class="time-gutter" style={`height:${dayHeight}px`}>
-      {#each hours as hour}<span style={`top:${hour * hourHeight}px`}>{formatHour(hour)}</span>{/each}
-    </div>
-    {#each shownDays as day}
-      <div
-        class="day-lane"
-        style={`height:${dayHeight}px`}
-        role="gridcell"
-        tabindex="0"
-        aria-label={`Schedule for ${day.date.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}`}
-        onclick={(event) => selectGridDay(event, day.date)}
-        onkeydown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            calendarStore.setSelectedDate(day.date);
-          }
-        }}
-        ondragover={(event) => event.preventDefault()}
-        ondrop={(event) => dropOnGrid(event, day.date)}
-      >
-        {#each hours as hour}<div class="hour-line" style={`top:${hour * hourHeight}px`}></div>{/each}
-        {#if dateToKey(day.date) === dateToKey(now)}
-          <div class="now-line" style={`top:${nowTop()}px`}><span></span></div>
-        {/if}
-        {#each timedForDay(day.date) as positioned (positioned.item.key)}
-          {@const item = positioned.item}
-          <button
-            type="button"
-            class={`timed-item ${item.source}`}
-            class:completed={item.kind === "task" && item.task.completed}
-            style={`--item-color:${item.color};top:${positioned.top}px;height:${positioned.height}px;left:calc(${positioned.column * (100 / positioned.columnCount)}% + 3px);width:calc(${100 / positioned.columnCount}% - 6px)`}
-            draggable={!item.readOnly && item.kind !== "time_entry" && !(item.kind === "local_event" && !!item.event.recurrence_rule)}
-            onclick={(event) => { event.stopPropagation(); calendarStore.selectItem(item); }}
-            ondragstart={(event) => dragStart(event, item)}
+  <!-- Vertically Scrollable Continuous Multi-Week Card Feed -->
+  <div
+    class="week-feed-scroll"
+    bind:this={feedElement}
+    onscroll={handleScroll}
+    role="feed"
+    aria-label="Weekly schedule feed"
+  >
+    {#if isLoadingMore}
+      <div class="feed-loader top" role="status"><span>Loading previous weeks...</span></div>
+    {/if}
+
+    {#each weekGroups as week, weekIdx (week.weekKey)}
+      <div class="week-section" data-week-key={week.weekKey}>
+        {#each week.days as day, dayIdx (day.dateKey)}
+          {@const isMonthStart = shouldShowMonthHeader(day, dayIdx, weekIdx)}
+
+          <!-- Month Transition Header Banner -->
+          {#if isMonthStart}
+            <div class="month-divider">
+              <span class="month-title">{formatMonthHeader(day.date)}</span>
+            </div>
+          {/if}
+
+          <!-- Day Group Block -->
+          <div
+            class="day-group"
+            class:today={day.isToday}
+            class:selected={calendarStore.selectedDate && dateToKey(calendarStore.selectedDate) === day.dateKey}
+            class:drag-over={dragOverDateKey === day.dateKey}
+            data-date-key={day.dateKey}
+            data-week-key={week.weekKey}
+            role="region"
+            aria-label={`Schedule for ${day.dateKey}`}
+            ondragover={(e) => { e.preventDefault(); dragOverDateKey = day.dateKey; }}
+            ondragleave={(e) => {
+              if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) {
+                dragOverDateKey = null;
+              }
+            }}
+            ondrop={(e) => dropOnDay(e, day.dateKey)}
           >
-            <span class="timed-title">{item.title}</span>
-            <span class="timed-meta">{itemTime(item)}{item.kind === "google_event" ? " · Google" : item.kind === "time_entry" ? " · Actual" : ""}</span>
-            {#if !item.readOnly && item.kind !== "time_entry" && !(item.kind === "local_event" && !!item.event.recurrence_rule)}<span class="resize-handle" role="separator" aria-label={`Resize ${item.title}`} onpointerdown={(event) => resizeStart(event, item)} onpointerup={resizeEnd}></span>{/if}
-          </button>
+            <!-- Left Date Badge / Gutter -->
+            <div class="day-badge-col">
+              <div class="date-badge-box" class:today={day.isToday}>
+                <span class="badge-weekday">{formatWeekday(day.date)}</span>
+                <span class="badge-daynum">{day.date.getDate()}</span>
+                {#if day.isToday}
+                  <span class="badge-today-pill">TODAY</span>
+                {/if}
+              </div>
+              <button
+                type="button"
+                class="day-add-btn"
+                title={`Add task or event on ${day.dateKey}`}
+                aria-label={`Add item on ${day.dateKey}`}
+                onclick={() => calendarStore.openNewEvent(day.dateKey, null)}
+              >
+                +
+              </button>
+            </div>
+
+            <!-- Right: Task & Event Cards Stream -->
+            <div class="day-cards-stream">
+              {#if day.items.length === 0}
+                <div class="empty-day-card">
+                  <span class="empty-text">No tasks or events</span>
+                  <button
+                    type="button"
+                    class="empty-add-btn"
+                    onclick={() => calendarStore.openNewEvent(day.dateKey, null)}
+                  >
+                    + Add
+                  </button>
+                </div>
+              {:else}
+                {#each day.items as item (item.key)}
+                  <!-- Google Calendar Widget Style Card -->
+                  <div
+                    class={`agenda-card ${item.source}`}
+                    class:completed={item.kind === "task" && item.task.completed}
+                    class:selected={calendarStore.selectedItemKey === item.key}
+                    style={`--item-color: ${item.color}`}
+                    draggable={!item.readOnly && item.kind !== "time_entry" && !(item.kind === "local_event" && !!item.event.recurrence_rule)}
+                    ondragstart={(e) => dragStart(e, item)}
+                    onclick={(e) => selectCard(e, item)}
+                    role="button"
+                    tabindex="0"
+                    onkeydown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        calendarStore.selectItem(item);
+                      }
+                    }}
+                  >
+                    <!-- Left Colored Accent Stripe -->
+                    <div class="card-accent-bar" style={`background: ${item.color}`}></div>
+
+                    <div class="card-body">
+                      <!-- Top Line: Checkbox / Title / Badges -->
+                      <div class="card-top-row">
+                        {#if item.kind === "task"}
+                          <button
+                            type="button"
+                            class="task-checkbox"
+                            class:checked={item.task.completed}
+                            aria-label={item.task.completed ? "Mark active" : "Mark complete"}
+                            onclick={(e) => toggleTask(e, item.task.id)}
+                          >
+                            {#if item.task.completed}
+                              <svg viewBox="0 0 16 16" width="11" height="11" fill="currentColor">
+                                <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
+                              </svg>
+                            {/if}
+                          </button>
+                        {/if}
+
+                        <span class="card-title" title={item.title}>{item.title}</span>
+
+                        <!-- Source / Project Badge -->
+                        {#if item.kind === "task"}
+                          {@const proj = getProject(item.task.project_id)}
+                          {#if proj}
+                            <span class="badge-pill project-pill" style={`--proj-color: ${proj.color || item.color}`}>
+                              <span class="proj-dot"></span>
+                              {proj.name}
+                            </span>
+                          {/if}
+                        {:else if item.kind === "google_event"}
+                          <span class="badge-pill google-pill">Google</span>
+                        {:else if item.kind === "local_event" && item.event.recurrence_rule}
+                          <span class="badge-pill repeat-pill" title="Recurring event">↻</span>
+                        {:else if item.kind === "time_entry"}
+                          <span class="badge-pill time-pill">⏱ Actual</span>
+                        {/if}
+                      </div>
+
+                      <!-- Sub Line: Time / Duration / Description -->
+                      <div class="card-meta-row">
+                        {#if item.isAllDay}
+                          <span class="meta-tag all-day">All day</span>
+                        {:else if item.startTime}
+                          <span class="meta-tag time">
+                            <svg viewBox="0 0 16 16" width="10" height="10" fill="currentColor">
+                              <path d="M8 3.5a.5.5 0 0 0-1 0V9a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 8.71V3.5z"/>
+                              <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
+                            </svg>
+                            {formatCardTime(item)}
+                          </span>
+                        {/if}
+
+                        {#if item.kind === "task" && item.task.planned_duration_minutes}
+                          <span class="meta-tag duration">{item.task.planned_duration_minutes}m</span>
+                        {/if}
+
+                        {#if item.kind === "time_entry"}
+                          <span class="meta-tag duration">{Math.round(item.entry.duration_seconds / 60)}m logged</span>
+                        {/if}
+
+                        {#if item.description}
+                          <span class="meta-desc" title={item.description}>{item.description}</span>
+                        {/if}
+                      </div>
+                    </div>
+                  </div>
+                {/each}
+              {/if}
+            </div>
+          </div>
         {/each}
       </div>
     {/each}
+
+    {#if isLoadingMore}
+      <div class="feed-loader bottom" role="status"><span>Loading next weeks...</span></div>
+    {/if}
   </div>
 </div>
 
 <style>
-  .week-shell { height:100%; min-height:0; display:flex; flex-direction:column; background:var(--bg-primary); }
-  .all-day-header, .week-scroll { display:grid; grid-template-columns:54px repeat(7,minmax(92px,1fr)); }
-  .all-day-header { flex:0 0 auto; min-height:68px; border-bottom:1px solid var(--border); background:var(--bg-secondary); }
-  .all-day-label { display:flex; align-items:flex-end; justify-content:flex-end; padding:0 8px 7px 0; color:var(--text-tertiary); font-size:9px; font-weight:700; text-transform:uppercase; }
-  .all-day-column { min-width:0; border-left:1px solid var(--border-light); padding:5px; }
-  .all-day-column > button { width:100%; display:flex; align-items:center; justify-content:center; gap:6px; border:0; background:transparent; color:var(--text-secondary); cursor:pointer; }
-  .all-day-column > button span { font-size:10px; text-transform:uppercase; }
-  .all-day-column > button strong { width:24px; height:24px; display:grid; place-items:center; border-radius:50%; font-size:13px; }
-  .all-day-column > button.today strong { background:var(--accent); color:var(--accent-contrast); }
-  .all-day-items { display:flex; flex-direction:column; gap:2px; margin-top:3px; }
-  .all-day-item { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; border:0; border-left:3px solid var(--item-color); border-radius:3px; background:color-mix(in srgb,var(--item-color) 10%,var(--bg-primary)); color:var(--text-primary); padding:2px 4px; text-align:left; font-size:9px; cursor:pointer; }
-  .all-day-item.google { border-left-style:dashed; background:transparent; }
-  .all-day-items small { color:var(--text-tertiary); font-size:8px; }
-  .week-scroll { flex:1; min-height:0; overflow:auto; position:relative; align-items:start; }
-  .time-gutter { position:relative; border-right:1px solid var(--border); background:var(--bg-secondary); }
-  .time-gutter span { position:absolute; right:7px; transform:translateY(-50%); color:var(--text-tertiary); font-size:9px; font-variant-numeric:tabular-nums; }
-  .day-lane { min-width:0; position:relative; border-right:1px solid var(--border-light); cursor:crosshair; }
-  .hour-line { position:absolute; left:0; right:0; border-top:1px solid var(--border-light); pointer-events:none; }
-  .now-line { position:absolute; left:-1px; right:0; height:1px; background:var(--danger); z-index:8; pointer-events:none; }
-  .now-line span { position:absolute; left:-3px; top:-3px; width:7px; height:7px; border-radius:50%; background:var(--danger); }
-  .timed-item { position:absolute; z-index:4; display:flex; flex-direction:column; align-items:flex-start; gap:1px; overflow:hidden; padding:4px 5px; border:0; border-left:3px solid var(--item-color); border-radius:4px; background:color-mix(in srgb,var(--item-color) 13%,var(--bg-primary)); color:var(--text-primary); text-align:left; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.12); }
-  .timed-item:hover { z-index:6; background:color-mix(in srgb,var(--item-color) 20%,var(--bg-primary)); }
-  .timed-item.google { border-left-style:dashed; background:color-mix(in srgb,var(--item-color) 6%,var(--bg-primary)); }
-  .timed-item.time { opacity:.72; background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--item-color) 12%,var(--bg-primary)) 0 6px,var(--bg-primary) 6px 12px); }
-  .timed-item.completed { opacity:.55; }
-  .timed-title { width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:10px; font-weight:650; }
-  .completed .timed-title { text-decoration:line-through; }
-  .timed-meta { width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text-secondary); font-size:8px; }
-  .resize-handle { position:absolute; left:4px; right:4px; bottom:0; height:5px; cursor:ns-resize; border-bottom:2px solid color-mix(in srgb,var(--item-color) 55%,transparent); }
-  .day-strip { display:grid; grid-template-columns:repeat(7,1fr); gap:2px; padding:5px; border-bottom:1px solid var(--border); background:var(--bg-secondary); }
-  .day-strip button { display:flex; flex-direction:column; align-items:center; gap:2px; border:0; border-radius:var(--radius-md); padding:5px 2px; background:transparent; color:var(--text-secondary); cursor:pointer; }
-  .day-strip button span { font-size:8px; text-transform:uppercase; }
-  .day-strip button strong { width:23px; height:23px; display:grid; place-items:center; border-radius:50%; font-size:11px; }
-  .day-strip button.active { background:var(--bg-hover); color:var(--text-primary); }
-  .day-strip button.today strong { background:var(--accent); color:var(--accent-contrast); }
-  .portrait .all-day-header, .portrait .week-scroll { grid-template-columns:48px minmax(0,1fr); }
-  .portrait .all-day-header { min-height:44px; }
-  :global(body.compact-mode) .timed-item { padding:2px 4px; }
-  @media (prefers-reduced-motion:reduce) { * { scroll-behavior:auto !important; transition:none !important; } }
+  .calendar-widget-week {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-primary);
+    overflow: hidden;
+  }
+
+  /* ── Sticky Top Week Strip ── */
+  .sticky-week-strip {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 3px;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-secondary);
+    z-index: 10;
+  }
+
+  .strip-day-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 4px 2px;
+    border: 0;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .strip-day-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .strip-day-btn.active {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+  }
+
+  .strip-day-name {
+    font-size: 8px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .strip-day-num {
+    width: 24px;
+    height: 24px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: 650;
+  }
+
+  .strip-day-btn.today .strip-day-num {
+    background: var(--accent);
+    color: var(--accent-contrast);
+  }
+
+  .strip-item-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--dot-color, var(--accent));
+  }
+
+  .strip-item-dot.empty {
+    background: transparent;
+  }
+
+  /* ── Continuous Multi-Week Feed ── */
+  .week-feed-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 4px 0 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .week-feed-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .week-feed-scroll::-webkit-scrollbar-thumb {
+    background: var(--border-light);
+    border-radius: 4px;
+  }
+
+  .feed-loader {
+    padding: 6px;
+    text-align: center;
+    font-size: 10px;
+    color: var(--text-tertiary);
+  }
+
+  /* ── Month Transition Banner ── */
+  .month-divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px 4px;
+  }
+
+  .month-title {
+    font-size: 12px;
+    font-weight: 750;
+    color: var(--accent);
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  .month-divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* ── Day Group Block ── */
+  .day-group {
+    display: flex;
+    gap: 10px;
+    padding: 6px 12px;
+    transition: background 0.15s;
+    border-radius: var(--radius-md);
+  }
+
+  .day-group.today {
+    background: color-mix(in srgb, var(--accent) 4%, transparent);
+  }
+
+  .day-group.selected {
+    box-shadow: inset 0 0 0 1px var(--accent);
+  }
+
+  .day-group.drag-over {
+    background: color-mix(in srgb, var(--accent) 10%, transparent);
+    outline: 2px dashed var(--accent);
+    outline-offset: -2px;
+  }
+
+  /* ── Left Date Badge Column ── */
+  .day-badge-col {
+    flex: 0 0 54px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-top: 2px;
+    gap: 4px;
+  }
+
+  .date-badge-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+    width: 100%;
+  }
+
+  .badge-weekday {
+    font-size: 9px;
+    font-weight: 750;
+    color: var(--text-tertiary);
+    letter-spacing: 0.05em;
+  }
+
+  .badge-daynum {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  .date-badge-box.today .badge-daynum {
+    background: var(--accent);
+    color: var(--accent-contrast);
+    box-shadow: 0 2px 6px color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+
+  .badge-today-pill {
+    font-size: 7.5px;
+    font-weight: 800;
+    color: var(--accent);
+    letter-spacing: 0.04em;
+    margin-top: 1px;
+  }
+
+  .day-add-btn {
+    width: 22px;
+    height: 22px;
+    display: grid;
+    place-items: center;
+    border: 1px solid var(--border-light);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-tertiary);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0.35;
+    transition: opacity 0.15s, background 0.15s, color 0.15s;
+  }
+
+  .day-group:hover .day-add-btn {
+    opacity: 1;
+  }
+
+  .day-add-btn:hover {
+    background: var(--bg-hover);
+    color: var(--text-primary);
+    border-color: var(--border);
+  }
+
+  /* ── Right Cards Stream ── */
+  .day-cards-stream {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  /* Empty Day Placeholder */
+  .empty-day-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 10px;
+    border: 1px dashed var(--border-light);
+    border-radius: var(--radius-md);
+    color: var(--text-tertiary);
+    font-size: 11px;
+    background: transparent;
+  }
+
+  .empty-text {
+    font-style: italic;
+  }
+
+  .empty-add-btn {
+    border: 0;
+    background: transparent;
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+  }
+
+  .empty-add-btn:hover {
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+  }
+
+  /* ── Google Calendar Widget Card ── */
+  .agenda-card {
+    display: flex;
+    align-items: stretch;
+    border: 1px solid var(--border-light);
+    border-radius: 8px;
+    background: var(--bg-secondary);
+    overflow: hidden;
+    cursor: pointer;
+    transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+
+  .agenda-card:hover {
+    background: var(--bg-hover);
+    border-color: color-mix(in srgb, var(--item-color) 40%, var(--border));
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+  }
+
+  .agenda-card.selected {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent);
+  }
+
+  .agenda-card.completed {
+    opacity: 0.62;
+  }
+
+  .agenda-card.google {
+    border-style: dashed;
+  }
+
+  .card-accent-bar {
+    width: 5px;
+    flex: 0 0 5px;
+  }
+
+  .card-body {
+    flex: 1;
+    min-width: 0;
+    padding: 7px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  /* Card Top Row */
+  .card-top-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .task-checkbox {
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    border: 1.5px solid var(--item-color, var(--text-tertiary));
+    border-radius: 4px;
+    background: transparent;
+    color: var(--accent-contrast);
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.12s, border-color 0.12s;
+  }
+
+  .task-checkbox:hover {
+    border-color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 15%, transparent);
+  }
+
+  .task-checkbox.checked {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .card-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 650;
+    color: var(--text-primary);
+  }
+
+  .completed .card-title {
+    text-decoration: line-through;
+    color: var(--text-secondary);
+  }
+
+  /* Badges */
+  .badge-pill {
+    flex: 0 0 auto;
+    font-size: 9px;
+    font-weight: 650;
+    padding: 2px 6px;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  .project-pill {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: color-mix(in srgb, var(--proj-color) 12%, transparent);
+    color: var(--proj-color);
+  }
+
+  .proj-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--proj-color);
+  }
+
+  .google-pill {
+    background: color-mix(in srgb, #4285f4 15%, transparent);
+    color: #4285f4;
+  }
+
+  .repeat-pill {
+    background: var(--bg-primary);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-light);
+  }
+
+  .time-pill {
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    color: var(--accent);
+  }
+
+  /* Card Meta Row */
+  .card-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    color: var(--text-secondary);
+    font-size: 10px;
+  }
+
+  .meta-tag {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+
+  .meta-tag.time {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .meta-tag.all-day {
+    color: var(--text-tertiary);
+  }
+
+  .meta-tag.duration {
+    color: var(--text-tertiary);
+    background: color-mix(in srgb, var(--text-tertiary) 10%, transparent);
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 9px;
+  }
+
+  .meta-desc {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-tertiary);
+    font-size: 10px;
+  }
+
+  /* Compact Mode */
+  :global(body.compact-mode) .sticky-week-strip {
+    padding: 4px 6px;
+  }
+
+  :global(body.compact-mode) .day-group {
+    padding: 4px 8px;
+    gap: 8px;
+  }
+
+  :global(body.compact-mode) .card-body {
+    padding: 5px 8px;
+  }
+
+  :global(body.compact-mode) .card-title {
+    font-size: 11px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      scroll-behavior: auto !important;
+      transition: none !important;
+    }
+  }
 </style>
+

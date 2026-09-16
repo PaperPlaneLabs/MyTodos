@@ -51,6 +51,11 @@ let editorDraft = $state<EventEditorDraft | null>(null);
 let lastLoadedRangeKey = $state<string | null>(null);
 let activeLoadId = 0;
 
+let weekPastWeeks = $state(2);
+let weekFutureWeeks = $state(6);
+let weekBaseDate = $state<Date>(new Date());
+let scrollTarget = $state<{ date: Date; behavior: "smooth" | "instant"; timestamp: number } | null>(null);
+
 function projectColor(projectId: number | null | undefined): string {
   if (!projectId) return "var(--text-tertiary)";
   return projectStore.projects.find((project) => project.id === projectId)?.color
@@ -130,6 +135,19 @@ export const calendarStore = {
   get googleError() { return googleError; },
   get editorDraft() { return editorDraft; },
   get inspectorOpen() { return selectedDate !== null || selectedItemKey !== null; },
+  get weekBufferStart(): Date {
+    const base = getWeekStart(weekBaseDate, weekStartPreference);
+    const start = new Date(base);
+    start.setDate(base.getDate() - (weekPastWeeks * 7));
+    return start;
+  },
+  get weekBufferEnd(): Date {
+    const base = getWeekStart(weekBaseDate, weekStartPreference);
+    const end = new Date(base);
+    end.setDate(base.getDate() + ((weekFutureWeeks + 1) * 7) - 1);
+    return end;
+  },
+  get scrollTarget() { return scrollTarget; },
 
   initPreferences() {
     if (typeof localStorage === "undefined") return;
@@ -147,17 +165,48 @@ export const calendarStore = {
     }
   },
 
-  setCurrentDate(date: Date) {
+  scrollToDate(date: Date, behavior: "smooth" | "instant" = "smooth") {
+    scrollTarget = { date: new Date(date), behavior, timestamp: Date.now() };
+  },
+
+  clearScrollTarget() {
+    scrollTarget = null;
+  },
+
+  setCurrentDate(date: Date, triggerScroll: boolean = true) {
     currentDate = new Date(date);
+    const start = this.weekBufferStart;
+    const end = this.weekBufferEnd;
+    if (date < start || date > end) {
+      weekBaseDate = new Date(date);
+      weekPastWeeks = 2;
+      weekFutureWeeks = 6;
+    }
     void this.ensureCurrentRangeLoaded();
+    if (triggerScroll) {
+      this.scrollToDate(date, "smooth");
+    }
+  },
+
+  setCurrentDateSilent(date: Date) {
+    currentDate = new Date(date);
+  },
+
+  async loadMoreFutureWeeks(count = 4) {
+    weekFutureWeeks += count;
+    await this.refreshCurrentRange();
+  },
+
+  async loadMorePastWeeks(count = 2) {
+    weekPastWeeks += count;
+    await this.refreshCurrentRange();
   },
 
   setSelectedDate(date: Date | null) {
     selectedDate = date ? new Date(date) : null;
     selectedItemKey = null;
     if (date) {
-      currentDate = new Date(date);
-      void this.ensureCurrentRangeLoaded();
+      this.setCurrentDate(date, true);
     }
   },
 
@@ -407,9 +456,8 @@ export const calendarStore = {
     let start: Date;
     let end: Date;
     if (viewMode === "week") {
-      start = getWeekStart(currentDate, weekStartPreference);
-      end = new Date(start);
-      end.setDate(start.getDate() + 6);
+      start = this.weekBufferStart;
+      end = this.weekBufferEnd;
     } else {
       const first = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
       start = getWeekStart(first, weekStartPreference);
@@ -423,6 +471,36 @@ export const calendarStore = {
       endDate,
       rangeKey: `${viewMode}:${weekStartPreference}:${startDate}:${endDate}`,
     };
+  },
+
+  generateMultiWeekGroups(): { weekStart: Date; weekKey: string; days: CalendarDay[] }[] {
+    const start = this.weekBufferStart;
+    const end = this.weekBufferEnd;
+    const today = dateToKey(new Date());
+    const selected = selectedDate ? dateToKey(selectedDate) : null;
+    const weeks: { weekStart: Date; weekKey: string; days: CalendarDay[] }[] = [];
+
+    const cursor = new Date(start);
+    while (cursor <= end) {
+      const weekStart = new Date(cursor);
+      const weekKey = dateToKey(weekStart);
+      const days: CalendarDay[] = [];
+      for (let i = 0; i < 7; i++) {
+        const dayDate = new Date(cursor);
+        const dayKey = dateToKey(dayDate);
+        days.push({
+          date: dayDate,
+          dateKey: dayKey,
+          isCurrentMonth: dayDate.getMonth() === currentDate.getMonth(),
+          isToday: dayKey === today,
+          isSelected: dayKey === selected,
+          items: this.getItemsForDate(dayKey),
+        });
+        cursor.setDate(cursor.getDate() + 1);
+      }
+      weeks.push({ weekStart, weekKey, days });
+    }
+    return weeks;
   },
 
   generateCalendarDays(year: number, month: number): CalendarDay[] {

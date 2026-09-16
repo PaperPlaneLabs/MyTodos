@@ -17,10 +17,10 @@ Improvements are grouped by component and ordered by visual impact. Check off ea
 
 ## 📅 CalendarWeek.svelte
 
-- [ ] **"Nothing scheduled" empty state** — Empty day rows show a blank 20px placeholder. Replace with a faint italic "No tasks" label in `var(--text-tertiary)`.
-- [ ] **Today row tint** — Only the date number is highlighted for today. Add a very faint accent tint to the whole row background for the current day.
-- [ ] **Timed vs all-day section separator** — All items are equally spaced. Add a subtle divider or slightly larger gap between timed items and the all-day section.
-- [ ] **Task chip background** — Items use only a 4px left color bar. Complement it with a low-opacity `color-mix` background using the same project color, so the row identity is clearer without being garish.
+- [x] **"Nothing scheduled" empty state** — Empty day rows show a blank placeholder. Replaced with an elegant "No tasks or events" label and a "+ Add" button.
+- [x] **Today row tint** — Subtle accent tint on the whole row background for the current day.
+- [x] **Task and event card layout** — Card-based agenda layout inspired by Google Calendar Android widget.
+- [x] **Task card styling** — Project color stripes, badges, completion checkboxes, and metadata.
 
 ---
 

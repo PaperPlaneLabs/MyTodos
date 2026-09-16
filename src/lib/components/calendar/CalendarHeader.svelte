@@ -147,7 +147,7 @@
   .month-option { height:34px; border:1px solid transparent; border-radius:var(--radius-md); background:var(--bg-primary); color:var(--text-secondary); cursor:pointer; font-size:11px; font-weight:600; }
   .month-option:hover { border-color:var(--border); background:var(--bg-hover); color:var(--text-primary); }
   .month-option.active { border-color:var(--accent); background:color-mix(in srgb,var(--accent) 12%,var(--bg-primary)); color:var(--accent); }
-  @media (max-width:720px) { .primary-row { gap:5px; padding-inline:var(--spacing-sm); } .date-title { min-width:130px; font-size:13px; } .today-btn { display:none; } .view-toggle button { min-width:34px; } .source-row { padding-inline:var(--spacing-sm); } }
+  @media (max-width:720px) { .primary-row { gap:4px; padding-inline:var(--spacing-sm); } .date-title { min-width:110px; max-width:170px; font-size:12.5px; padding: 5px 6px; } .today-btn { padding:4px 7px; font-size:11px; } .view-toggle button { min-width:28px; padding: 4px 6px; } .new-event { padding: 5px 8px; } .source-row { padding-inline:var(--spacing-sm); } }
   :global(body.compact-mode) .primary-row { min-height:48px; }
   @media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
 </style>
