@@ -23,3 +23,6 @@ _*.ps1
 implementation_plan.md
 task.md
 graphify-out/
+
+# Local website assets and generation scripts
+/forwebsite/
